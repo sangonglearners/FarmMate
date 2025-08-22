@@ -1,0 +1,460 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar, ChevronDown, ChevronLeft, Home, User } from "lucide-react";
+import React from "react";
+
+const DivWrapper = (): JSX.Element => {
+  const monthNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const dayNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
+  const cropEntries = [
+    {
+      day: 1,
+      month: 2,
+      name: "비트",
+      bgColor: "bg-[#ffd6a540]",
+      width: "w-[106px]",
+      left: "left-[47px]",
+    },
+    {
+      day: 4,
+      month: 4,
+      name: "컬리플라워",
+      bgColor: "bg-[#2386ff40]",
+      width: "w-[54px]",
+      left: "left-32",
+    },
+    {
+      day: 4,
+      month: 5,
+      name: "토마토",
+      bgColor: "bg-[#ffc6ff70]",
+      width: "w-[72px]",
+      left: "left-[182px]",
+    },
+    {
+      day: 4,
+      month: 7,
+      name: "양배추",
+      bgColor: "bg-[#19950040]",
+      width: "w-[113px]",
+      left: "left-[253px]",
+    },
+    {
+      day: 7,
+      month: 3,
+      name: "비트",
+      bgColor: "bg-[#ffd6a540]",
+      width: "w-[100px]",
+      left: "left-[79px]",
+    },
+    {
+      day: 7,
+      month: 5,
+      name: "순무",
+      bgColor: "bg-[#ffd6a540]",
+      width: "w-[54px]",
+      left: "left-[180px]",
+    },
+    {
+      day: 7,
+      month: 9,
+      name: "완두",
+      bgColor: "bg-[#caffbf40]",
+      width: "w-[85px]",
+      left: "left-[281px]",
+    },
+    {
+      day: 9,
+      month: 2,
+      name: "배추",
+      bgColor: "bg-[#19950040]",
+      width: "w-14",
+      left: "left-12",
+    },
+    {
+      day: 9,
+      month: 3,
+      name: "장두",
+      bgColor: "bg-[#caffbf40]",
+      width: "w-[79px]",
+      left: "left-[103px]",
+    },
+    {
+      day: 9,
+      month: 5,
+      name: "채두",
+      bgColor: "bg-[#ffd6a540]",
+      width: "w-[101px]",
+      left: "left-[180px]",
+    },
+    {
+      day: 9,
+      month: 8,
+      name: "배추",
+      bgColor: "bg-[#19950040]",
+      width: "w-[85px]",
+      left: "left-[281px]",
+    },
+    {
+      day: 12,
+      month: 8,
+      name: "토마토",
+      bgColor: "bg-[#ffc6ff70]",
+      width: "w-[136px]",
+      left: "left-[230px]",
+    },
+  ];
+
+  return (
+    <div className="bg-white flex flex-row justify-center w-full">
+      <div className="bg-white w-[402px] h-[874px] relative">
+        {/* Status Bar */}
+        <header className="absolute w-[402px] h-[105px] top-0 left-0">
+          <div className="absolute w-[402px] h-[98px] top-0 left-0">
+            <div className="h-[98px]">
+              <div className="w-[402px] h-[98px]">
+                <div className="relative h-11 top-[5px]">
+                  {/* Battery */}
+                  <div className="absolute w-6 h-[11px] top-[17px] left-[363px]">
+                    <div className="absolute w-[22px] h-[11px] top-0 left-0 rounded-[2.67px] border border-solid border-[#00000059]">
+                      <div className="relative w-[18px] h-[7px] top-px left-px bg-black rounded-[1.33px]" />
+                    </div>
+                    <img
+                      className="absolute w-px h-1 top-1 left-[23px]"
+                      alt="Battery cap"
+                      src=""
+                    />
+                  </div>
+
+                  {/* WiFi */}
+                  <img
+                    className="absolute w-4 h-[11px] top-[17px] left-[338px]"
+                    alt="WiFi"
+                    src=""
+                  />
+
+                  {/* Cellular */}
+                  <img
+                    className="absolute w-[18px] h-[11px] top-[18px] left-[315px]"
+                    alt="Cellular connection"
+                    src=""
+                  />
+
+                  {/* Time */}
+                  <div className="absolute w-[58px] h-[21px] top-[9px] left-[23px]">
+                    <div className="absolute w-[58px] top-0.5 left-0 [font-family:'Montserrat-Medium',Helvetica] font-medium text-black text-sm text-center tracking-[-0.28px] leading-[18px]">
+                      9:41
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="!absolute !w-9 !h-9 !top-[59px] !left-[11px] h-auto"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+
+          {/* Header Logo/Image */}
+          <img
+            className="absolute w-[139px] h-[74px] top-[31px] left-[132px] object-cover"
+            alt="Header logo"
+            src=""
+          />
+        </header>
+
+        {/* Main Content */}
+        <main className="absolute w-[381px] h-[470px] top-[294px] left-[7px]">
+          <div className="absolute w-[381px] h-[469px] top-0 left-0">
+            {/* Grid Lines - Vertical */}
+            {Array.from({ length: 12 }, (_, i) => (
+              <img
+                key={`vertical-line-${i}`}
+                className={`absolute w-px h-[467px] top-0.5 ${
+                  i === 0
+                    ? "left-12"
+                    : i === 1
+                      ? "left-[77px]"
+                      : i === 2
+                        ? "left-[103px]"
+                        : i === 3
+                          ? "left-32"
+                          : i === 4
+                            ? "left-[153px]"
+                            : i === 5
+                              ? "left-[179px]"
+                              : i === 6
+                                ? "left-[204px]"
+                                : i === 7
+                                  ? "left-[229px]"
+                                  : i === 8
+                                    ? "left-[253px]"
+                                    : i === 9
+                                      ? "left-[279px]"
+                                      : i === 10
+                                        ? "left-[306px]"
+                                        : "left-[332px]"
+                }`}
+                alt="Vertical grid line"
+                src=""
+              />
+            ))}
+
+            {/* Grid Lines - Horizontal */}
+            {Array.from({ length: 16 }, (_, i) => (
+              <img
+                key={`horizontal-line-${i}`}
+                className={`absolute w-[363px] h-px left-0 ${
+                  i === 0
+                    ? "top-6"
+                    : i === 1
+                      ? "top-[58px]"
+                      : i === 2
+                        ? "top-[88px]"
+                        : i === 3
+                          ? "top-[118px]"
+                          : i === 4
+                            ? "top-[148px]"
+                            : i === 5
+                              ? "top-[178px]"
+                              : i === 6
+                                ? "top-52"
+                                : i === 7
+                                  ? "top-[238px]"
+                                  : i === 8
+                                    ? "top-[268px]"
+                                    : i === 9
+                                      ? "top-[298px]"
+                                      : i === 10
+                                        ? "top-[328px]"
+                                        : i === 11
+                                          ? "top-[358px]"
+                                          : i === 12
+                                            ? "top-[388px]"
+                                            : i === 13
+                                              ? "top-[418px]"
+                                              : i === 14
+                                                ? "top-[448px]"
+                                                : "top-[478px]"
+                }`}
+                alt="Horizontal grid line"
+                src=""
+              />
+            ))}
+
+            {/* Scrollbar */}
+            <div className="absolute w-[15px] h-[458px] top-1.5 left-[366px] bg-[#d9d9d9]" />
+            <div className="absolute w-[9px] h-[140px] top-4 left-[369px] bg-[#00000080] rounded-[10px]" />
+
+            {/* Month Header */}
+            <img
+              className="absolute w-[42px] h-6 top-0 left-1.5"
+              alt="Month header line"
+              src=""
+            />
+
+            <div className="absolute top-1.5 left-2 [font-family:'Roboto-Medium',Helvetica] font-medium text-[#00000080] text-[10px] tracking-[-0.28px] leading-[18px] whitespace-nowrap">
+              이랑
+            </div>
+
+            <div className="absolute top-px left-[31px] [font-family:'Roboto-Medium',Helvetica] font-medium text-[#00000080] text-[10px] tracking-[-0.28px] leading-[18px] whitespace-nowrap">
+              월
+            </div>
+
+            {/* Crop Entries */}
+            {cropEntries.map((entry, index) => (
+              <div key={`crop-${index}`}>
+                <Badge
+                  className={`absolute ${entry.width} h-6 ${entry.bgColor} rounded-[5px] border border-solid border-black ${
+                    entry.day === 1
+                      ? "top-[29px]"
+                      : entry.day === 4
+                        ? "top-[119px]"
+                        : entry.day === 7
+                          ? "top-[209px]"
+                          : entry.day === 9
+                            ? "top-[269px]"
+                            : entry.day === 12
+                              ? "top-[358px]"
+                              : "top-[119px]"
+                  } ${entry.left}`}
+                >
+                  <span className="[font-family:'Roboto-Medium',Helvetica] font-medium text-black text-[8px] text-center tracking-[-0.28px] leading-[18px]">
+                    {entry.name}
+                  </span>
+                </Badge>
+              </div>
+            ))}
+          </div>
+
+          {/* Month Numbers */}
+          {monthNumbers.map((month, index) => (
+            <div
+              key={`month-${month}`}
+              className={`absolute top-px [font-family:'Roboto-Medium',Helvetica] font-medium text-black text-xs tracking-[-0.28px] leading-[18px] whitespace-nowrap ${
+                index === 0
+                  ? "left-[62px]"
+                  : index === 1
+                    ? "left-[87px]"
+                    : index === 2
+                      ? "left-28"
+                      : index === 3
+                        ? "left-[137px]"
+                        : index === 4
+                          ? "left-[162px]"
+                          : index === 5
+                            ? "left-[187px]"
+                            : index === 6
+                              ? "left-[212px]"
+                              : index === 7
+                                ? "left-[237px]"
+                                : index === 8
+                                  ? "left-[262px]"
+                                  : index === 9
+                                    ? "left-[287px]"
+                                    : index === 10
+                                      ? "left-[314px]"
+                                      : "left-[340px]"
+              }`}
+            >
+              {month}
+            </div>
+          ))}
+
+          {/* Day Numbers */}
+          {dayNumbers.map((day, index) => (
+            <div
+              key={`day-${day}`}
+              className={`absolute [font-family:'Roboto-Medium',Helvetica] font-medium text-black text-xs tracking-[-0.28px] leading-[18px] whitespace-nowrap ${
+                day < 10 ? "w-[9px]" : "w-[15px]"
+              } ${
+                index === 0
+                  ? "top-[35px] left-[17px]"
+                  : index === 1
+                    ? "top-[65px] left-[17px]"
+                    : index === 2
+                      ? "top-[95px] left-[17px]"
+                      : index === 3
+                        ? "top-[125px] left-[17px]"
+                        : index === 4
+                          ? "top-[155px] left-[17px]"
+                          : index === 5
+                            ? "top-[185px] left-[17px]"
+                            : index === 6
+                              ? "top-[215px] left-[17px]"
+                              : index === 7
+                                ? "top-[245px] left-[17px]"
+                                : index === 8
+                                  ? "top-[275px] left-[17px]"
+                                  : index === 9
+                                    ? "top-[305px] left-3.5"
+                                    : index === 10
+                                      ? "top-[335px] left-3.5"
+                                      : index === 11
+                                        ? "top-[365px] left-3.5"
+                                        : index === 12
+                                          ? "top-[395px] left-3.5"
+                                          : index === 13
+                                            ? "top-[425px] left-3.5"
+                                            : "top-[455px] left-3.5"
+              }`}
+            >
+              {day}
+            </div>
+          ))}
+        </main>
+
+        {/* Title Section */}
+        <section className="absolute top-[146px] left-[34px]">
+          <h1 className="[font-family:'Roboto-Medium',Helvetica] font-medium text-black text-[21px] tracking-[-0.28px] leading-[18px] whitespace-nowrap">
+            나의 영농일지
+          </h1>
+          <p className="absolute top-[29px] left-0 [font-family:'Roboto-Medium',Helvetica] font-medium text-[#0000004c] text-xs tracking-[-0.28px] leading-[18px] whitespace-nowrap">
+            오늘의 업무와 연간 영농 일정을 확인할 수 있습니다.
+          </p>
+        </section>
+
+        {/* Controls Section */}
+        <div className="absolute w-[157px] h-[30px] top-[212px] left-[235px]">
+          <div className="relative w-[153px] h-[30px] bg-[#d9d9d9] rounded-[900px]">
+            <Button className="absolute w-[69px] h-[22px] top-[3px] left-[76px] bg-white rounded-[900px] h-auto">
+              <span className="[font-family:'SUIT-Heavy',Helvetica] font-normal text-[#d9d9d9] text-[10.8px] tracking-[0] leading-[normal]">
+                연간
+              </span>
+            </Button>
+            <Button className="absolute top-2 left-[30px] [font-family:'SUIT-Heavy',Helvetica] font-normal text-white text-[10.8px] tracking-[0] leading-[normal] h-auto">
+              월간
+            </Button>
+          </div>
+        </div>
+
+        <Select>
+          <SelectTrigger className="absolute w-[119px] h-9 top-[206px] left-[30px] rounded-lg border-[0.8px] border-solid border-black">
+            <SelectValue defaultValue="노지" />
+            <ChevronDown className="!absolute !w-[19px] !h-[19px] !top-2 !right-2" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="노지">노지</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Bottom Separator */}
+        <img
+          className="absolute w-[363px] h-px top-[772px] left-[7px]"
+          alt="Bottom separator"
+          src=""
+        />
+
+        {/* Bottom Navigation */}
+        <nav className="absolute bottom-0 left-0 w-full">
+          <div className="flex justify-around items-center py-4">
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto"
+            >
+              <Home className="w-[21px] h-5" />
+              <span className="font-10-r font-[number:var(--10-r-font-weight)] text-black text-[length:var(--10-r-font-size)] tracking-[var(--10-r-letter-spacing)] leading-[var(--10-r-line-height)] [font-style:var(--10-r-font-style)]">
+                홈
+              </span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto"
+            >
+              <Calendar className="w-[19px] h-[21px]" />
+              <span className="font-10-r font-[number:var(--10-r-font-weight)] text-black text-[length:var(--10-r-font-size)] tracking-[var(--10-r-letter-spacing)] leading-[var(--10-r-line-height)] [font-style:var(--10-r-font-style)]">
+                영농일지
+              </span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-1 h-auto"
+            >
+              <User className="w-6 h-6" />
+              <span className="font-10-r font-[number:var(--10-r-font-weight)] text-black text-[length:var(--10-r-font-size)] tracking-[var(--10-r-letter-spacing)] leading-[var(--10-r-line-height)] [font-style:var(--10-r-font-style)]">
+                마이페이지
+              </span>
+            </Button>
+          </div>
+        </nav>
+      </div>
+    </div>
+  );
+};
+
+export default DivWrapper;
