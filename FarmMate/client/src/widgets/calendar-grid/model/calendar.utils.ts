@@ -39,26 +39,18 @@ export const isToday = (date: Date, day: number) => {
 };
 
 export const getCalendarDays = (currentDate: Date) => {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
   
-  // Get first day of month and number of days
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startingDay = firstDay.getDay();
-  
-  // Create calendar grid
+  // 오늘을 기준으로 2주 표시 (14일)
   const days = [];
   
-  // Add empty cells for days before month starts
-  for (let i = 0; i < (startingDay === 0 ? 6 : startingDay - 1); i++) {
-    days.push(null);
-  }
-  
-  // Add days of month
-  for (let day = 1; day <= daysInMonth; day++) {
-    days.push(day);
+  // 오늘부터 13일 후까지 (총 14일)
+  for (let i = 0; i < 14; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    days.push(date.getDate());
   }
   
   return days;
