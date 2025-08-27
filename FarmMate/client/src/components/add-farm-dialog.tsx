@@ -136,7 +136,9 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>농장 이름 *</FormLabel>
+                  <FormLabel>
+                    농장 이름 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="농장 이름을 입력해주세요" {...field} />
                   </FormControl>
@@ -150,7 +152,9 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="environment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>재배환경 *</FormLabel>
+                  <FormLabel>
+                    재배 환경 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
                     <RadioGroup
                       value={field.value}
@@ -181,7 +185,9 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="rowCount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>이랑개수 *</FormLabel>
+                  <FormLabel>
+                    이랑개수 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
                     <div className="flex items-center space-x-2">
                       <Input
@@ -203,7 +209,9 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="area"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>이랑면적 *</FormLabel>
+                  <FormLabel>
+                    이랑면적 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
                     <div className="flex items-center space-x-2">
                       <Input
