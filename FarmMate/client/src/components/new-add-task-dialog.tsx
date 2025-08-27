@@ -571,13 +571,15 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
           </div>
 
           {/* 저장 버튼 */}
-          <Button
-            onClick={() => onSubmit({} as any)}
-            className="w-full bg-black text-white hover:bg-gray-800"
-            disabled={createTaskMutation.isPending}
-          >
-            {createTaskMutation.isPending ? "저장 중..." : "저장하기"}
-          </Button>
+          <div className="sticky bottom-0 bg-white pt-4 border-t">
+            <Button
+              onClick={() => onSubmit({} as any)}
+              className="w-full bg-black text-white hover:bg-gray-800"
+              disabled={createTaskMutation.isPending}
+            >
+              {createTaskMutation.isPending ? "저장 중..." : "저장하기"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
