@@ -41,8 +41,8 @@ import {
   CollapsibleTrigger,
 } from "@shared/ui/collapsible";
 import { useToast } from "@shared/hooks/use-toast";
-import { insertTaskSchema } from "../../../shared/schema";
-import type { InsertTask, Task, Farm, Crop } from "../../../shared/schema";
+import { insertTaskSchema } from "../shared/types/schema";
+import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import { apiRequest } from "@shared/api/client";
 import { z } from "zod";
 import { Calendar } from "@shared/ui/calendar";
@@ -51,6 +51,7 @@ import WorkCalculatorDialog from "./work-calculator-dialog";
 const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),
   environment: z.string().min(1, "재배환경을 선택해주세요"),
+  endDate: z.string().optional(),
 });
 
 // 핵심 작물 목록
@@ -123,7 +124,13 @@ const KEY_CROPS = [
   }
 ];
 
-const taskTypes = [
+// 일괄등록용 작업 목록 (파종, 육묘, 수확-선별만)
+const batchTaskTypes = [
+  "파종", "육묘", "수확"
+];
+
+// 개별등록용 작업 목록 (기존 7개)
+const individualTaskTypes = [
   "파종", "육묘", "이랑준비", "정식", "풀/병해충/수분 관리", 
   "고르기", "수확-선별", "저장-포장"
 ];
@@ -156,13 +163,14 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     queryKey: ["/api/crops"],
   });
 
-  const form = useForm({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
       taskType: "",
       scheduledDate: selectedDate || "",
+      endDate: "",
       farmId: "",
       cropId: "",
       environment: "",
@@ -185,12 +193,13 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       const farm = farms?.find(f => f.id === task.farmId);
       
       form.reset({
-        title: task.title,
-        description: task.description,
-        taskType: task.taskType,
-        scheduledDate: task.scheduledDate,
-        farmId: task.farmId,
-        cropId: task.cropId,
+        title: task.title || "",
+        description: task.description || "",
+        taskType: task.taskType || "",
+        scheduledDate: task.scheduledDate || "",
+        endDate: task.endDate || "",
+        farmId: task.farmId || "",
+        cropId: task.cropId || "",
         environment: farm?.environment || "",
       });
       
@@ -204,6 +213,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         description: "",
         taskType: "",
         scheduledDate: selectedDate || "",
+        endDate: "",
         farmId: "",
         cropId: "",
         environment: "",
@@ -274,7 +284,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     const crop = crops?.find(c => c.id === cropId);
     if (crop) {
       form.setValue("cropId", cropId);
-      form.setValue("farmId", crop.farmId);
+      form.setValue("farmId", crop.farmId || "");
       setCropSearchTerm(crop.name);
       setSelectedCrop(crop);
       
@@ -310,35 +320,68 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     }
 
     const cropName = customCropName || crops?.find(c => c.id === form.getValues("cropId"))?.name || "작물";
-    const tasks = selectedWorks.map(work => ({
-      title: form.getValues("title") || `${cropName} ${work}`,
-      description: form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`,
-      taskType: work,
-      scheduledDate: form.getValues("scheduledDate"),
-      farmId: form.getValues("farmId"),
-      cropId: form.getValues("cropId"),
-      userId: "user-1",
-    }));
+    const startDate = form.getValues("scheduledDate") || "";
+    
+    if (registrationMode === 'batch') {
+      // 일괄등록: 여러 작업, 시작 날짜만
+      const tasks = selectedWorks.map(work => ({
+        title: form.getValues("title") || `${cropName} ${work}`,
+        description: form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`,
+        taskType: work,
+        scheduledDate: startDate,
+        farmId: form.getValues("farmId") || "",
+        cropId: form.getValues("cropId") || "",
+        userId: "user-1",
+      }));
+      bulkCreateMutation.mutate(tasks);
+    } else {
+      // 개별등록: 하나의 작업, 날짜 범위
+      const endDate = (form.getValues("endDate") as string) || "";
+      if (!startDate || !endDate) {
+        toast({
+          title: "시작 날짜와 종료 날짜를 모두 선택해주세요",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    bulkCreateMutation.mutate(tasks);
+      const work = form.getValues("taskType") || "";
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const tasks = [];
+
+      // 날짜 범위 내의 모든 날짜에 작업 등록
+      for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+        tasks.push({
+          title: form.getValues("title") || `${cropName} ${work}`,
+          description: form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`,
+          taskType: work,
+          scheduledDate: format(date, "yyyy-MM-dd"),
+          farmId: form.getValues("farmId") || "",
+          cropId: form.getValues("cropId") || "",
+          userId: "user-1",
+        });
+      }
+      bulkCreateMutation.mutate(tasks);
+    }
   };
 
   const handleWorkCalculatorSave = (tasks: InsertTask[]) => {
     bulkCreateMutation.mutate(tasks);
   };
 
-  const onSubmit = (data: InsertTask & { title: string; environment: string }) => {
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
     const { environment, ...taskData } = data;
     
     if (task) {
       // 수정 모드
-      updateMutation.mutate(taskData);
+      updateMutation.mutate(taskData as InsertTask);
     } else if (registrationMode === 'batch') {
       // 일괄 등록 - 여러 작업
       createBatchTasks();
     } else {
       // 단일 작업
-      createMutation.mutate(taskData);
+      createMutation.mutate(taskData as InsertTask);
     }
   };
 
@@ -516,7 +559,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 <div className="space-y-3">
                   <Label>농작업 다중 선택 *</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {taskTypes.map(type => (
+                    {batchTaskTypes.map(type => (
                       <button
                         key={type}
                         type="button"
@@ -554,7 +597,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {taskTypes.map(type => (
+                          {individualTaskTypes.map(type => (
                             <SelectItem key={type} value={type}>
                               {type}
                             </SelectItem>
@@ -629,6 +672,52 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 )}
               />
 
+              {/* 종료 날짜 선택 (개별등록에서만 표시) */}
+              {!task && registrationMode === 'individual' && (
+                <FormField
+                  control={form.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>종료 날짜 (선택사항)</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={`w-full pl-3 text-left font-normal ${
+                                !field.value ? "text-muted-foreground" : ""
+                              }`}
+                            >
+                              {field.value ? (
+                                format(new Date(field.value), "yyyy년 MM월 dd일", { locale: ko })
+                              ) : (
+                                <span>종료 날짜를 선택해주세요</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={(date) => {
+                              field.onChange(date ? format(date, "yyyy-MM-dd") : "");
+                            }}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={form.control}
                 name="description"
@@ -639,6 +728,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                       <Textarea
                         placeholder="추가 메모를 입력하세요"
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -697,6 +787,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         selectedCrop={selectedCrop}
         baseDate={form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")}
         onSave={handleWorkCalculatorSave}
+        selectedTasks={selectedWorks}
       />
     </>
   );

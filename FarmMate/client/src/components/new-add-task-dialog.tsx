@@ -48,7 +48,7 @@ const formSchema = insertTaskSchema.extend({
 });
 
 const taskTypes = [
-  "파종", "육묘", "수확", "기타(직접 입력)"
+  "파종", "육묘", "수확"
 ];
 
 interface NewAddTaskDialogProps {
