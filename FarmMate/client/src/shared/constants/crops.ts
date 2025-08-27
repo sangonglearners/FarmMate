@@ -72,8 +72,7 @@ export const CROP_CATEGORIES = [
 ];
 
 export const TASK_TYPES = [
-  "파종", "육묘", "이랑준비", "정식", "풀/병해충/수분 관리", 
-  "고르기", "수확-선별", "저장-포장"
+  "파종", "육묘", "수확-선별"
 ];
 
 // 일괄등록용 농작업 계산기 데이터
@@ -86,28 +85,8 @@ export const BATCH_TASK_SCHEDULES = {
     duration: 20,
     description: "모종을 기르는 작업"
   },
-  "이랑준비": {
-    duration: 10,
-    description: "이랑을 준비하는 작업"
-  },
-  "정식": {
-    duration: 5,
-    description: "모종을 옮겨 심는 작업"
-  },
-  "풀/병해충/수분 관리": {
-    duration: 15,
-    description: "풀매기, 병해충 방제, 물주기"
-  },
-  "고르기": {
-    duration: 20,
-    description: "작물을 고르는 작업"
-  },
   "수확-선별": {
     duration: 20,
     description: "수확과 선별 작업"
-  },
-  "저장-포장": {
-    duration: 10,
-    description: "저장과 포장 작업"
   }
 };

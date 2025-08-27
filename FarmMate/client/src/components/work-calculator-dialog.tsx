@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
-import type { Crop, InsertTask } from "@shared/schema";
+import type { Crop, InsertTask } from "../shared/types/schema";
 
 interface WorkCalculatorDialogProps {
   open: boolean;
@@ -31,6 +31,7 @@ interface WorkCalculatorDialogProps {
   selectedCrop: Crop | null;
   baseDate: string;
   onSave: (tasks: InsertTask[]) => void;
+  selectedTasks?: string[];
 }
 
 interface TaskSchedule {
@@ -46,15 +47,23 @@ export default function WorkCalculatorDialog({
   onOpenChange, 
   selectedCrop,
   baseDate,
-  onSave
+  onSave,
+  selectedTasks: propSelectedTasks
 }: WorkCalculatorDialogProps) {
   const { toast } = useToast();
   
   const [totalDuration, setTotalDuration] = useState(70);
   const [taskSchedules, setTaskSchedules] = useState<TaskSchedule[]>([]);
-  const [selectedTasks, setSelectedTasks] = useState<string[]>([
-    "이랑준비", "파종", "고르기", "수확-선별", "저장-포장"
-  ]);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>(
+    propSelectedTasks || ["파종", "육묘", "수확-선별"]
+  );
+
+  // propSelectedTasks가 변경되면 selectedTasks 업데이트
+  useEffect(() => {
+    if (propSelectedTasks && propSelectedTasks.length > 0) {
+      setSelectedTasks(propSelectedTasks);
+    }
+  }, [propSelectedTasks]);
 
   // 선택된 작업에 따라 일정 계산
   useEffect(() => {
