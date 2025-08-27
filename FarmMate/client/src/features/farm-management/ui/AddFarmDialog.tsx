@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,14 +39,16 @@ interface AddFarmDialogProps {
 export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
+  const [customEnvironment, setCustomEnvironment] = useState("");
 
   const form = useForm<InsertFarm & { name: string }>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      environment: "",
-      rowCount: 0,
-      area: 0,
+      environment: "노지",
+      rowCount: undefined,
+      area: undefined,
     },
   });
 
@@ -54,7 +56,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
     if (farm) {
       form.reset({
         name: farm.name,
-        environment: farm.environment,
+        environment: "노지",
         rowCount: farm.rowCount,
         area: farm.area,
       });
@@ -62,8 +64,8 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
       form.reset({
         name: "",
         environment: "",
-        rowCount: 0,
-        area: 0,
+        rowCount: undefined,
+        area: undefined,
       });
     }
   }, [farm, form]);
@@ -121,6 +123,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -136,7 +139,9 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>농장 이름 *</FormLabel>
+                  <FormLabel>
+                    농장 이름 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="농장 이름을 입력해주세요" {...field} />
                   </FormControl>
@@ -150,16 +155,25 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="environment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>재배환경 *</FormLabel>
+                  <FormLabel>
+                    재배환경 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
-                    <RadioGroup
-                      value={field.value}
-                      onValueChange={field.onChange}
+                  <RadioGroup
+                    value={["노지", "시설", "기타"].includes(field.value) ? field.value : "노지"}
+                    onValueChange={(val) => {
+                        if (val === "기타") {
+                          setCustomEnvironment("");
+                          setIsEnvModalOpen(true);
+                        } else {
+                          field.onChange(val);
+                        }
+                      }}
                       className="flex space-x-6"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="노지" id="outdoor" />
-                        <Label htmlFor="outdoor">노지</Label>
+                      <RadioGroupItem value="노지" id="outdoor" />
+                      <Label htmlFor="outdoor">노지</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="시설" id="greenhouse" />
@@ -181,16 +195,18 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="rowCount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>이랑개수 *</FormLabel>
+                  <FormLabel>
+                    이랑개수 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2"> 
                       <Input
                         type="number"
                         placeholder="숫자를 직접 입력해 주세요"
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || "")}
                       />
-                      <span className="text-gray-600">이랑</span>
+                      <span className="text-gray-600 whitespace-nowrap">이랑</span>
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -203,14 +219,16 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               name="area"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>이랑면적 *</FormLabel>
+                  <FormLabel>
+                    이랑면적 <span className="text-red-500" aria-hidden="true">*</span>
+                  </FormLabel>
                   <FormControl>
                     <div className="flex items-center space-x-2">
                       <Input
                         type="number"
                         placeholder="숫자를 직접 입력해 주세요"
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || "")}
                       />
                       <span className="text-gray-600">m²</span>
                     </div>
@@ -231,5 +249,54 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
         </Form>
       </DialogContent>
     </Dialog>
+
+    {/* 재배환경 직접 입력 모달 */}
+    <Dialog open={isEnvModalOpen} onOpenChange={setIsEnvModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>재배환경 직접 입력</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-2">
+          <Label htmlFor="env-other">재배환경명</Label>
+          <Input
+            id="env-other"
+            placeholder="예: 수경재배, 스마트팜 등"
+            value={customEnvironment}
+            onChange={(e) => setCustomEnvironment(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const trimmed = customEnvironment.trim();
+                if (trimmed) {
+                  // Update form value and close modal
+                  (form.setValue as any)("environment", trimmed, { shouldValidate: true, shouldDirty: true });
+                  setIsEnvModalOpen(false);
+                }
+              }
+            }}
+            autoFocus
+          />
+          <p className="text-xs text-muted-foreground">
+            저장을 누르면 이 값이 재배환경으로 설정됩니다.
+          </p>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setIsEnvModalOpen(false)}>취소</Button>
+          <Button
+            onClick={() => {
+              const trimmed = customEnvironment.trim();
+              if (!trimmed) return;
+              (form.setValue as any)("environment", trimmed, { shouldValidate: true, shouldDirty: true });
+              setIsEnvModalOpen(false);
+            }}
+            disabled={!customEnvironment.trim()}
+          >
+            저장
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
