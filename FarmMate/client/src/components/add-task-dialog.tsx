@@ -97,11 +97,11 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       
       form.reset({
         title: task.title,
-        description: task.description,
+        description: task.description || undefined,
         taskType: task.taskType,
         scheduledDate: task.scheduledDate,
-        farmId: task.farmId,
-        cropId: task.cropId,
+        farmId: task.farmId || undefined,
+        cropId: task.cropId || undefined,
         environment: farm?.environment || "",
         farmNumber: farm?.name || "",
       });
@@ -164,7 +164,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     const crop = crops?.find(c => c.id === cropId);
     if (crop) {
       form.setValue("cropId", cropId);
-      form.setValue("farmId", crop.farmId);
+      form.setValue("farmId", crop.farmId || "");
       setCropSearchTerm(crop.name);
       
       // 농장의 재배환경 설정
@@ -190,7 +190,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-md mx-auto">
+              <DialogContent className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? "일정 수정하기" : "새 작업 추가하기"}</DialogTitle>
         </DialogHeader>
@@ -380,7 +380,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
               )}
             />
 
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 sticky bottom-0 bg-white pt-4 border-t">
               <Button 
                 type="button" 
                 variant="outline" 

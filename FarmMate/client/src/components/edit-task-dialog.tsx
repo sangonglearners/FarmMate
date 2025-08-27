@@ -315,7 +315,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
             />
           </div>
 
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end space-x-2 sticky bottom-0 bg-white pt-4 border-t">
             <Button variant="outline" onClick={() => setOpen(false)}>
               취소
             </Button>

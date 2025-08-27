@@ -8,7 +8,7 @@ import { useTasks } from "@features/task-management";
 import { useCrops } from "@features/crop-management";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "@entities/task/model/utils";
 import { useLocation } from "wouter";
-import AddTaskDialog from "../../../components/add-task-dialog";
+import AddTaskDialog from "../../../components/add-task-dialog-improved";
 
 export default function HomePage() {
   const [currentDate] = useState(new Date());

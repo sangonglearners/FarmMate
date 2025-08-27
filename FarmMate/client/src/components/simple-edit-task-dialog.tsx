@@ -147,7 +147,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>일정 수정</DialogTitle>
         </DialogHeader>
@@ -279,7 +279,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
             />
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 sticky bottom-0 bg-white pt-4 border-t">
             <Button 
               type="submit" 
               className="flex-1"
