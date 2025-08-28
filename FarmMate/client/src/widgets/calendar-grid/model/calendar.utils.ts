@@ -1,6 +1,12 @@
 // Calendar widget utility functions
 import type { Task, Crop } from "@shared/types/schema";
 
+export interface CalendarDay {
+  day: number;
+  date: Date;
+  dayOfWeek: number;
+}
+
 export const getTaskColor = (taskType: string) => {
   switch (taskType) {
     case "파종":
@@ -16,10 +22,10 @@ export const getTaskColor = (taskType: string) => {
   }
 };
 
-export const getTasksForDate = (tasks: Task[], date: Date, day: number) => {
+export const getTasksForDate = (tasks: Task[], date: Date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
-  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   return tasks.filter(task => task.scheduledDate === dateStr);
 };
 
@@ -29,28 +35,28 @@ export const getCropName = (crops: Crop[], cropId: string | null | undefined) =>
   return crop ? crop.name : "";
 };
 
-export const isToday = (date: Date, day: number) => {
+export const getCalendarDays = (currentDate: Date): CalendarDay[] => {
+  // 한국 시간대를 고려하여 오늘 날짜 계산
   const today = new Date();
-  return (
-    today.getDate() === day &&
-    today.getMonth() === date.getMonth() &&
-    today.getFullYear() === date.getFullYear()
-  );
-};
-
-export const getCalendarDays = (currentDate: Date) => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
   
-  // 오늘을 기준으로 2주 표시 (14일)
-  const days = [];
+  // 이번 주의 월요일을 찾기
+  const currentDayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+  const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1; // 월요일까지의 일수
   
-  // 오늘부터 13일 후까지 (총 14일)
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - daysFromMonday);
+  
+  // 월요일부터 2주간 표시 (14일)
+  const days: CalendarDay[] = [];
+  
   for (let i = 0; i < 14; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    days.push(date.getDate());
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    days.push({
+      day: date.getDate(),
+      date: date,
+      dayOfWeek: date.getDay() // 0: 일요일, 1: 월요일, ..., 6: 토요일
+    });
   }
   
   return days;
