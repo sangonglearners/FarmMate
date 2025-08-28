@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient /*, useQuery*/ } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -32,10 +32,31 @@ import { apiRequest } from "@shared/api/client";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
 
+// 기존 form 스키마(사용자 재배 목록에 실제 추가)는 그대로 유지
 const formSchema = insertCropSchema.extend({
   category: z.string().min(1, "작물 분류를 선택해주세요"),
   name: z.string().min(1, "작물 이름을 입력해주세요"),
   variety: z.string().min(1, "품종을 입력해주세요"),
+});
+
+// 등록 요청 모달 전용 스키마 (모름 허용)
+const requestSchema = z.object({
+  majorCategory: z.string().optional(), // 대분류
+  name: z.string().optional(), // 품목
+  variety: z.string().optional(), // 품종명
+  establishment: z.enum(["transplant", "direct"], { required_error: "재배 방식 선택" }).optional(),
+  daysToMaturity: z
+    .number({ invalid_type_error: "숫자를 입력하세요" })
+    .int()
+    .positive()
+    .optional(),
+  unknowns: z.object({
+    majorCategory: z.boolean(),
+    name: z.boolean(),
+    variety: z.boolean(),
+    establishment: z.boolean(),
+    daysToMaturity: z.boolean(),
+  }),
 });
 
 interface AddCropDialogProps {
@@ -48,15 +69,25 @@ interface AddCropDialogProps {
 //    이후 실제 DB 연동 시, 아래 TEMP_CROPS 대신 useQuery로 서버 데이터를 주입하세요.
 //    예: const { data: crops = [] } = useQuery({ queryKey: ["/api/crops/options"], queryFn: fetchCropOptions })
 const TEMP_CROPS = [
-  { id: "cabbage", name: "양배추", category: "배추", varieties: ["그린", "퍼플", "레드"] },
-  { id: "carrot", name: "당근", category: "뿌리채소", varieties: ["오렌지", "퍼플", "화이트"] },
-  { id: "spinach", name: "시금치", category: "엽채류", varieties: ["일반", "베이비", "레드"] },
-  { id: "tomato", name: "토마토", category: "과채류", varieties: ["방울", "대과", "흑색"] },
-  { id: "lettuce", name: "상추", category: "엽채류", varieties: ["적상추", "청상추", "로메인"] },
-  { id: "radish", name: "무", category: "뿌리채소", varieties: ["총각무", "알타리무", "일반무"] },
+  // 기존 대표 작물 중 유지: 양배추, 당근 (대분류 추가)
+  { id: "cabbage", majorCategory: "배추", name: "양배추", category: "배추", varieties: ["그린", "퍼플", "레드"] },
+  { id: "carrot", majorCategory: "당근", name: "당근", category: "뿌리채소", varieties: ["오렌지", "퍼플", "화이트"] },
+
+  // 신규 대표 작물 목록
+  { id: "bean-snap-pea",      majorCategory: "콩_완두", name: "스냅피",  category: null,        varieties: ["슈가앤", "슈가레이스", "스시나인", "구르메", "슈가스냅"] },
+  { id: "bean-snow-pea",      majorCategory: "콩_완두", name: "스노우피", category: null,        varieties: ["니무라(그린)", "노를리(그린)", "골든스윗"] },
+  { id: "bean-green-bean",    majorCategory: "콩_채두", name: "그린빈",  category: null,        varieties: ["칼리마", "캐피타노"] },
+  { id: "bean-shell-bean",    majorCategory: "콩_채두", name: "쉘빈",    category: "드래곤빈", varieties: [] },
+  { id: "bean-broad-bean",    majorCategory: "콩_잠두", name: "풋잠두",  category: null,        varieties: ["소라마메", "브로드빈"] },
 ];
 
-type CropOption = { id: string; name: string; category: string; varieties: string[] };
+export type CropOption = {
+  id: string;
+  majorCategory: string;
+  name: string; // 품목
+  category: string | null | undefined; // 중분류
+  varieties: string[] | undefined;
+};
 
 export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialogProps) {
   const { toast } = useToast();
@@ -109,9 +140,9 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
   // 대표 작물 선택 시 자동 채우기 (신규 등록 상황에서만)
   useEffect(() => {
     if (selectedCropData && !crop) {
-      form.setValue("category", selectedCropData.category);
+      form.setValue("category", selectedCropData.category ?? "");
       form.setValue("name", selectedCropData.name);
-      form.setValue("variety", selectedCropData.varieties[0] ?? "");
+      form.setValue("variety", (selectedCropData.varieties ?? [""])[0] ?? "");
     }
   }, [selectedCropData, form, crop]);
 
@@ -119,11 +150,13 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
   const filteredCrops = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return crops;
-    return crops.filter(
-      (c) =>
-        c.name.toLowerCase().includes(term) ||
-        c.category.toLowerCase().includes(term)
-    );
+    return crops.filter((c) => {
+      const byName = (c.name ?? "").toLowerCase().includes(term);
+      const byCategory = (c.category ?? "").toLowerCase().includes(term);
+      const byMajor = (c.majorCategory ?? "").toLowerCase().includes(term);
+      const byVariety = (c.varieties ?? []).some((v) => (v ?? "").toLowerCase().includes(term));
+      return byName || byCategory || byMajor || byVariety;
+    });
   }, [crops, searchTerm]);
 
   const createMutation = useMutation({
@@ -169,7 +202,6 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
     else createMutation.mutate(data);
   };
 
-  // 🔔 "새로운 작물 등록하기" 버튼 클릭 시, 검색어를 폼 기본값으로 세팅
   const openNewCropModal = () => {
     const term = searchTerm.trim();
     if (term) form.setValue("name", term, { shouldDirty: true });
@@ -177,6 +209,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -201,19 +234,21 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
 
             {/* ✅ 검색 결과 렌더링 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">대표 작물 선택 </label>
+              <label className="text-sm font-medium">
+                {searchTerm.trim() !== "" ? "작물 선택" : "대표 작물 선택"}
+              </label>
 
               {/* 결과 없음 상태 */}
               {searchTerm.trim() !== "" && filteredCrops.length === 0 ? (
-                <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                <div className="rounded-md border border-dashed p-4 text-center text-sm text-gray-600">
                   <p className="mb-3">"{searchTerm}"에 대한 검색 결과가 없습니다.</p>
                   <Button type="button" onClick={openNewCropModal}>
-                    새로운 작물 등록하기
+                    작물 등록 요청하기
                   </Button>
                 </div>
               ) : (
                 // 결과 리스트
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                   {filteredCrops.map((c) => (
                     <button
                       key={c.id}
@@ -225,13 +260,23 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{c.name}</div>
-                          <div className="text-xs text-gray-500">{c.category}</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          {/* 대분류 */}
+                          <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">
+                            {c.majorCategory}
+                          </div>
+                          {/* 품목(이름) */}
+                          <div className="font-medium text-sm">{c.name}</div>
+                          {/* 대표 품종 1개만 표시 */}
+                          <div className="text-[11px] text-gray-600">
+                            {(c.varieties && c.varieties.length > 0)
+                              ? c.varieties[0]
+                              : "품종 정보 없음"}
+                          </div>
                         </div>
                         {selectedCrop === c.id && (
-                          <Check className="h-4 w-4 text-green-600" />
+                          <Check className="h-4 w-4 text-green-600 shrink-0" />
                         )}
                       </div>
                     </button>
@@ -255,7 +300,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {selectedCropData.varieties.map((variety) => (
+                        {(selectedCropData.varieties ?? []).map((variety) => (
                           <SelectItem key={variety} value={variety}>
                             {variety}
                           </SelectItem>
@@ -268,34 +313,20 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
               />
             )}
 
-            {/* 상태 */}
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>상태</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="growing">성장 중</SelectItem>
-                      <SelectItem value="harvesting">수확 대기</SelectItem>
-                      <SelectItem value="completed">수확 완료</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
 
             <Button
               type="submit"
-              className="w-full"
-              disabled={createMutation.isPending || updateMutation.isPending /* 제출 자체는 선택 없이도 가능하게 두려면 이 조건을 제거 */}
+              className={`w-full ${
+                (searchTerm.trim() !== "" && filteredCrops.length === 0) 
+                  ? "bg-gray-200 text-gray-500 hover:bg-gray-200" // 연한 회색
+                  : ""
+              }`}
+              disabled={
+                createMutation.isPending || 
+                updateMutation.isPending || 
+                (searchTerm.trim() !== "" && filteredCrops.length === 0) // 검색 결과가 없을 때 비활성화
+              }
             >
               {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
             </Button>
@@ -303,92 +334,196 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
         </Form>
       </DialogContent>
     </Dialog>
-
-    /* 🌱 새로운 작물 등록 모달 */
+    {/* 등록 요청 모달 (대분류/품목/품종 + 모종/직파 + 생육기간) */}
+    <NewCropModal open={showNewCropModal} onOpenChange={setShowNewCropModal} baseNameFromSearch={searchTerm} />
+    </>
   );
 }
 
-// 별도: 동일 파일 하단 또는 별도 파일에 위치해도 됩니다.
-export function NewCropModal({
-  open,
-  onOpenChange,
-  form,
-  searchTerm,
-  onSubmitNew,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  form: ReturnType<typeof useForm<InsertCrop>>;
-  searchTerm: string;
-  onSubmitNew?: () => void;
-}) {
+// ----------------------------- NewCropModal -----------------------------------------
+
+function NewCropModal({ open, onOpenChange, baseNameFromSearch }: { open: boolean; onOpenChange: (v: boolean) => void; baseNameFromSearch?: string; }) {
   const { toast } = useToast();
+
+  // 등록 요청 전용 폼
+  const requestForm = useForm<z.infer<typeof requestSchema>>({
+    resolver: zodResolver(requestSchema),
+    defaultValues: {
+      majorCategory: undefined,
+      name: baseNameFromSearch || undefined,
+      variety: undefined,
+      establishment: undefined,
+      daysToMaturity: undefined,
+      unknowns: { majorCategory: false, name: !baseNameFromSearch ? false : false, variety: false, establishment: false, daysToMaturity: false },
+    },
+  });
+
+  const sendRequestMutation = useMutation({
+    mutationFn: async (payload: z.infer<typeof requestSchema>) => {
+      // 향후 DB 연결 시 동일 모달에서 이 로직만 교체하면 됩니다.
+      // 예: return (await apiRequest("POST", "/api/crops/requests", payload)).json();
+      return new Promise((res) => setTimeout(res, 400));
+    },
+    onSuccess: () => {
+      toast({ title: "요청 전송", description: "작물 등록 요청이 전송되었습니다." });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "요청 실패", description: "요청 처리 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = requestForm.handleSubmit((values) => {
+    // unknown 체크가 된 항목은 명시적으로 undefined로 보냄
+    const v = values;
+    const payload = {
+      majorCategory: v.unknowns.majorCategory ? undefined : v.majorCategory,
+      name: v.unknowns.name ? undefined : v.name,
+      variety: v.unknowns.variety ? undefined : v.variety,
+      establishment: v.unknowns.establishment ? undefined : v.establishment,
+      daysToMaturity: v.unknowns.daysToMaturity ? undefined : v.daysToMaturity,
+      unknowns: v.unknowns,
+    } as z.infer<typeof requestSchema>;
+    sendRequestMutation.mutate(payload);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>새로운 작물 등록</DialogTitle>
+          <DialogTitle>작물 등록 요청</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">"{searchTerm}" 작물을 새로 등록합니다.</p>
+        <Form {...requestForm}>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <p className="text-sm text-gray-600">알고 있는 정보만 입력하고, 모르면 "모름"을 체크하세요.</p>
 
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>작물명 *</FormLabel>
+            {/* 대분류 */}
+            <FormField control={requestForm.control} name="majorCategory" render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>대분류</FormLabel>
+                <UnknownToggle checked={requestForm.watch("unknowns.majorCategory")} onChange={(b) => {
+                  requestForm.setValue("unknowns.majorCategory", b);
+                  if (b) field.onChange(undefined);
+                }} />
+              </div>
+              <Select onValueChange={field.onChange} value={field.value || ""} disabled={requestForm.watch("unknowns.majorCategory")}> 
                 <FormControl>
-                  <Input placeholder="작물명을 입력해주세요" {...field} />
+                  <SelectTrigger>
+                    <SelectValue placeholder={requestForm.watch("unknowns.majorCategory") ? "(모름)" : "예: 엽채류 / 과채류 / 근채류"} />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <SelectContent>
+                  <SelectItem value="엽채류">엽채류</SelectItem>
+                  <SelectItem value="근채류">근채류</SelectItem>
+                  <SelectItem value="과채류">과채류</SelectItem>
+                  <SelectItem value="곡류">곡류</SelectItem>
+                  <SelectItem value="두과">두과</SelectItem>
+                  <SelectItem value="구근/인경">구근/인경</SelectItem>
+                  <SelectItem value="허브/특용">허브/특용</SelectItem>
+                  <SelectItem value="기타">기타</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>분류 *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || ""}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="분류를 선택해주세요" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="배추">배추</SelectItem>
-                    <SelectItem value="뿌리채소">뿌리채소</SelectItem>
-                    <SelectItem value="엽채류">엽채류</SelectItem>
-                    <SelectItem value="과채류">과채류</SelectItem>
-                    <SelectItem value="기타">기타</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* 품목(작물명) */}
+          <FormField control={requestForm.control} name="name" render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>품목 (작물명)</FormLabel>
+                <UnknownToggle checked={requestForm.watch("unknowns.name")} onChange={(b) => {
+                  requestForm.setValue("unknowns.name", b);
+                  if (b) field.onChange(undefined);
+                }} />
+              </div>
+              <FormControl>
+                <Input placeholder={requestForm.watch("unknowns.name") ? "(모름)" : "예: 타이바질, 케일"} disabled={requestForm.watch("unknowns.name")} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              취소
-            </Button>
-            <Button
-              onClick={() => {
-                onSubmitNew?.();
-                onOpenChange(false);
-                toast({ title: "작물 등록 완료", description: "새로운 작물이 등록되었습니다." });
-              }}
-            >
-              등록하기
-            </Button>
-          </div>
-        </div>
+          {/* 품종 */}
+          <FormField control={requestForm.control} name="variety" render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>품종</FormLabel>
+                <UnknownToggle checked={requestForm.watch("unknowns.variety")} onChange={(b) => {
+                  requestForm.setValue("unknowns.variety", b);
+                  if (b) field.onChange(undefined);
+                }} />
+              </div>
+              <FormControl>
+                <Input placeholder={requestForm.watch("unknowns.variety") ? "(모름)" : "예: 골든스윗"} disabled={requestForm.watch("unknowns.variety")} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+
+          {/* 모종/직파 */}
+          <FormField control={requestForm.control} name="establishment" render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>재배 방식</FormLabel>
+                <UnknownToggle checked={requestForm.watch("unknowns.establishment")} onChange={(b) => {
+                  requestForm.setValue("unknowns.establishment", b);
+                  if (b) field.onChange(undefined);
+                }} />
+              </div>
+              <Select onValueChange={field.onChange} value={field.value || ""} disabled={requestForm.watch("unknowns.establishment")}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder={requestForm.watch("unknowns.establishment") ? "(모름)" : "모종(이식) / 직파"} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="transplant">모종(이식)</SelectItem>
+                  <SelectItem value="direct">직파</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
+
+          {/* 생육 기간 */}
+          <FormField control={requestForm.control} name="daysToMaturity" render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>생육 기간(일)</FormLabel>
+                <UnknownToggle checked={requestForm.watch("unknowns.daysToMaturity")} onChange={(b) => {
+                  requestForm.setValue("unknowns.daysToMaturity", b);
+                  if (b) field.onChange(undefined as unknown as number);
+                }} />
+              </div>
+              <FormControl>
+                <Input type="number" inputMode="numeric" placeholder={requestForm.watch("unknowns.daysToMaturity") ? "(모름)" : "예: 75"} disabled={requestForm.watch("unknowns.daysToMaturity")} value={field.value ?? ""} onChange={(e) => {
+                  const val = e.target.value;
+                  field.onChange(val === "" ? undefined : Number(val));
+                }} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>취소</Button>
+              <Button type="submit" disabled={sendRequestMutation.isPending}>{sendRequestMutation.isPending ? "전송 중..." : "요청 보내기"}</Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function UnknownToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="inline-flex items-center gap-2 text-xs select-none cursor-pointer">
+      <input type="checkbox" className="h-3.5 w-3.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      모름
+    </label>
   );
 }

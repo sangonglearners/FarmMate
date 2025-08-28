@@ -63,7 +63,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
     } else {
       form.reset({
         name: "",
-        environment: "",
+        environment: "노지",
         rowCount: undefined,
         area: undefined,
       });
@@ -160,7 +160,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
                   </FormLabel>
                   <FormControl>
                   <RadioGroup
-                    value={["노지", "시설", "기타"].includes(field.value) ? field.value : "노지"}
+                    value={["노지", "시설"].includes(field.value) ? field.value : "기타"}
                     onValueChange={(val) => {
                         if (val === "기타") {
                           setCustomEnvironment("");
@@ -181,7 +181,16 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="기타" id="other" />
-                        <Label htmlFor="other">기타 (직접 입력)</Label>
+                        <Label htmlFor="other" className="flex items-center gap-2">
+                          <span>기타</span>
+                          {!["노지", "시설"].includes(field.value) && field.value ? (
+                            <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs text-gray-700 bg-gray-50">
+                              {field.value}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">(직접 입력)</span>
+                          )}
+                        </Label>
                       </div>
                     </RadioGroup>
                   </FormControl>
@@ -261,7 +270,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
           <Label htmlFor="env-other">재배환경명</Label>
           <Input
             id="env-other"
-            placeholder="예: 수경재배, 스마트팜 등"
+            placeholder="예: 보온시설, 해가림시설 등"
             value={customEnvironment}
             onChange={(e) => setCustomEnvironment(e.target.value)}
             onKeyDown={(e) => {
