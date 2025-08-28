@@ -11,7 +11,7 @@ import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
 
 export default function HomePage() {
-  const [currentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showMonthView, setShowMonthView] = useState(false);
@@ -30,6 +30,34 @@ export default function HomePage() {
 
   const handleAddTaskClick = () => {
     setShowAddTaskDialog(true);
+  };
+
+  const handlePrevious = () => {
+    if (showMonthView) {
+      // 1달 보기에서는 1달씩 이동
+      const newDate = new Date(currentDate);
+      newDate.setMonth(newDate.getMonth() - 1);
+      setCurrentDate(newDate);
+    } else {
+      // 2주 보기에서는 2주씩 이동
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() - 14);
+      setCurrentDate(newDate);
+    }
+  };
+
+  const handleNext = () => {
+    if (showMonthView) {
+      // 1달 보기에서는 1달씩 이동
+      const newDate = new Date(currentDate);
+      newDate.setMonth(newDate.getMonth() + 1);
+      setCurrentDate(newDate);
+    } else {
+      // 2주 보기에서는 2주씩 이동
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + 14);
+      setCurrentDate(newDate);
+    }
   };
 
   // Get selected date's tasks (기본값은 오늘)
@@ -73,6 +101,23 @@ export default function HomePage() {
   const formatSelectedDate = () => {
     const date = new Date(selectedDate);
     return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  };
+
+  const formatCurrentPeriod = () => {
+    if (showMonthView) {
+      return `${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월`;
+    } else {
+      // 2주 보기에서는 해당 주의 월요일부터 2주간의 범위를 표시
+      const currentDayOfWeek = currentDate.getDay();
+      const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+      const monday = new Date(currentDate);
+      monday.setDate(currentDate.getDate() - daysFromMonday);
+      
+      const endDate = new Date(monday);
+      endDate.setDate(monday.getDate() + 13);
+      
+      return `${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+    }
   };
 
   if (tasksLoading) {
@@ -124,10 +169,31 @@ export default function HomePage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center justify-between">
-              <span className="flex items-center space-x-2">
-                <CalendarIcon className="w-5 h-5" />
-                <span>{showMonthView ? "한 달 플래너" : "이번 주 플래너"}</span>
-              </span>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handlePrevious}
+                  className="p-1 h-8 w-8"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="flex items-center space-x-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  <div className="flex flex-col">
+                    <span>{showMonthView ? "한 달 플래너" : "이번 주 플래너"}</span>
+                    <span className="text-sm text-gray-500 font-normal">{formatCurrentPeriod()}</span>
+                  </div>
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleNext}
+                  className="p-1 h-8 w-8"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
