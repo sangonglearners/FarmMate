@@ -124,7 +124,7 @@ const KEY_CROPS = [
   }
 ];
 
-// 일괄등록용 작업 목록 (파종, 육묘, 수확-선별만)
+// 일괄등록용 작업 목록 (파종, 육묘, 수확만)
 const batchTaskTypes = [
   "파종", "육묘", "수확"
 ];
@@ -132,7 +132,7 @@ const batchTaskTypes = [
 // 개별등록용 작업 목록 (기존 7개)
 const individualTaskTypes = [
   "파종", "육묘", "이랑준비", "정식", "풀/병해충/수분 관리", 
-  "고르기", "수확-선별", "저장-포장"
+  "고르기", "수확", "저장-포장"
 ];
 
 const environments = ["노지", "시설1", "시설2"];
@@ -236,6 +236,14 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       });
       onOpenChange(false);
     },
+    onError: (error) => {
+      console.error("Task creation error:", error);
+      toast({
+        title: "작업 등록 실패",
+        description: "작업 등록 중 오류가 발생했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -248,6 +256,14 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         description: "변경된 일정이 저장되었습니다.",
       });
       onOpenChange(false);
+    },
+    onError: (error) => {
+      console.error("Task update error:", error);
+      toast({
+        title: "작업 수정 실패",
+        description: "작업 수정 중 오류가 발생했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -263,6 +279,14 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         description: "작업 일정이 추가되었습니다.",
       });
       onOpenChange(false);
+    },
+    onError: (error) => {
+      console.error("Bulk task creation error:", error);
+      toast({
+        title: "작업 등록 실패",
+        description: "일괄 작업 등록 중 오류가 발생했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -381,7 +405,8 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       createBatchTasks();
     } else {
       // 단일 작업
-      createMutation.mutate(taskData as InsertTask);
+      const taskWithUserId = { ...taskData, userId: "user-1" } as InsertTask;
+      createMutation.mutate(taskWithUserId);
     }
   };
 
@@ -745,7 +770,9 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 >
                   취소
                 </Button>
-                {registrationMode === 'batch' && !task ? (
+                
+                {/* 일괄등록 모드에서 농작업 계산기 버튼 */}
+                {registrationMode === 'batch' && !task && (
                   <Button 
                     type="button"
                     onClick={openWorkCalculator}
@@ -755,25 +782,25 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                     <Calculator className="w-4 h-4 mr-2" />
                     농작업 계산기
                   </Button>
-                ) : (
-                  <Button 
-                    type="submit" 
-                    className="flex-1"
-                    disabled={
-                      createMutation.isPending || 
-                      updateMutation.isPending || 
-                      bulkCreateMutation.isPending ||
-                      (!task && registrationMode === 'batch' && selectedWorks.length === 0)
-                    }
-                  >
-                    {createMutation.isPending || updateMutation.isPending || bulkCreateMutation.isPending ? 
-                      "저장 중..." : 
-                      task ? "수정 완료" :
-                      registrationMode === 'batch' ? `${selectedWorks.length}개 작업 등록` :
-                      "저장하기"
-                    }
-                  </Button>
                 )}
+                
+                {/* 저장하기 버튼 */}
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  disabled={
+                    createMutation.isPending || 
+                    updateMutation.isPending || 
+                    bulkCreateMutation.isPending ||
+                    (!task && registrationMode === 'batch' && selectedWorks.length === 0)
+                  }
+                >
+                  {createMutation.isPending || updateMutation.isPending || bulkCreateMutation.isPending ? 
+                    "저장 중..." : 
+                    task ? "수정 완료" :
+                    "저장하기"
+                  }
+                </Button>
               </div>
             </form>
           </Form>

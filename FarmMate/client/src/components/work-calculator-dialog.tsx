@@ -55,7 +55,7 @@ export default function WorkCalculatorDialog({
   const [totalDuration, setTotalDuration] = useState(70);
   const [taskSchedules, setTaskSchedules] = useState<TaskSchedule[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>(
-    propSelectedTasks || ["파종", "육묘", "수확-선별"]
+    propSelectedTasks || ["파종", "육묘", "수확"]
   );
 
   // propSelectedTasks가 변경되면 selectedTasks 업데이트
@@ -141,8 +141,8 @@ export default function WorkCalculatorDialog({
   };
 
   const addHarvestInterval = () => {
-    if (selectedTasks.includes("수확-선별")) {
-      setSelectedTasks(prev => [...prev, "수확-선별"]);
+    if (selectedTasks.includes("수확")) {
+      setSelectedTasks(prev => [...prev, "수확"]);
     }
   };
 

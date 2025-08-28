@@ -36,15 +36,15 @@ export const getCropName = (crops: Crop[], cropId: string | null | undefined) =>
 };
 
 export const getCalendarDays = (currentDate: Date): CalendarDay[] => {
-  // 한국 시간대를 고려하여 오늘 날짜 계산
-  const today = new Date();
+  // currentDate 기준으로 해당 주의 월요일을 찾기
+  const baseDate = new Date(currentDate);
   
   // 이번 주의 월요일을 찾기
-  const currentDayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+  const currentDayOfWeek = baseDate.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
   const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1; // 월요일까지의 일수
   
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - daysFromMonday);
+  const monday = new Date(baseDate);
+  monday.setDate(baseDate.getDate() - daysFromMonday);
   
   // 월요일부터 2주간 표시 (14일)
   const days: CalendarDay[] = [];

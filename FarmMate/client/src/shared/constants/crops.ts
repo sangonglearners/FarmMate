@@ -72,7 +72,7 @@ export const CROP_CATEGORIES = [
 ];
 
 export const TASK_TYPES = [
-  "파종", "육묘", "수확-선별"
+  "파종", "육묘", "수확"
 ];
 
 // 일괄등록용 농작업 계산기 데이터
@@ -85,7 +85,7 @@ export const BATCH_TASK_SCHEDULES = {
     duration: 20,
     description: "모종을 기르는 작업"
   },
-  "수확-선별": {
+  "수확": {
     duration: 20,
     description: "수확과 선별 작업"
   }
