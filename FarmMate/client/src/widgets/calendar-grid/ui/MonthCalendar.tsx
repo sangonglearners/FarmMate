@@ -3,7 +3,6 @@ import {
   getTaskColor, 
   getTasksForDate, 
   getCropName, 
-  isToday,
   weekDays 
 } from "../model/calendar.utils";
 
@@ -65,8 +64,15 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
         }
 
         const currentDate = new Date(year, month, day);
-        const dayTasks = getTasksForDate(tasks, currentDate, day);
-        const todayCheck = isToday(currentDate, day);
+        const dayTasks = getTasksForDate(tasks, currentDate);
+        
+        // 오늘 날짜인지 확인
+        const today = new Date();
+        const todayCheck = 
+          today.getDate() === day &&
+          today.getMonth() === month &&
+          today.getFullYear() === year;
+          
         const isSelected = selectedDate === currentDate.toISOString().split('T')[0];
         const isCurrentMonth = currentDate.getMonth() === month;
 
