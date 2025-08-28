@@ -180,11 +180,22 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
   // 제목 자동 설정
   useEffect(() => {
     const taskType = form.getValues("taskType");
-    if (cropSearchTerm && taskType) {
-      const autoTitle = `${cropSearchTerm}_${taskType}`;
+    const cropName = customCropName || cropSearchTerm;
+    if (cropName && taskType) {
+      const autoTitle = `${cropName}_${taskType}`;
       form.setValue("title", autoTitle);
     }
-  }, [cropSearchTerm, form]);
+  }, [cropSearchTerm, customCropName, form]);
+
+  // taskType 변경 시 제목 업데이트
+  useEffect(() => {
+    const taskType = form.watch("taskType");
+    const cropName = customCropName || cropSearchTerm;
+    if (cropName && taskType) {
+      const autoTitle = `${cropName}_${taskType}`;
+      form.setValue("title", autoTitle);
+    }
+  }, [form.watch("taskType"), customCropName, cropSearchTerm, form]);
 
   // 태스크 수정 모드인 경우 초기값 설정
   useEffect(() => {
@@ -321,8 +332,9 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
   };
 
   const handleKeyCropSelect = (keyCrop: typeof KEY_CROPS[0]) => {
-    setCropSearchTerm(`${keyCrop.category} > ${keyCrop.name} > ${keyCrop.variety}`);
-    setCustomCropName(`${keyCrop.category} > ${keyCrop.name} > ${keyCrop.variety}`);
+    const displayName = `${keyCrop.name} > ${keyCrop.variety}`;
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
     form.setValue("cropId", ""); // 커스텀 작물로 처리
     setShowKeyCrops(false);
   };
