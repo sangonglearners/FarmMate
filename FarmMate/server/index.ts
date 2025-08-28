@@ -118,17 +118,21 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
       });
     });
 
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
-    const port = parseInt(process.env.PORT || '5000', 10);
+    // Development: Use port 5000 for API server
+    // Production: Use environment PORT or default to 5000
+    const port = isProduction 
+      ? parseInt(process.env.PORT || '5000', 10)
+      : 5000;
     
     server.listen({
       port,
       host: "localhost",
     }, () => {
       log(`Server successfully started on port ${port} in ${process.env.NODE_ENV} mode`);
+      if (!isProduction) {
+        log(`Frontend development server available at: http://localhost:3000`);
+        log(`API server available at: http://localhost:${port}`);
+      }
       log('Application initialization completed successfully');
       
       // Signal that the app is ready (helpful for deployment systems)
