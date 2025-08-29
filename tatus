@@ -1,0 +1,10 @@
+[33m66eb27fe[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mhyeonuk[m[33m, [m[1;31morigin/hyeonuk[m[33m)[m 홈화면 새 작업 추가하기 기능 수정 및 taskTypes 간소화
+[33mfdbc62c9[m 작업 내용 요약
+[33m2158e0f1[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m fix: dev:server 스크립트에 tsconfig 경로 추가
+[33m7e32c40b[m feat: Improve dev script to properly handle Ctrl+C signal
+[33mf4a24ffb[m gitignore: 새 .gitignore 파일 추가
+[33m58c3f2cf[m docs: Update README with comprehensive FarmMate documentation
+[33m2bbca7b3[m remove node modules
+[33mf98c0b05[m feat: Add refactored FarmMate project with FSD architecture
+[33m9a454dff[m Add FarmMate file only
+[33m938cda94[m Merge branch 'main' of https://github.com/Ryoo1128/python-vegelab-calendar

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Calendar as CalendarIcon, Save } from "lucide-react";
+import { Calendar as CalendarIcon, Save, Plus, Calculator } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -20,207 +22,256 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Crop, InsertTask } from "@shared/schema";
+import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
+import type { Crop, InsertTask } from "../shared/types/schema";
 
 interface WorkCalculatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedCrops: string[];
-  selectedWork: string;
+  selectedCrop: Crop | null;
   baseDate: string;
-  crops: Crop[];
+  onSave: (tasks: InsertTask[]) => void;
+  selectedTasks?: string[];
 }
 
-interface WorkSchedule {
-  cropId: string;
-  cropName: string;
-  recommendedDate: string;
-  selectedDate: string;
+interface TaskSchedule {
+  taskType: string;
+  duration: number;
+  startDate: string;
+  endDate: string;
+  description: string;
 }
-
-// 농작업별 권장 간격 (일)
-const WORK_INTERVALS: Record<string, number> = {
-  "파종-정식": 0,
-  "물주기": 1,
-  "비료주기": 7,
-  "약치기": 14,
-  "풀매기": 21,
-  "가지치기": 30,
-  "수확": 60,
-  "토양관리": 7,
-  "병해충방제": 10,
-  "저장-포장": 3,
-  "기타": 0,
-};
 
 export default function WorkCalculatorDialog({ 
   open, 
   onOpenChange, 
-  selectedCrops, 
-  selectedWork, 
-  baseDate, 
-  crops 
+  selectedCrop,
+  baseDate,
+  onSave,
+  selectedTasks: propSelectedTasks
 }: WorkCalculatorDialogProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   
-  const [schedules, setSchedules] = useState<WorkSchedule[]>(() => {
-    const interval = WORK_INTERVALS[selectedWork] || 0;
-    return selectedCrops.map((cropId, index) => {
-      const crop = crops.find(c => c.id === cropId);
-      const recommendedDate = format(
-        addDays(new Date(baseDate), interval + index), 
-        "yyyy-MM-dd"
-      );
-      return {
-        cropId,
-        cropName: crop ? `${crop.category} → ${crop.name} → ${crop.variety}` : '알 수 없는 작물',
-        recommendedDate,
-        selectedDate: recommendedDate,
-      };
+  const [totalDuration, setTotalDuration] = useState(70);
+  const [taskSchedules, setTaskSchedules] = useState<TaskSchedule[]>([]);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>(
+    propSelectedTasks || ["파종", "육묘", "수확"]
+  );
+
+  // propSelectedTasks가 변경되면 selectedTasks 업데이트
+  useEffect(() => {
+    if (propSelectedTasks && propSelectedTasks.length > 0) {
+      setSelectedTasks(propSelectedTasks);
+    }
+  }, [propSelectedTasks]);
+
+  // 선택된 작업에 따라 일정 계산
+  useEffect(() => {
+    if (!baseDate || selectedTasks.length === 0) return;
+
+    const schedules: TaskSchedule[] = [];
+    let currentDate = new Date(baseDate);
+    
+    selectedTasks.forEach((taskType, index) => {
+      const taskInfo = BATCH_TASK_SCHEDULES[taskType as keyof typeof BATCH_TASK_SCHEDULES];
+      if (taskInfo) {
+        const startDate = format(currentDate, "yyyy-MM-dd");
+        const endDate = format(addDays(currentDate, taskInfo.duration - 1), "yyyy-MM-dd");
+        
+        schedules.push({
+          taskType,
+          duration: taskInfo.duration,
+          startDate,
+          endDate,
+          description: taskInfo.description
+        });
+        
+        // 다음 작업 시작일 계산
+        currentDate = addDays(currentDate, taskInfo.duration);
+      }
     });
-  });
 
-  const [calendarOpen, setCalendarOpen] = useState<string | null>(null);
+    setTaskSchedules(schedules);
+    
+    // 총 소요 기간 계산
+    const total = schedules.reduce((sum, schedule) => sum + schedule.duration, 0);
+    setTotalDuration(total);
+  }, [baseDate, selectedTasks]);
 
-  const updateScheduleDate = (cropId: string, newDate: string) => {
-    setSchedules(prev => 
-      prev.map(schedule => 
-        schedule.cropId === cropId 
-          ? { ...schedule, selectedDate: newDate }
-          : schedule
-      )
+  const handleTaskToggle = (taskType: string) => {
+    setSelectedTasks(prev => 
+      prev.includes(taskType)
+        ? prev.filter(t => t !== taskType)
+        : [...prev, taskType]
     );
   };
 
-  const bulkCreateMutation = useMutation({
-    mutationFn: async (tasks: (InsertTask & { title: string })[]) => {
-      const promises = tasks.map(task => 
-        apiRequest("POST", "/api/tasks", task).then(res => res.json())
-      );
-      return Promise.all(promises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+  const handleSave = () => {
+    console.log("Work calculator handleSave called");
+    console.log("Selected tasks:", selectedTasks);
+    console.log("Task schedules:", taskSchedules);
+    
+    if (selectedTasks.length === 0) {
+      console.log("No tasks selected");
       toast({
-        title: "일괄 등록 완료",
-        description: `${schedules.length}개 작물의 ${selectedWork} 일정이 추가되었습니다.`,
-      });
-      onOpenChange(false);
-    },
-    onError: () => {
-      toast({
-        title: "등록 실패",
-        description: "일정 등록 중 오류가 발생했습니다.",
+        title: "작업을 선택해주세요",
         variant: "destructive",
       });
-    },
-  });
+      return;
+    }
 
-  const handleSave = () => {
-    const tasks = schedules.map(schedule => {
-      const crop = crops.find(c => c.id === schedule.cropId);
-      return {
-        title: `${schedule.cropName.split(' → ')[1]} ${selectedWork}`,
-        description: `농작업 계산기를 통해 생성된 ${selectedWork} 일정`,
-        taskType: selectedWork,
-        scheduledDate: schedule.selectedDate,
-        farmId: crop?.farmId || "",
-        cropId: schedule.cropId,
-        userId: "user-1", // 현재 사용자 ID
+    const tasks: InsertTask[] = taskSchedules.map(schedule => {
+      const task = {
+        title: `${selectedCrop?.name || "작물"} ${schedule.taskType}`,
+        description: schedule.description,
+        taskType: schedule.taskType,
+        scheduledDate: schedule.startDate,
+        endDate: schedule.endDate,
+        farmId: selectedCrop?.farmId || "",
+        cropId: selectedCrop?.id || "",
+        userId: "user-1",
       };
+      console.log("Created work calculator task:", task);
+      return task;
     });
-    
-    bulkCreateMutation.mutate(tasks);
+
+    console.log("Total work calculator tasks to save:", tasks.length);
+    onSave(tasks);
+    onOpenChange(false);
+  };
+
+  const addHarvestInterval = () => {
+    if (selectedTasks.includes("수확")) {
+      setSelectedTasks(prev => [...prev, "수확"]);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>농작업 계산기</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Calculator className="w-5 h-5" />
+            농작업 계산기
+          </DialogTitle>
           <p className="text-sm text-gray-600">
-            {selectedWork} 작업의 권장 일정을 확인하고 조정하세요
+            선택된 작물의 농작업 일정을 자동으로 계산합니다
           </p>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-            <p><strong>선택된 농작업:</strong> {selectedWork}</p>
-            <p><strong>기준 날짜:</strong> {format(new Date(baseDate), "yyyy년 MM월 dd일", { locale: ko })}</p>
-            <p><strong>선택된 작물:</strong> {selectedCrops.length}개</p>
+          {/* 작물 정보 */}
+          {selectedCrop && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm font-medium text-blue-900">
+                선택된 작물: {selectedCrop.category} &gt; {selectedCrop.name} &gt; {selectedCrop.variety}
+              </p>
+            </div>
+          )}
+
+          {/* 총 소요 기간 */}
+          <div className="space-y-2">
+            <Label>총 소요 기간</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={totalDuration}
+                onChange={(e) => setTotalDuration(Number(e.target.value))}
+                className="w-20"
+              />
+              <span className="text-sm text-gray-600">일</span>
+            </div>
           </div>
 
+          {/* 농작업 선택 */}
+          <div className="space-y-2">
+            <Label>농작업 선택</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TASK_TYPES.map(taskType => (
+                <button
+                  key={taskType}
+                  type="button"
+                  onClick={() => handleTaskToggle(taskType)}
+                  className={cn(
+                    "p-2 text-sm border rounded transition-colors text-left",
+                    selectedTasks.includes(taskType)
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  )}
+                >
+                  {taskType}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 작업 일정 */}
           <div className="space-y-3">
-            {schedules.map((schedule) => (
-              <Card key={schedule.cropId}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {schedule.cropName}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
+            <Label>작업 일정</Label>
+            {taskSchedules.map((schedule, index) => (
+              <Card key={index}>
+                <CardContent className="p-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-500">
-                      권장: {format(new Date(schedule.recommendedDate), "MM/dd", { locale: ko })}
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{schedule.taskType}</div>
+                      <div className="text-xs text-gray-500">{schedule.duration} 일</div>
                     </div>
-                    <Popover 
-                      open={calendarOpen === schedule.cropId} 
-                      onOpenChange={(open) => setCalendarOpen(open ? schedule.cropId : null)}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            "h-8 text-xs font-normal",
-                            schedule.selectedDate !== schedule.recommendedDate && "border-orange-500 bg-orange-50"
-                          )}
-                        >
-                          {format(new Date(schedule.selectedDate), "MM/dd", { locale: ko })}
-                          <CalendarIcon className="ml-2 h-3 w-3" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar
-                          mode="single"
-                          selected={new Date(schedule.selectedDate)}
-                          onSelect={(date) => {
-                            if (date) {
-                              updateScheduleDate(schedule.cropId, format(date, "yyyy-MM-dd"));
-                              setCalendarOpen(null);
-                            }
-                          }}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {format(new Date(schedule.startDate), "MM/dd", { locale: ko })}
+                      </span>
+                      <CalendarIcon className="w-4 h-4 text-gray-400" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
+          {/* 수확 사이 추가 */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addHarvestInterval}
+              className="text-xs"
             >
-              취소
-            </Button>
-            <Button 
-              className="flex-1"
-              onClick={handleSave}
-              disabled={bulkCreateMutation.isPending}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {bulkCreateMutation.isPending ? "저장 중..." : `${schedules.length}개 일정 저장`}
+              <Plus className="w-3 h-3 mr-1" />
+              수확 사이를 추가
             </Button>
           </div>
+
+          {/* 재배 종료일 */}
+          {taskSchedules.length > 0 && (
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">재배 종료</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {format(addDays(new Date(baseDate), totalDuration), "MM/dd", { locale: ko })}
+                  </span>
+                  <CalendarIcon className="w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={() => onOpenChange(false)}
+          >
+            취소
+          </Button>
+          <Button 
+            className="flex-1"
+            onClick={handleSave}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            저장하기
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

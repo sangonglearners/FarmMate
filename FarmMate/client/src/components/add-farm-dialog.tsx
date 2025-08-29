@@ -122,7 +122,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {farm ? "농장 수정하기" : "농장을 선택해 주세요"}
@@ -228,13 +228,15 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
               )}
             />
 
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
-            </Button>
+            <div className="sticky bottom-0 bg-white pt-4 border-t">
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
+              </Button>
+            </div>
           </form>
         </Form>
       </DialogContent>

@@ -211,7 +211,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{crop ? "작물 수정하기" : "작물을 선택해 주세요"}</DialogTitle>
         </DialogHeader>
@@ -312,9 +312,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
                 )}
               />
             )}
-
             
-
             <Button
               type="submit"
               className={`w-full ${
@@ -330,6 +328,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
             >
               {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
             </Button>
+
           </form>
         </Form>
       </DialogContent>
@@ -339,7 +338,6 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
     </>
   );
 }
-
 // ----------------------------- NewCropModal -----------------------------------------
 
 function NewCropModal({ open, onOpenChange, baseNameFromSearch }: { open: boolean; onOpenChange: (v: boolean) => void; baseNameFromSearch?: string; }) {
