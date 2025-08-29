@@ -44,6 +44,7 @@ export const tasks = pgTable("tasks", {
   taskType: text("task_type").notNull(), // 파종, 육묘, 수확-선별, 저장-포장 등
   scheduledDate: date("scheduled_date").notNull(),
   endDate: date("end_date"),
+  rowNumber: integer("row_number"), // 이랑 번호
   completed: integer("completed").notNull().default(0), // 0: 미완료, 1: 완료
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
