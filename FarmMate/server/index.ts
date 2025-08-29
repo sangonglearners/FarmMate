@@ -118,11 +118,8 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
       });
     });
 
-    // Development: Use port 5000 for API server
-    // Production: Use environment PORT or default to 5000
-    const port = isProduction 
-      ? parseInt(process.env.PORT || '5000', 10)
-      : 5000;
+    // Use PORT if provided; otherwise default to 5000
+    const port = parseInt(process.env.PORT || '5000', 10);
     
     server.listen({
       port,
@@ -130,7 +127,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     }, () => {
       log(`Server successfully started on port ${port} in ${process.env.NODE_ENV} mode`);
       if (!isProduction) {
-        log(`Frontend development server available at: http://localhost:3000`);
+        log(`Frontend development server available at: http://localhost:5174`);
         log(`API server available at: http://localhost:${port}`);
       }
       log('Application initialization completed successfully');
