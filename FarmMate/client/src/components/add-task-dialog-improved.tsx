@@ -408,18 +408,20 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     const { environment, ...taskData } = data;
-    
+
     if (task) {
-      // 수정 모드
       updateMutation.mutate(taskData as InsertTask);
-    } else if (registrationMode === 'batch') {
-      // 일괄 등록 - 여러 작업
-      createBatchTasks();
-    } else {
-      // 단일 작업
-      const taskWithUserId = { ...taskData, userId: "user-1" } as InsertTask;
-      createMutation.mutate(taskWithUserId);
+      return;
     }
+
+    if (registrationMode === 'batch' || registrationMode === 'individual') {
+      // 개별등록에서는 종료 날짜가 필수이며, 내부에서 검증 후 토스트로 안내됨
+      createBatchTasks();
+      return;
+    }
+
+    const taskWithUserId = { ...taskData, userId: "user-1" } as InsertTask;
+    createMutation.mutate(taskWithUserId);
   };
 
   const openWorkCalculator = () => {
@@ -709,14 +711,14 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 )}
               />
 
-              {/* 종료 날짜 선택 (개별등록에서만 표시) */}
+              {/* 종료 날짜 선택 (개별등록에서만 표시, 필수) */}
               {!task && registrationMode === 'individual' && (
                 <FormField
                   control={form.control}
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>종료 날짜 (선택사항)</FormLabel>
+                      <FormLabel>종료 날짜 *</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>

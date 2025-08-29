@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently --kill-others --prefix=\"[{name}]\" --names=\"client,server\" \"C:\\\\Users\\\\바이오헬스\\\\.bun\\\\bin\\\\bun.exe run dev:client\" \"C:\\\\Users\\\\바이오헬스\\\\.bun\\\\bin\\\\bun.exe run dev:server\"",
+    "dev": "concurrently --kill-others --prefix=\"[{name}]\" --names=\"client,server\" \"bun run dev:client\" \"bun run dev:server\"",
     "dev:client": "vite --host localhost --port 3000",
     "dev:server": "cross-env NODE_ENV=development TMPDIR=./tmp TEMP=./tmp TMP=./tmp tsx server/index.ts",
     "start": "NODE_ENV=production node dist/index.js",
