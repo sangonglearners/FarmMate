@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { insertTaskSchema } from "@shared/schema";
-import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
+import { insertTaskSchema } from "../shared/types/schema";
+import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 
@@ -48,8 +48,7 @@ const formSchema = insertTaskSchema.extend({
 });
 
 const taskTypes = [
-  "파종", "육묘", "이량준비 및 정식", "정식", "풀/병해충/수분 관리", 
-  "고르기", "수확·선별", "저장·포장", "기타 (직접 입력)"
+  "파종", "육묘", "수확"
 ];
 
 interface NewAddTaskDialogProps {
@@ -105,7 +104,6 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
       description: "",
       farmId: "",
       cropId: "",
-      userId: "user-1",
       environment: "",
     },
   });
@@ -289,7 +287,6 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
         selectedRows.forEach(row => {
           const defaultTitle = `${selectedCrop || '작물'} ${work}`;
           tasksToCreate.push({
-            userId: "user-1",
             title: customTitle || defaultTitle,
             taskType: work,
             cropId: targetCrop?.id || "",
@@ -311,7 +308,6 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
           selectedRows.forEach(row => {
             const defaultTitle = `${selectedCrop || '작물'} ${work}`;
             tasksToCreate.push({
-              userId: "user-1",
               title: customTitle || defaultTitle,
               taskType: work,
               cropId: targetCrop?.id || "",
@@ -575,13 +571,15 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
           </div>
 
           {/* 저장 버튼 */}
-          <Button
-            onClick={() => onSubmit({} as any)}
-            className="w-full bg-black text-white hover:bg-gray-800"
-            disabled={createTaskMutation.isPending}
-          >
-            {createTaskMutation.isPending ? "저장 중..." : "저장하기"}
-          </Button>
+          <div className="sticky bottom-0 bg-white pt-4 border-t">
+            <Button
+              onClick={() => onSubmit({} as any)}
+              className="w-full bg-black text-white hover:bg-gray-800"
+              disabled={createTaskMutation.isPending}
+            >
+              {createTaskMutation.isPending ? "저장 중..." : "저장하기"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

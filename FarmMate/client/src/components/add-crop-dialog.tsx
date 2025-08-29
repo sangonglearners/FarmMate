@@ -26,8 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { insertCropSchema } from "@shared/schema";
-import type { InsertCrop, Crop } from "@shared/schema";
+import { insertCropSchema } from "../../../shared/schema";
+import type { InsertCrop, Crop } from "../../../shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
@@ -166,7 +166,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {crop ? "작물 수정하기" : "작물을 선택해 주세요"}
@@ -269,13 +269,15 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
               )}
             />
 
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={createMutation.isPending || updateMutation.isPending || !selectedCrop}
-            >
-              {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
-            </Button>
+            <div className="sticky bottom-0 bg-white pt-4 border-t">
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={createMutation.isPending || updateMutation.isPending || !selectedCrop}
+              >
+                {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
+              </Button>
+            </div>
           </form>
         </Form>
       </DialogContent>
