@@ -8,6 +8,7 @@ import { queryClient } from '@shared/api/client';
 import { Toaster } from '@shared/ui/toaster';
 import { TooltipProvider } from '@shared/ui/tooltip';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { MyPage } from '@pages/my-page';
 
 // TODO: Migrate these pages to FSD structure
 // import NotFound from "@/pages/not-found";
@@ -58,11 +59,11 @@ function Router() {
         <Switch>
           <Route path="/farms" component={FarmsPage} />
           <Route path="/calendar" component={CalendarPage} />
+          <Route path="/my-page" component={MyPage} />
           <Route path="/" component={HomePage} />
           {/* TODO: Migrate these routes to FSD structure */}
           {/* <Route path="/crops" component={Crops} /> */}
           {/* <Route path="/recommendations" component={Recommendations} /> */}
-          {/* <Route path="/my-page" component={MyPage} /> */}
           <Route component={() => <div className="p-4"><h1>Page not found</h1></div>} />
         </Switch>
       </main>
