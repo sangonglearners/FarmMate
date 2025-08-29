@@ -1,0 +1,11 @@
+{
+  "name": "farmmate-root",
+  "private": true,
+  "workspaces": [],
+  "scripts": {
+    "dev": "cd FarmMate && bun run dev",
+    "dev:client": "cd FarmMate && bun run dev:client",
+    "dev:server": "cd FarmMate && bun run dev:server",
+    "install:all": "cd FarmMate && bun install"
+  }
+}

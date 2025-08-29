@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, ChevronRight, Sprout, MapPin } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Card, CardContent } from "@shared/ui/card";
@@ -12,6 +12,14 @@ export default function FarmsPage() {
   
   const { data: farms, isLoading } = useFarms();
   const { data: crops } = useCrops();
+
+  // Open dialogs when query params are present (e.g., /farms?add=farm or ?add=crop)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const add = params.get('add');
+    if (add === 'farm') setIsAddFarmDialogOpen(true);
+    if (add === 'crop') setIsAddCropDialogOpen(true);
+  }, []);
 
   const getFarmCrops = (farmId: string) => {
     return crops?.filter(crop => crop.farmId === farmId) || [];
