@@ -80,7 +80,8 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
   });
 
   const { data: tasks } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
+    queryKey: ["tasks"],
+    queryFn: () => import("@shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
   });
 
   // 재배환경별 이랑 개수
@@ -119,7 +120,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "작업이 등록되었습니다",
         description: "새로운 농작업 일정이 추가되었습니다.",

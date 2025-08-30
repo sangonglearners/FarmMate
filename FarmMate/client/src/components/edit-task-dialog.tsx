@@ -119,7 +119,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
         body: JSON.stringify(updateData),
       });
 
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setOpen(false);
     } catch (error) {
       console.error("Failed to update task:", error);
