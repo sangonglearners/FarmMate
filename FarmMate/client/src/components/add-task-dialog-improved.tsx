@@ -43,7 +43,14 @@ import {
 import { useToast } from "@shared/hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-import { apiRequest } from "@shared/api/client";
+// ⬇ /api 호출 제거
+// import { apiRequest } from "@shared/api/client";
+
+// ⬇ Supabase 유틸 추가
+import { saveTask } from "@/shared/api/saveTask";
+import { supabase } from "@/shared/api/supabase";
+import { mustOk } from "@/shared/api/mustOk";
+
 import { z } from "zod";
 import { Calendar } from "@shared/ui/calendar";
 import WorkCalculatorDialog from "./work-calculator-dialog";
@@ -56,83 +63,32 @@ const formSchema = insertTaskSchema.extend({
 
 // 핵심 작물 목록
 const KEY_CROPS = [
-  {
-    category: "배추",
-    name: "미니양배추",
-    variety: "디아라",
-    description: "작은 크기의 양배추로 가정에서 재배하기 좋음"
-  },
-  {
-    category: "배추",
-    name: "미니양배추", 
-    variety: "티아라",
-    description: "티아라 품종의 미니 양배추"
-  },
-  {
-    category: "배추",
-    name: "콜라비",
-    variety: "그린",
-    description: "줄기 부분을 먹는 배추과 채소"
-  },
-  {
-    category: "배추",
-    name: "콜라비",
-    variety: "퍼플",
-    description: "보라색 줄기의 콜라비"
-  },
-  {
-    category: "뿌리채소",
-    name: "당근",
-    variety: "오렌지",
-    description: "주황색 당근"
-  },
-  {
-    category: "뿌리채소", 
-    name: "비트",
-    variety: "레드",
-    description: "붉은색 비트"
-  },
-  {
-    category: "뿌리채소",
-    name: "무",
-    variety: "백무",
-    description: "흰색 무"
-  },
-  {
-    category: "잎채소",
-    name: "상추",
-    variety: "청상추",
-    description: "녹색 상추"
-  },
-  {
-    category: "잎채소",
-    name: "시금치",
-    variety: "일반",
-    description: "영양이 풍부한 시금치"
-  },
-  {
-    category: "과채류",
-    name: "토마토",
-    variety: "체리",
-    description: "작은 체리 토마토"
-  },
-  {
-    category: "과채류",
-    name: "고추",
-    variety: "청양고추",
-    description: "매운 청양고추"
-  }
+  { category: "배추", name: "미니양배추", variety: "디아라", description: "작은 크기의 양배추로 가정에서 재배하기 좋음" },
+  { category: "배추", name: "미니양배추", variety: "티아라", description: "티아라 품종의 미니 양배추" },
+  { category: "배추", name: "콜라비", variety: "그린", description: "줄기 부분을 먹는 배추과 채소" },
+  { category: "배추", name: "콜라비", variety: "퍼플", description: "보라색 줄기의 콜라비" },
+  { category: "뿌리채소", name: "당근", variety: "오렌지", description: "주황색 당근" },
+  { category: "뿌리채소", name: "비트", variety: "레드", description: "붉은색 비트" },
+  { category: "뿌리채소", name: "무", variety: "백무", description: "흰색 무" },
+  { category: "잎채소", name: "상추", variety: "청상추", description: "녹색 상추" },
+  { category: "잎채소", name: "시금치", variety: "일반", description: "영양이 풍부한 시금치" },
+  { category: "과채류", name: "토마토", variety: "체리", description: "작은 체리 토마토" },
+  { category: "과채류", name: "고추", variety: "청양고추", description: "매운 청양고추" },
 ];
 
-// 일괄등록용 작업 목록 (파종, 육묘, 수확만)
-const batchTaskTypes = [
-  "파종", "육묘", "수확"
-];
+// 일괄등록(여러 작업 한 날짜)
+const batchTaskTypes = ["파종", "육묘", "수확"];
 
-// 개별등록용 작업 목록 (기존 7개)
+// 개별등록(한 작업 날짜 범위)
 const individualTaskTypes = [
-  "파종", "육묘", "이랑준비", "정식", "풀/병해충/수분 관리", 
-  "고르기", "수확", "저장-포장"
+  "파종",
+  "육묘",
+  "이랑준비",
+  "정식",
+  "풀/병해충/수분 관리",
+  "고르기",
+  "수확",
+  "저장-포장",
 ];
 
 const environments = ["노지", "시설1", "시설2"];
@@ -144,10 +100,16 @@ interface AddTaskDialogProps {
   task?: Task | null;
 }
 
-export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }: AddTaskDialogProps) {
+export default function AddTaskDialog({
+  open,
+  onOpenChange,
+  selectedDate,
+  task,
+}: AddTaskDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [registrationMode, setRegistrationMode] = useState<'batch' | 'individual'>('individual');
+  const [registrationMode, setRegistrationMode] =
+    useState<"batch" | "individual">("individual");
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
   const [customCropName, setCustomCropName] = useState("");
@@ -182,38 +144,36 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     const taskType = form.getValues("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      const autoTitle = `${cropName}_${taskType}`;
-      form.setValue("title", autoTitle);
+      form.setValue("title", `${cropName}_${taskType}`);
     }
   }, [cropSearchTerm, customCropName, form]);
 
-  // taskType 변경 시 제목 업데이트
+  // taskType 변경시 제목 갱신
   useEffect(() => {
     const taskType = form.watch("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      const autoTitle = `${cropName}_${taskType}`;
-      form.setValue("title", autoTitle);
+      form.setValue("title", `${cropName}_${taskType}`);
     }
   }, [form.watch("taskType"), customCropName, cropSearchTerm, form]);
 
-  // 태스크 수정 모드인 경우 초기값 설정
+  // 수정 모드 초기화
   useEffect(() => {
     if (task && open) {
-      const crop = crops?.find(c => c.id === task.cropId);
-      const farm = farms?.find(f => f.id === task.farmId);
-      
+      const crop = crops?.find((c) => c.id === task.cropId);
+      const farm = farms?.find((f) => f.id === task.farmId);
+
       form.reset({
         title: task.title || "",
-        description: task.description || "",
-        taskType: task.taskType || "",
-        scheduledDate: task.scheduledDate || "",
-        endDate: task.endDate || "",
-        farmId: task.farmId || "",
-        cropId: task.cropId || "",
+        description: (task as any).description || "",
+        taskType: (task as any).taskType || "",
+        scheduledDate: (task as any).scheduledDate || "",
+        endDate: (task as any).endDate || "",
+        farmId: (task as any).farmId || "",
+        cropId: (task as any).cropId || "",
         environment: farm?.environment || "",
       });
-      
+
       if (crop) {
         setCropSearchTerm(crop.name);
         setSelectedCrop(crop);
@@ -236,166 +196,205 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     }
   }, [task, open, selectedDate, crops, farms, form]);
 
-  const createMutation = useMutation({
-    mutationFn: (data: InsertTask) => 
-      apiRequest("POST", "/api/tasks", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      toast({
-        title: "일정이 등록되었습니다.",
-        description: "새로운 작업 일정이 추가되었습니다.",
-      });
-      onOpenChange(false);
-    },
-    onError: (error) => {
-      console.error("Task creation error:", error);
-      toast({
-        title: "작업 등록 실패",
-        description: "작업 등록 중 오류가 발생했습니다. 다시 시도해주세요.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data: InsertTask) => 
-      apiRequest("PUT", `/api/tasks/${task?.id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      toast({
-        title: "일정이 수정되었습니다.",
-        description: "변경된 일정이 저장되었습니다.",
-      });
-      onOpenChange(false);
-    },
-    onError: (error) => {
-      console.error("Task update error:", error);
-      toast({
-        title: "작업 수정 실패",
-        description: "작업 수정 중 오류가 발생했습니다. 다시 시도해주세요.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const bulkCreateMutation = useMutation({
-    mutationFn: (tasks: InsertTask[]) => 
-      Promise.all(tasks.map(task => 
-        apiRequest("POST", "/api/tasks", task)
-      )),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      toast({
-        title: "일정이 등록되었습니다.",
-        description: "작업 일정이 추가되었습니다.",
-      });
-      onOpenChange(false);
-    },
-    onError: (error) => {
-      console.error("Bulk task creation error:", error);
-      toast({
-        title: "작업 등록 실패",
-        description: "일괄 작업 등록 중 오류가 발생했습니다. 다시 시도해주세요.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // 작물 검색 필터링
-  const searchFilteredCrops = crops?.filter(crop =>
-    crop.name.toLowerCase().includes(cropSearchTerm.toLowerCase()) ||
-    crop.category.toLowerCase().includes(cropSearchTerm.toLowerCase())
-  ) || [];
+  // 작물 필터
+  const searchFilteredCrops =
+    crops?.filter(
+      (crop) =>
+        crop.name.toLowerCase().includes(cropSearchTerm.toLowerCase()) ||
+        crop.category.toLowerCase().includes(cropSearchTerm.toLowerCase())
+    ) || [];
 
   const handleWorkToggle = (work: string) => {
-    setSelectedWorks(prev =>
-      prev.includes(work)
-        ? prev.filter(w => w !== work)
-        : [...prev, work]
+    setSelectedWorks((prev) =>
+      prev.includes(work) ? prev.filter((w) => w !== work) : [...prev, work]
     );
   };
 
   const handleCropSelect = (cropId: string) => {
-    const crop = crops?.find(c => c.id === cropId);
-    if (crop) {
-      form.setValue("cropId", cropId);
-      form.setValue("farmId", crop.farmId || "");
-      setCropSearchTerm(crop.name);
-      setSelectedCrop(crop);
-      
-      // 농장의 재배환경 설정
-      const farm = farms?.find(f => f.id === crop.farmId);
-      if (farm) {
-        form.setValue("environment", farm.environment);
-      }
-    }
+    const crop = crops?.find((c) => c.id === cropId);
+    if (!crop) return;
+
+    form.setValue("cropId", cropId);
+    form.setValue("farmId", (crop as any).farmId || "");
+    setCropSearchTerm(crop.name);
+    setSelectedCrop(crop);
+
+    const farm = farms?.find((f) => f.id === (crop as any).farmId);
+    if (farm) form.setValue("environment", farm.environment);
   };
 
-  const handleKeyCropSelect = (keyCrop: typeof KEY_CROPS[0]) => {
+  const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
     const displayName = `${keyCrop.name} > ${keyCrop.variety}`;
     setCropSearchTerm(displayName);
     setCustomCropName(displayName);
-    form.setValue("cropId", ""); // 커스텀 작물로 처리
+    form.setValue("cropId", ""); // 커스텀 작물
     setShowKeyCrops(false);
   };
 
   const handleCustomCropInput = (cropName: string) => {
     setCustomCropName(cropName);
     setCropSearchTerm(cropName);
-    form.setValue("cropId", ""); // 커스텀 작물인 경우 cropId는 빈 값
+    form.setValue("cropId", "");
   };
 
-  // 일괄 등록 - 여러 작업을 한 날짜에 등록
-  const createBatchTasks = () => {
-    if (selectedWorks.length === 0) {
+  /** 단건 저장 */
+  const createMutation = useMutation({
+    mutationFn: async (data: InsertTask) =>
+      saveTask({
+        title: data.title!,
+        memo: (data as any).description || undefined,
+        scheduledAt: (data as any).scheduledDate,
+        farmId: (data as any).farmId ? Number((data as any).farmId) : undefined,
+        cropId: (data as any).cropId ? Number((data as any).cropId) : undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
       toast({
-        title: "작업을 선택해주세요",
+        title: "일정이 등록되었습니다.",
+        description: "새로운 작업 일정이 추가되었습니다.",
+      });
+      onOpenChange(false);
+    },
+    onError: (e: any) => {
+      toast({
+        title: "작업 등록 실패",
+        description: e?.message ?? "작업 등록 중 오류가 발생했습니다.",
         variant: "destructive",
       });
-      return;
-    }
+    },
+  });
 
-    const cropName = customCropName || crops?.find(c => c.id === form.getValues("cropId"))?.name || "작물";
+  /** 수정 */
+  const updateMutation = useMutation({
+    mutationFn: async (data: InsertTask) => {
+      const storedTasks = localStorage.getItem("farmmate-tasks");
+      const tasks = storedTasks ? JSON.parse(storedTasks) : [];
+      
+      const taskIndex = tasks.findIndex((t: any) => t.id === (task as any)!.id);
+      if (taskIndex !== -1) {
+        tasks[taskIndex] = {
+          ...tasks[taskIndex],
+          title: data.title!,
+          description: (data as any).description || "",
+          scheduledDate: (data as any).scheduledDate || tasks[taskIndex].scheduledDate,
+          farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
+          cropId: (data as any).cropId ? (data as any).cropId.toString() : "",
+        };
+        localStorage.setItem("farmmate-tasks", JSON.stringify(tasks));
+        return tasks[taskIndex];
+      }
+      throw new Error("작업을 찾을 수 없습니다.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+      toast({
+        title: "일정이 수정되었습니다.",
+        description: "변경된 일정이 저장되었습니다.",
+      });
+      onOpenChange(false);
+    },
+    onError: (e: any) => {
+      toast({
+        title: "작업 수정 실패",
+        description: e?.message ?? "작업 수정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  /** 대량 저장 (일괄/개별) */
+  const bulkCreateMutation = useMutation({
+    mutationFn: async (tasks: InsertTask[]) => {
+      const storedTasks = localStorage.getItem("farmmate-tasks");
+      const existingTasks = storedTasks ? JSON.parse(storedTasks) : [];
+      
+      const newTasks = tasks.map((t) => ({
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // 고유 ID
+        title: t.title!,
+        description: (t as any).description || "",
+        taskType: (t as any).taskType || "기타",
+        scheduledDate: (t as any).scheduledDate || new Date().toISOString().split('T')[0],
+        completed: 0,
+        farmId: (t as any).farmId ? (t as any).farmId.toString() : "",
+        cropId: (t as any).cropId ? (t as any).cropId.toString() : "",
+        userId: "test-user-id",
+        createdAt: new Date().toISOString(),
+        completedAt: null,
+      }));
+      
+      const allTasks = [...existingTasks, ...newTasks];
+      localStorage.setItem("farmmate-tasks", JSON.stringify(allTasks));
+      return newTasks;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+      toast({
+        title: "일정이 등록되었습니다.",
+        description: "작업 일정이 추가되었습니다.",
+      });
+      onOpenChange(false);
+    },
+    onError: (e: any) => {
+      toast({
+        title: "작업 등록 실패",
+        description: e?.message ?? "일괄 작업 등록 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 일괄/개별 생성
+  const createBatchTasks = () => {
+    const cropName =
+      customCropName ||
+      crops?.find((c) => c.id === form.getValues("cropId"))?.name ||
+      "작물";
     const startDate = form.getValues("scheduledDate") || "";
-    
-    if (registrationMode === 'batch') {
-      // 일괄등록: 여러 작업, 시작 날짜만
-      const tasks = selectedWorks.map(work => ({
+
+    if (registrationMode === "batch") {
+      if (selectedWorks.length === 0) {
+        toast({ title: "작업을 선택해주세요", variant: "destructive" });
+        return;
+      }
+      const tasks: InsertTask[] = selectedWorks.map((work) => ({
         title: form.getValues("title") || `${cropName} ${work}`,
-        description: form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`,
+        description:
+          form.getValues("description") ||
+          `일괄 등록으로 생성된 ${work} 작업`,
         taskType: work,
         scheduledDate: startDate,
         farmId: form.getValues("farmId") || "",
         cropId: form.getValues("cropId") || "",
-        userId: "user-1",
       }));
       bulkCreateMutation.mutate(tasks);
     } else {
-      // 개별등록: 하나의 작업, 날짜 범위
+      // individual: 한 작업을 날짜 범위로
       const endDate = (form.getValues("endDate") as string) || "";
       if (!startDate || !endDate) {
         toast({
-          title: "시작 날짜와 종료 날짜를 모두 선택해주세요",
+          title: "시작/종료 날짜를 모두 선택해주세요",
           variant: "destructive",
         });
         return;
       }
-
       const work = form.getValues("taskType") || "";
       const start = new Date(startDate);
       const end = new Date(endDate);
-      const tasks = [];
+      const tasks: InsertTask[] = [];
 
-      // 날짜 범위 내의 모든 날짜에 작업 등록
-      for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         tasks.push({
           title: form.getValues("title") || `${cropName} ${work}`,
-          description: form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`,
+          description:
+            form.getValues("description") ||
+            `개별 등록으로 생성된 ${work} 작업`,
           taskType: work,
-          scheduledDate: format(date, "yyyy-MM-dd"),
+          scheduledDate: format(d, "yyyy-MM-dd"),
           farmId: form.getValues("farmId") || "",
           cropId: form.getValues("cropId") || "",
-          userId: "user-1",
         });
       }
       bulkCreateMutation.mutate(tasks);
@@ -403,33 +402,60 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
   };
 
   const handleWorkCalculatorSave = (tasks: InsertTask[]) => {
-    bulkCreateMutation.mutate(tasks);
+    console.log("WorkCalculator 작업 저장:", tasks);
+    
+    // 농작업 계산기에서 온 작업들을 로컬 스토리지 형식으로 변환
+    const formattedTasks = tasks.map(task => ({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      title: task.title,
+      description: task.description || "",
+      taskType: task.taskType || "기타",
+      scheduledDate: task.scheduledDate,
+      completed: 0,
+      farmId: task.farmId?.toString() || "",
+      cropId: task.cropId?.toString() || "",
+      userId: "test-user-id",
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    }));
+
+    // 기존 작업 목록에 추가
+    const storedTasks = localStorage.getItem("farmmate-tasks");
+    const existingTasks = storedTasks ? JSON.parse(storedTasks) : [];
+    const allTasks = [...existingTasks, ...formattedTasks];
+    localStorage.setItem("farmmate-tasks", JSON.stringify(allTasks));
+
+    // 쿼리 무효화로 UI 업데이트
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+    toast({
+      title: "농작업 일정이 등록되었습니다.",
+      description: `${tasks.length}개의 작업이 단계별로 추가되었습니다.`,
+    });
+    
+    onOpenChange(false);
   };
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    const { environment, ...taskData } = data;
+    const { environment, ...taskData } = data; // DB에 없는 폼 전용 필드 제거
 
     if (task) {
       updateMutation.mutate(taskData as InsertTask);
       return;
     }
 
-    if (registrationMode === 'batch' || registrationMode === 'individual') {
-      // 개별등록에서는 종료 날짜가 필수이며, 내부에서 검증 후 토스트로 안내됨
+    if (registrationMode === "batch" || registrationMode === "individual") {
       createBatchTasks();
       return;
     }
 
-    const taskWithUserId = { ...taskData, userId: "user-1" } as InsertTask;
-    createMutation.mutate(taskWithUserId);
+    // 단건
+    createMutation.mutate(taskData as InsertTask);
   };
 
   const openWorkCalculator = () => {
     if (!selectedCrop && !customCropName) {
-      toast({
-        title: "작물을 선택해주세요",
-        variant: "destructive",
-      });
+      toast({ title: "작물을 선택해주세요", variant: "destructive" });
       return;
     }
     setShowWorkCalculator(true);
@@ -450,29 +476,29 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* 등록 방식 선택 (새 작업인 경우만) */}
+              {/* 등록 방식 선택 */}
               {!task && (
                 <div className="space-y-3">
                   <Label>등록 방식</Label>
                   <div className="flex bg-gray-100 rounded-lg p-1">
                     <button
                       type="button"
-                      onClick={() => setRegistrationMode('batch')}
+                      onClick={() => setRegistrationMode("batch")}
                       className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        registrationMode === 'batch'
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
+                        registrationMode === "batch"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
                       일괄등록
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRegistrationMode('individual')}
+                      onClick={() => setRegistrationMode("individual")}
                       className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        registrationMode === 'individual'
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
+                        registrationMode === "individual"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
                       개별등록
@@ -481,7 +507,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 </div>
               )}
 
-              {/* 작물 검색 및 선택 */}
+              {/* 작물 선택 */}
               <div className="space-y-3">
                 <Label>작물 *</Label>
                 <div className="relative">
@@ -496,8 +522,8 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                     className="pl-10"
                   />
                 </div>
-                
-                {/* 핵심 작물 선택 */}
+
+                {/* 핵심 작물 */}
                 <Collapsible open={showKeyCrops} onOpenChange={setShowKeyCrops}>
                   <CollapsibleTrigger asChild>
                     <Button
@@ -506,16 +532,18 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                       className="w-full justify-between"
                     >
                       핵심 작물 선택
-                      <ChevronDown className={`h-4 w-4 transition-transform ${
-                        showKeyCrops ? "rotate-180" : ""
-                      }`} />
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          showKeyCrops ? "rotate-180" : ""
+                        }`}
+                      />
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-2">
                     <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                      {KEY_CROPS.map((keyCrop, index) => (
+                      {KEY_CROPS.map((keyCrop, i) => (
                         <button
-                          key={index}
+                          key={i}
                           type="button"
                           onClick={() => handleKeyCropSelect(keyCrop)}
                           className="text-left p-2 hover:bg-gray-50 rounded text-sm"
@@ -531,24 +559,28 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
-                
+
                 {cropSearchTerm && searchFilteredCrops.length > 0 && (
                   <div className="max-h-32 overflow-y-auto border rounded-md">
-                    {searchFilteredCrops.map(crop => {
-                      const farm = farms?.find(f => f.id === crop.farmId);
+                    {searchFilteredCrops.map((crop) => {
+                      const farm = farms?.find((f) => f.id === crop.farmId);
                       return (
                         <button
                           key={crop.id}
                           type="button"
                           onClick={() => handleCropSelect(crop.id)}
                           className={`w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 ${
-                            form.getValues("cropId") === crop.id ? "bg-blue-50 border-blue-200" : ""
+                            form.getValues("cropId") === crop.id
+                              ? "bg-blue-50 border-blue-200"
+                              : ""
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="font-medium">{crop.name}</span>
-                              <span className="text-sm text-gray-500 ml-2">({crop.variety})</span>
+                              <span className="text-sm text-gray-500 ml-2">
+                                ({(crop as any).variety})
+                              </span>
                             </div>
                             <div className="text-xs text-gray-400">
                               {farm?.name} · {farm?.environment}
@@ -559,7 +591,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                     })}
                   </div>
                 )}
-                
+
                 {cropSearchTerm && (
                   <p className="text-xs text-gray-500">
                     선택된 작물에 따라 농작업이 자동 선택됩니다
@@ -567,7 +599,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 )}
               </div>
 
-              {/* 재배환경 */}
+              {/* 재배환경(폼 전용) */}
               <FormField
                 control={form.control}
                 name="environment"
@@ -581,7 +613,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {environments.map(env => (
+                        {environments.map((env) => (
                           <SelectItem key={env} value={env}>
                             {env}
                           </SelectItem>
@@ -594,19 +626,19 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
               />
 
               {/* 농작업 선택 */}
-              {!task && registrationMode === 'batch' ? (
+              {!task && registrationMode === "batch" ? (
                 <div className="space-y-3">
                   <Label>농작업 다중 선택 *</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {batchTaskTypes.map(type => (
+                    {batchTaskTypes.map((type) => (
                       <button
                         key={type}
                         type="button"
                         onClick={() => handleWorkToggle(type)}
                         className={`p-2 text-sm border rounded transition-colors ${
                           selectedWorks.includes(type)
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 hover:border-gray-300"
                         }`}
                       >
                         {selectedWorks.includes(type) && (
@@ -636,7 +668,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {individualTaskTypes.map(type => (
+                          {individualTaskTypes.map((type) => (
                             <SelectItem key={type} value={type}>
                               {type}
                             </SelectItem>
@@ -649,7 +681,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 />
               )}
 
-              {/* 제목 필드 */}
+              {/* 제목 */}
               <FormField
                 control={form.control}
                 name="title"
@@ -657,17 +689,14 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                   <FormItem>
                     <FormLabel>제목 *</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="작업 제목을 입력하세요"
-                        {...field}
-                      />
+                      <Input placeholder="작업 제목을 입력하세요" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* 날짜 선택 */}
+              {/* 시작 날짜 */}
               <FormField
                 control={form.control}
                 name="scheduledDate"
@@ -684,7 +713,9 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                             }`}
                           >
                             {field.value ? (
-                              format(new Date(field.value), "yyyy년 MM월 dd일", { locale: ko })
+                              format(new Date(field.value), "yyyy년 MM월 dd일", {
+                                locale: ko,
+                              })
                             ) : (
                               <span>날짜를 선택해주세요</span>
                             )}
@@ -711,8 +742,8 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 )}
               />
 
-              {/* 종료 날짜 선택 (개별등록에서만 표시, 필수) */}
-              {!task && registrationMode === 'individual' && (
+              {/* 종료 날짜(개별등록에서만) */}
+              {!task && registrationMode === "individual" && (
                 <FormField
                   control={form.control}
                   name="endDate"
@@ -729,7 +760,9 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                               }`}
                             >
                               {field.value ? (
-                                format(new Date(field.value), "yyyy년 MM월 dd일", { locale: ko })
+                                format(new Date(field.value), "yyyy년 MM월 dd일", {
+                                  locale: ko,
+                                })
                               ) : (
                                 <span>종료 날짜를 선택해주세요</span>
                               )}
@@ -757,6 +790,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                 />
               )}
 
+              {/* 메모 */}
               <FormField
                 control={form.control}
                 name="description"
@@ -776,18 +810,18 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
               />
 
               <div className="flex space-x-2 sticky bottom-0 bg-white pt-4 border-t">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => onOpenChange(false)}
                   className="flex-1"
                 >
                   취소
                 </Button>
-                
-                {/* 일괄등록 모드에서 농작업 계산기 버튼 */}
-                {registrationMode === 'batch' && !task && (
-                  <Button 
+
+                {/* 일괄등록에서 계산기 */}
+                {registrationMode === "batch" && !task && (
+                  <Button
                     type="button"
                     onClick={openWorkCalculator}
                     className="flex-1"
@@ -797,23 +831,27 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                     농작업 계산기
                   </Button>
                 )}
-                
-                {/* 저장하기 버튼 */}
-                <Button 
-                  type="submit" 
+
+                {/* 저장 */}
+                <Button
+                  type="submit"
                   className="flex-1"
                   disabled={
-                    createMutation.isPending || 
-                    updateMutation.isPending || 
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
                     bulkCreateMutation.isPending ||
-                    (!task && registrationMode === 'batch' && selectedWorks.length === 0)
+                    (!task &&
+                      registrationMode === "batch" &&
+                      selectedWorks.length === 0)
                   }
                 >
-                  {createMutation.isPending || updateMutation.isPending || bulkCreateMutation.isPending ? 
-                    "저장 중..." : 
-                    task ? "수정 완료" :
-                    "저장하기"
-                  }
+                  {createMutation.isPending ||
+                  updateMutation.isPending ||
+                  bulkCreateMutation.isPending
+                    ? "저장 중..."
+                    : task
+                    ? "수정 완료"
+                    : "저장하기"}
                 </Button>
               </div>
             </form>
@@ -822,11 +860,13 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       </Dialog>
 
       {/* Work Calculator Dialog */}
-      <WorkCalculatorDialog 
+      <WorkCalculatorDialog
         open={showWorkCalculator}
         onOpenChange={setShowWorkCalculator}
         selectedCrop={selectedCrop}
-        baseDate={form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")}
+        baseDate={
+          form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")
+        }
         onSave={handleWorkCalculatorSave}
         selectedTasks={selectedWorks}
       />

@@ -122,7 +122,7 @@ export default function WorkCalculatorDialog({
 
     const tasks: InsertTask[] = taskSchedules.map(schedule => {
       const task = {
-        title: `${selectedCrop?.name || "작물"} ${schedule.taskType}`,
+        title: `${selectedCrop?.name || "작물"}_${schedule.taskType}`,
         description: schedule.description,
         taskType: schedule.taskType,
         scheduledDate: schedule.startDate,

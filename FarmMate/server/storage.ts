@@ -172,6 +172,7 @@ export class MemStorage implements IStorage {
         taskType: "파종",
         scheduledDate: today,
         endDate: null,
+        rowNumber: 1,
         completed: 0,
         completedAt: null,
         createdAt: new Date()
@@ -186,6 +187,7 @@ export class MemStorage implements IStorage {
         taskType: "수확-선별",
         scheduledDate: today,
         endDate: null,
+        rowNumber: 2,
         completed: 0,
         completedAt: null,
         createdAt: new Date()
@@ -200,6 +202,7 @@ export class MemStorage implements IStorage {
         taskType: "육묘",
         scheduledDate: today,
         endDate: null,
+        rowNumber: 1,
         completed: 0,
         completedAt: null,
         createdAt: new Date()
@@ -214,6 +217,7 @@ export class MemStorage implements IStorage {
         taskType: "저장-포장",
         scheduledDate: today,
         endDate: null,
+        rowNumber: 2,
         completed: 0,
         completedAt: null,
         createdAt: new Date()
@@ -290,6 +294,7 @@ export class MemStorage implements IStorage {
       id, 
       userId, 
       status: crop.status || "growing",
+      farmId: crop.farmId || null,
       createdAt: new Date() 
     };
     this.crops.set(id, newCrop);
@@ -339,6 +344,11 @@ export class MemStorage implements IStorage {
       ...task, 
       id, 
       userId, 
+      farmId: task.farmId || null,
+      cropId: task.cropId || null,
+      description: task.description || null,
+      endDate: task.endDate || null,
+      rowNumber: task.rowNumber || null,
       completed: task.completed || 0,
       completedAt: null,
       createdAt: new Date() 

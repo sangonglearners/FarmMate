@@ -95,7 +95,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "일정이 수정되었습니다.",
         description: "변경된 일정이 저장되었습니다.",
@@ -119,7 +119,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "일정이 삭제되었습니다.",
         description: "선택된 일정이 삭제되었습니다.",
