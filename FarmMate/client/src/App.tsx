@@ -1,86 +1,68 @@
-import { Calendar as CalendarIcon, Home, Sprout, User } from 'lucide-react';
-import { Link, Route, Switch, useLocation } from 'wouter';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LoginPage } from './components/LoginPage';
 
-import { FarmsPage } from '@pages/farms';
-import { CalendarPage } from '@pages/calendar';
-import { HomePage } from '@pages/home';
-import { queryClient } from '@shared/api/client';
-import { Toaster } from '@shared/ui/toaster';
-import { TooltipProvider } from '@shared/ui/tooltip';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { MyPage } from '@pages/my-page';
-
-// TODO: Migrate these pages to FSD structure
-// import NotFound from "@/pages/not-found";
-// import HomePage from "@/pages/home";
-// import Crops from "@/pages/crops";
-// import Calendar from "@/pages/calendar";
-// import Recommendations from "@/pages/recommendations";
-// import MyPage from "@/pages/my-page";
-// Auth components removed
-
-// Mobile Navigation Component
-function MobileNavigation() {
-  const [location] = useLocation();
-  
-  const navItems = [
-    { path: "/", icon: Home, label: "홈" },
-    { path: "/farms", icon: Sprout, label: "농장&작물" },
-    { path: "/calendar", icon: CalendarIcon, label: "영농일지" },
-    { path: "/my-page", icon: User, label: "마이페이지" },
-  ];
+// 간단한 메인 페이지 컴포넌트
+function MainPage() {
+  const { user, signOut } = useAuth();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
-      <div className="flex justify-around items-center max-w-md mx-auto">
-        {navItems.map(({ path, icon: Icon, label }) => {
-          const isActive = location === path || (path !== "/" && location.startsWith(path));
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">FarmMate</h1>
+          <p className="text-gray-600">환영합니다!</p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-2">사용자 정보</h3>
+            <p className="text-sm text-gray-600">이메일: {user?.email}</p>
+            <p className="text-sm text-gray-600">이름: {user?.user_metadata?.full_name || '정보 없음'}</p>
+          </div>
           
-          return (
-            <Link key={path} href={path}>
-              <button className={`flex flex-col items-center p-2 min-w-0 ${
-                isActive ? "text-primary" : "text-gray-500"
-              }`}>
-                <Icon className="w-6 h-6 mb-1" />
-                <span className="text-xs font-medium truncate">{label}</span>
-              </button>
-            </Link>
-          );
-        })}
+          <button
+            onClick={signOut}
+            className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            로그아웃
+          </button>
+        </div>
       </div>
-    </nav>
-  );
-}
-
-function Router() {
-  return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <main className="max-w-md mx-auto bg-white min-h-screen">
-        <Switch>
-          <Route path="/farms" component={FarmsPage} />
-          <Route path="/calendar" component={CalendarPage} />
-          <Route path="/my-page" component={MyPage} />
-          <Route path="/" component={HomePage} />
-          {/* TODO: Migrate these routes to FSD structure */}
-          {/* <Route path="/crops" component={Crops} /> */}
-          {/* <Route path="/recommendations" component={Recommendations} /> */}
-          <Route component={() => <div className="p-4"><h1>Page not found</h1></div>} />
-        </Switch>
-      </main>
-      <MobileNavigation />
     </div>
   );
 }
 
+function Router() {
+  const { user, loading } = useAuth();
+
+  // 로딩 중일 때
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 로그인하지 않은 경우
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  // 로그인한 경우
+  return <MainPage />;
+}
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <Router />
+    </AuthProvider>
   );
 }
 
 export default App;
+
