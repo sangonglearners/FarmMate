@@ -1,38 +1,53 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './components/LoginPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Router, Route, Switch } from 'wouter';
+import HomePage from './pages/home/ui/HomePage';
+import { FarmsPage } from './pages/farms';
+import CalendarPage from './pages/calendar/ui/CalendarPage';
+import MyPage from './pages/my-page/ui/MyPage';
+import NotFound from './pages/not-found';
+import Layout from './components/layout/layout';
 
-// 간단한 메인 페이지 컴포넌트
-function MainPage() {
-  const { user, signOut } = useAuth();
+// QueryClient 생성
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5분
+    },
+  },
+});
 
+// 메인 앱 컴포넌트 (로그인 후 표시되는 기존 FarmMate 웹앱)
+function MainApp() {
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">FarmMate</h1>
-          <p className="text-gray-600">환영합니다!</p>
-        </div>
-        
-        <div className="space-y-4">
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-medium text-gray-900 mb-2">사용자 정보</h3>
-            <p className="text-sm text-gray-600">이메일: {user?.email}</p>
-            <p className="text-sm text-gray-600">이름: {user?.user_metadata?.full_name || '정보 없음'}</p>
-          </div>
-          
-          <button
-            onClick={signOut}
-            className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            로그아웃
-          </button>
-        </div>
-      </div>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Layout>
+          <Switch>
+            <Route path="/" component={HomePage} />
+            <Route path="/farms" component={FarmsPage} />
+            <Route path="/crops" component={FarmsPage} /> {/* 작물관리는 농장관리와 동일 */}
+            <Route path="/calendar" component={CalendarPage} />
+            <Route path="/recommendations">
+              {/* 작물추천 페이지는 아직 구현되지 않았으므로 홈으로 리다이렉트 */}
+              <HomePage />
+            </Route>
+            <Route path="/my-page" component={MyPage} />
+            <Route path="/auth/callback">
+              {/* OAuth 콜백 후 홈화면으로 */}
+              <HomePage />
+            </Route>
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Router>
+    </QueryClientProvider>
   );
 }
 
-function Router() {
+function AppRouter() {
   const { user, loading } = useAuth();
 
   // 로딩 중일 때
@@ -52,14 +67,14 @@ function Router() {
     return <LoginPage />;
   }
 
-  // 로그인한 경우
-  return <MainPage />;
+  // 로그인한 경우 - 기존 FarmMate 홈화면으로 연결
+  return <MainApp />;
 }
 
 function App() {
   return (
     <AuthProvider>
-      <Router />
+      <AppRouter />
     </AuthProvider>
   );
 }

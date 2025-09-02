@@ -3,26 +3,46 @@ import { useAuth } from '../contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 
 export const LoginPage: React.FC = () => {
-  const { signInWithGoogle, loading } = useAuth()
+  const { signInWithGoogle, testLogin, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
   const handleGoogleLogin = async () => {
     try {
       setError(null)
       await signInWithGoogle()
-    } catch (error) {
+    } catch (error: any) {
       console.error('구글 로그인 실패:', error)
-      setError('구글 로그인에 실패했습니다. 다시 시도해주세요.')
+      const errorMessage = error?.message || '구글 로그인에 실패했습니다. 다시 시도해주세요.'
+      setError(errorMessage)
+    }
+  }
+
+  const handleTestLogin = () => {
+    try {
+      setError(null)
+      testLogin()
+    } catch (error) {
+      console.error('테스트 로그인 실패:', error)
+      setError('테스트 로그인에 실패했습니다.')
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6">
+    <div className="min-h-screen bg-gray-50 flex justify-center">
+      <div className="w-full max-w-md bg-white min-h-screen shadow-xl flex flex-col justify-center p-6">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">FarmMate</h1>
           <p className="text-gray-600">농장 관리 시스템에 로그인하세요</p>
         </div>
+        
+        <button
+          onClick={handleTestLogin}
+          className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 mb-4 font-medium"
+        >
+          🧪 테스트 로그인으로 시작하기
+        </button>
+        
+        <div className="text-center text-gray-400 text-sm mb-3">또는</div>
         
         <button
           onClick={handleGoogleLogin}
@@ -51,14 +71,20 @@ export const LoginPage: React.FC = () => {
               />
             </svg>
           )}
-          Google로 로그인
+          Google로 로그인 (설정 필요)
         </button>
         
         {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600 whitespace-pre-line">{error}</p>
           </div>
         )}
+        
+        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-xs text-blue-600">
+            💡 <strong>개발 모드</strong>: 테스트 로그인을 사용하여 모든 기능을 체험해보세요!
+          </p>
+        </div>
       </div>
     </div>
   )
