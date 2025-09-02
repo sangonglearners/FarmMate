@@ -127,7 +127,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     }, () => {
       log(`Server successfully started on port ${port} in ${process.env.NODE_ENV} mode`);
       if (!isProduction) {
-        log(`Frontend development server available at: http://localhost:5174`);
+        log(`Frontend development server available at: http://localhost:5175`);
         log(`API server available at: http://localhost:${port}`);
       }
       log('Application initialization completed successfully');
