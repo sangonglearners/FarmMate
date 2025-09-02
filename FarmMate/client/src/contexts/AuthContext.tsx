@@ -98,19 +98,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // URL 정리
           window.history.replaceState({}, document.title, window.location.pathname)
-        } else if (session && hasRecentOAuthSuccess) {
-          console.log('🔄 최근 OAuth 성공 - 세션 유지')
-          setSession(session)
-          setUser(session.user)
-          console.log('✅ 기존 세션 복원:', session.user?.email)
-          
-          // 5분 후 자동으로 OAuth 성공 플래그 제거 (선택적)
-          setTimeout(() => {
-            localStorage.removeItem('farmmate-oauth-success')
-          }, 5 * 60 * 1000)
         } else {
-          console.log('🔄 페이지 로드 - 로그인 화면으로')
-          // 일반적인 경우 (새로고침, 서버 재시작 등) 로그인 화면으로
+          console.log('🔄 페이지 로드 - 개발 모드에서 항상 로그인 화면으로')
+          // 개발 모드에서는 항상 로그인 화면부터 시작
           await supabase.auth.signOut({ scope: 'local' })
           setSession(null)
           setUser(null)
