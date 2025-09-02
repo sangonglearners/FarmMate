@@ -71,40 +71,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔍 OAuth 성공 플래그:', hasRecentOAuthSuccess)
 
         if (hasOAuthCallback) {
-          console.log('🔗 OAuth 콜백 감지 - 세션 처리 중...')
+          console.log('🔗 OAuth 콜백 감지 - Supabase가 처리하도록 대기...')
           
           // OAuth 성공 플래그를 미리 설정 (콜백 감지 즉시)
           localStorage.setItem('farmmate-oauth-success', 'true')
+          localStorage.setItem('farmmate-oauth-timestamp', Date.now().toString())
           
-          // OAuth 콜백인 경우 세션 처리
+          // Supabase가 OAuth 콜백을 처리할 시간을 줌
+          // URL 정리는 하지 않음 - Supabase가 처리 후 자동으로 정리됨
+          
           if (session) {
             setSession(session)
             setUser(session.user)
             console.log('✅ OAuth 로그인 완료:', session.user?.email)
           } else {
-            console.log('⚠️ OAuth 콜백이지만 세션이 없음 - 잠시 대기 후 재시도')
-            // 세션이 아직 생성되지 않았을 수 있으므로 잠시 대기
-            setTimeout(async () => {
-              const { data: { session: retrySession } } = await supabase.auth.getSession()
-              if (retrySession) {
-                setSession(retrySession)
-                setUser(retrySession.user)
-                console.log('✅ 재시도로 OAuth 로그인 완료:', retrySession.user?.email)
-              } else {
-                console.error('❌ OAuth 콜백 후에도 세션을 찾을 수 없음')
-              }
-            }, 1000) // 1초 대기
+            console.log('⚠️ OAuth 콜백 처리 중 - Supabase 이벤트 대기')
+            // onAuthStateChange에서 처리될 것임
           }
-          
-          // URL 정리
-          window.history.replaceState({}, document.title, window.location.pathname)
+        } else if (hasRecentOAuthSuccess) {
+          console.log('🎉 최근 OAuth 성공 - 세션 유지')
+          // 최근 OAuth 성공한 경우 세션 유지
+          if (session) {
+            setSession(session)
+            setUser(session.user)
+            console.log('✅ 세션 복원 완료:', session.user?.email)
+          }
         } else {
-          console.log('🔄 페이지 로드 - 개발 모드에서 항상 로그인 화면으로')
-          // 개발 모드에서는 항상 로그인 화면부터 시작
+          console.log('🔄 일반 페이지 로드 - 개발 모드에서 로그인 화면으로')
+          // OAuth 콜백이 아니고 최근 성공도 없는 경우에만 로그아웃
           await supabase.auth.signOut({ scope: 'local' })
           setSession(null)
           setUser(null)
           localStorage.removeItem('farmmate-oauth-success')
+          localStorage.removeItem('farmmate-oauth-timestamp')
         }
       } catch (error) {
         console.warn('인증 초기화 중 오류:', error)
@@ -123,14 +122,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // SIGNED_IN 이벤트 발생 시 OAuth 성공 플래그 설정
       if (event === 'SIGNED_IN' && session) {
-        console.log('🎉 SIGNED_IN 이벤트 - OAuth 성공 플래그 설정')
+        console.log('🎉 SIGNED_IN 이벤트 - OAuth 로그인 성공!')
         localStorage.setItem('farmmate-oauth-success', 'true')
+        localStorage.setItem('farmmate-oauth-timestamp', Date.now().toString())
         setSession(session)
         setUser(session.user)
+        
+        // 5분 후 OAuth 성공 플래그 자동 정리
+        setTimeout(() => {
+          localStorage.removeItem('farmmate-oauth-success')
+          localStorage.removeItem('farmmate-oauth-timestamp')
+          console.log('🧹 OAuth 성공 플래그 자동 정리 (5분 경과)')
+        }, 5 * 60 * 1000) // 5분
+        
       } else if (event === 'SIGNED_OUT') {
         console.log('🚪 SIGNED_OUT 이벤트')
-        setSession(null)
-        setUser(null)
+        // OAuth 성공 직후가 아닌 경우에만 실제 로그아웃 처리
+        const oauthTimestamp = localStorage.getItem('farmmate-oauth-timestamp')
+        const timeSinceOAuth = oauthTimestamp ? Date.now() - parseInt(oauthTimestamp) : Infinity
+        
+        if (timeSinceOAuth > 3000) { // 3초 이후에만 로그아웃 처리 (여유시간 증가)
+          setSession(null)
+          setUser(null)
+          localStorage.removeItem('farmmate-oauth-success')
+          localStorage.removeItem('farmmate-oauth-timestamp')
+        } else {
+          console.log('⏰ OAuth 직후 SIGNED_OUT 이벤트 - 무시함 (보호시간:', Math.round((3000 - timeSinceOAuth) / 1000), '초 남음)')
+        }
       } else {
         setSession(session)
         setUser(session?.user ?? null)
