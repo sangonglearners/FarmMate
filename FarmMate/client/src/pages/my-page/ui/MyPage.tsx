@@ -11,6 +11,7 @@ import { useCrops } from '@features/crop-management';
 import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);
@@ -23,13 +24,22 @@ export default function MyPage() {
   const [isAddFarmDialogOpen, setIsAddFarmDialogOpen] = useState(false);
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { signOut, user } = useAuth();
 
   useEffect(() => {
-    const savedName = localStorage.getItem('fm_user_name');
-    const savedAvatar = localStorage.getItem('fm_user_avatar');
-    if (savedName) setUserName(savedName);
-    if (savedAvatar) setAvatarUrl(savedAvatar);
-  }, []);
+    // 실제 사용자 정보 우선, 없으면 로컬 스토리지에서 가져오기
+    if (user) {
+      setUserName(user.user_metadata?.full_name || user.email || '사용자');
+      if (user.user_metadata?.avatar_url) {
+        setAvatarUrl(user.user_metadata.avatar_url);
+      }
+    } else {
+      const savedName = localStorage.getItem('fm_user_name');
+      const savedAvatar = localStorage.getItem('fm_user_avatar');
+      if (savedName) setUserName(savedName);
+      if (savedAvatar) setAvatarUrl(savedAvatar);
+    }
+  }, [user]);
 
   const handleNameChange = (value: string) => {
     setUserName(value);
@@ -45,6 +55,20 @@ export default function MyPage() {
       localStorage.setItem('fm_user_avatar', dataUrl);
     };
     reader.readAsDataURL(file);
+  };
+
+  // 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      console.log('🚪 로그아웃 시작...');
+      await signOut();
+      console.log('✅ 로그아웃 완료');
+      setShowLogout(false);
+    } catch (error) {
+      console.error('❌ 로그아웃 실패:', error);
+      // 오류가 발생해도 다이얼로그는 닫기
+      setShowLogout(false);
+    }
   };
 
   return (
@@ -162,10 +186,14 @@ export default function MyPage() {
           <DialogHeader>
             <DialogTitle>로그아웃</DialogTitle>
           </DialogHeader>
-          <div className="text-sm text-gray-600">로그아웃 하시겠습니까?</div>
+          <div className="text-sm text-gray-600">
+            정말로 로그아웃 하시겠습니까?
+            <br />
+            <span className="text-xs text-gray-500">다시 로그인하려면 로그인 화면에서 인증이 필요합니다.</span>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLogout(false)}>취소</Button>
-            <Button onClick={() => setShowLogout(false)}>확인</Button>
+            <Button onClick={handleLogout} className="bg-red-600 hover:bg-red-700">로그아웃</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
