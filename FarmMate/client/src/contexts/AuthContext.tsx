@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.warn('세션 확인 중 오류:', error)
         }
 
-        // OAuth 콜백 확인
+        // OAuth 콜백 확인 (디버그 로그 추가)
         const urlParams = new URLSearchParams(window.location.search)
         const urlHash = window.location.hash
         const hasOAuthCallback = urlParams.has('code') || 
@@ -54,27 +54,67 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                                 urlHash.includes('access_token') ||
                                 urlHash.includes('refresh_token')
 
+        // 디버그 정보 출력
+        console.log('🔍 OAuth 콜백 디버그:', {
+          url: window.location.href,
+          search: window.location.search,
+          hash: window.location.hash,
+          hasCode: urlParams.has('code'),
+          hasAccessToken: urlParams.has('access_token'),
+          hashIncludesAccessToken: urlHash.includes('access_token'),
+          hashIncludesRefreshToken: urlHash.includes('refresh_token'),
+          hasOAuthCallback
+        })
+
+        // OAuth 성공 플래그 먼저 확인
+        const hasRecentOAuthSuccess = localStorage.getItem('farmmate-oauth-success') === 'true'
+        console.log('🔍 OAuth 성공 플래그:', hasRecentOAuthSuccess)
+
         if (hasOAuthCallback) {
-          console.log('🔗 OAuth 콜백 감지 - 세션 유지')
-          // OAuth 콜백인 경우 세션 유지
+          console.log('🔗 OAuth 콜백 감지 - 세션 처리 중...')
+          
+          // OAuth 성공 플래그를 미리 설정 (콜백 감지 즉시)
+          localStorage.setItem('farmmate-oauth-success', 'true')
+          
+          // OAuth 콜백인 경우 세션 처리
           if (session) {
             setSession(session)
             setUser(session.user)
             console.log('✅ OAuth 로그인 완료:', session.user?.email)
+          } else {
+            console.log('⚠️ OAuth 콜백이지만 세션이 없음 - 잠시 대기 후 재시도')
+            // 세션이 아직 생성되지 않았을 수 있으므로 잠시 대기
+            setTimeout(async () => {
+              const { data: { session: retrySession } } = await supabase.auth.getSession()
+              if (retrySession) {
+                setSession(retrySession)
+                setUser(retrySession.user)
+                console.log('✅ 재시도로 OAuth 로그인 완료:', retrySession.user?.email)
+              } else {
+                console.error('❌ OAuth 콜백 후에도 세션을 찾을 수 없음')
+              }
+            }, 1000) // 1초 대기
           }
+          
           // URL 정리
           window.history.replaceState({}, document.title, window.location.pathname)
-        } else if (session) {
-          console.log('🔄 기존 세션 발견 - 세션 유지')
-          // 기존 세션이 있으면 유지
+        } else if (session && hasRecentOAuthSuccess) {
+          console.log('🔄 최근 OAuth 성공 - 세션 유지')
           setSession(session)
           setUser(session.user)
           console.log('✅ 기존 세션 복원:', session.user?.email)
+          
+          // 5분 후 자동으로 OAuth 성공 플래그 제거 (선택적)
+          setTimeout(() => {
+            localStorage.removeItem('farmmate-oauth-success')
+          }, 5 * 60 * 1000)
         } else {
-          console.log('🔄 페이지 로드 - 세션 없음, 로그인 필요')
-          // 세션이 없는 경우에만 리셋
+          console.log('🔄 페이지 로드 - 로그인 화면으로')
+          // 일반적인 경우 (새로고침, 서버 재시작 등) 로그인 화면으로
+          await supabase.auth.signOut({ scope: 'local' })
           setSession(null)
           setUser(null)
+          localStorage.removeItem('farmmate-oauth-success')
         }
       } catch (error) {
         console.warn('인증 초기화 중 오류:', error)
@@ -90,8 +130,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // 인증 상태 변경 구독
     const { data: { subscription } } = onAuthStateChange((event, session) => {
       console.log('인증 상태 변경:', event, session)
-      setSession(session)
-      setUser(session?.user ?? null)
+      
+      // SIGNED_IN 이벤트 발생 시 OAuth 성공 플래그 설정
+      if (event === 'SIGNED_IN' && session) {
+        console.log('🎉 SIGNED_IN 이벤트 - OAuth 성공 플래그 설정')
+        localStorage.setItem('farmmate-oauth-success', 'true')
+        setSession(session)
+        setUser(session.user)
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 SIGNED_OUT 이벤트')
+        setSession(null)
+        setUser(null)
+      } else {
+        setSession(session)
+        setUser(session?.user ?? null)
+      }
+      
       setLoading(false)
     })
 
