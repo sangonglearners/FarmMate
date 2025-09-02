@@ -29,7 +29,7 @@ export default defineConfig({
   server: {
     host: "localhost",
     port: 5175,
-    strictPort: false,
+    strictPort: true,
     open: true,
   },
 });
