@@ -1,64 +1,83 @@
 // client/src/shared/api/tasks.ts
 import { supabase } from "./supabase";
-import { mustOk } from "./mustOk";
 import type { Task } from "@shared/types/schema";
 
-type Row = {
-  id: number;
+interface SupabaseTask {
+  id: string;
+  user_id: string;
   title: string;
-  memo: string | null;
-  scheduled_at: string | null;
-  farm_id: number | null;
-  crop_id: number | null;
-  task_type: string | null;
-  completed: number | null;
+  description: string | null;
+  task_type: string;
+  scheduled_date: string;
+  end_date: string | null;
+  farm_id: string | null;
+  crop_id: string | null;
+  row_number: number | null;
+  completed: number;
   completed_at: string | null;
-  owner_id: string;
-};
+  created_at: string;
+  updated_at: string;
+}
 
-function toTask(r: Row): Task {
+function toTask(r: SupabaseTask): Task {
   return {
     id: r.id,
     title: r.title,
-    description: r.memo ?? undefined,
-    taskType: r.task_type ?? "기타",
-    scheduledDate: r.scheduled_at ?? "",
-    completed: r.completed ?? 0,
-    farmId: r.farm_id ? String(r.farm_id) : "",
-    cropId: r.crop_id ? String(r.crop_id) : "",
-    userId: r.owner_id,
+    description: r.description || undefined,
+    taskType: r.task_type,
+    scheduledDate: r.scheduled_date,
+    endDate: r.end_date || undefined,
+    completed: r.completed,
+    farmId: r.farm_id || "",
+    cropId: r.crop_id || "",
+    userId: r.user_id,
     completedAt: r.completed_at,
-    createdAt: new Date().toISOString(), // 기본값
-  } as any;
+    createdAt: r.created_at,
+    rowNumber: r.row_number || undefined,
+  };
 }
 
-export async function listTasksByDate(date: string) {
+export async function listTasksByDate(date: string): Promise<Task[]> {
   const { data: auth } = await supabase.auth.getUser();
-  const ownerId = auth?.user?.id ?? "test-user-id";
-  
-  const res = await supabase
-    .from("tasks")
-    .select("id,title,memo,scheduled_at,farm_id,crop_id,task_type,completed,completed_at,owner_id")
-    .eq("scheduled_at", date)
-    .eq("owner_id", ownerId)
-    .order("scheduled_at", { ascending: true });
+  if (!auth.user) {
+    throw new Error("사용자가 로그인되어 있지 않습니다.");
+  }
 
-  return (mustOk(res) as any[]).map(toTask);
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', auth.user.id)
+    .eq('scheduled_date', date)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('작업 조회 오류:', error);
+    throw error;
+  }
+
+  return (data || []).map(toTask);
 }
 
-export async function listTasksRange(start: string, end: string) {
+export async function listTasksRange(start: string, end: string): Promise<Task[]> {
   const { data: auth } = await supabase.auth.getUser();
-  const ownerId = auth?.user?.id ?? "test-user-id";
-  
-  const res = await supabase
-    .from("tasks")
-    .select("id,title,memo,scheduled_at,farm_id,crop_id,task_type,completed,completed_at,owner_id")
-    .gte("scheduled_at", start)
-    .lte("scheduled_at", end)
-    .eq("owner_id", ownerId)
-    .order("scheduled_at", { ascending: true });
+  if (!auth.user) {
+    throw new Error("사용자가 로그인되어 있지 않습니다.");
+  }
 
-  return (mustOk(res) as any[]).map(toTask);
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', auth.user.id)
+    .gte('scheduled_date', start)
+    .lte('scheduled_date', end)
+    .order('scheduled_date', { ascending: true });
+
+  if (error) {
+    console.error('작업 범위 조회 오류:', error);
+    throw error;
+  }
+
+  return (data || []).map(toTask);
 }
 
 // 기존 API와 호환성을 위한 taskApi 객체
@@ -71,61 +90,117 @@ export const taskApi = {
     return listTasksByDate(date);
   },
 
-  createTask: async (task: any): Promise<Task> => {
-    // Supabase 저장 로직을 여기에 구현하거나
-    // saveTask 함수를 사용하도록 수정
-    throw new Error("createTask는 saveTask 함수를 사용하세요");
-  },
-
-  updateTask: async (id: string, task: any): Promise<Task> => {
+  createTask: async (taskData: any): Promise<Task> => {
     const { data: auth } = await supabase.auth.getUser();
-    const ownerId = auth?.user?.id ?? "test-user-id";
-    
-    const res = await supabase
-      .from("tasks")
-      .update({
-        title: task.title,
-        memo: task.description,
-        task_type: task.taskType,
-        scheduled_at: task.scheduledDate,
-        farm_id: task.farmId ? Number(task.farmId) : null,
-        crop_id: task.cropId ? Number(task.cropId) : null,
-        completed: task.completed,
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert({
+        user_id: auth.user.id,
+        title: taskData.title,
+        description: taskData.description || null,
+        task_type: taskData.taskType || '기타',
+        scheduled_date: taskData.scheduledDate,
+        end_date: taskData.endDate || null,
+        farm_id: taskData.farmId || null,
+        crop_id: taskData.cropId || null,
+        row_number: taskData.rowNumber || null,
+        completed: taskData.completed || 0,
       })
-      .eq("id", id)
-      .eq("owner_id", ownerId)
-      .select("id,title,memo,scheduled_at,farm_id,crop_id,task_type,completed,completed_at,owner_id")
+      .select()
       .single();
 
-    return toTask(mustOk(res) as any);
+    if (error) {
+      console.error('작업 생성 오류:', error);
+      throw error;
+    }
+
+    return toTask(data);
+  },
+
+  updateTask: async (id: string, taskData: any): Promise<Task> => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({
+        title: taskData.title,
+        description: taskData.description || null,
+        task_type: taskData.taskType,
+        scheduled_date: taskData.scheduledDate,
+        end_date: taskData.endDate || null,
+        farm_id: taskData.farmId || null,
+        crop_id: taskData.cropId || null,
+        row_number: taskData.rowNumber || null,
+        completed: taskData.completed,
+      })
+      .eq('id', id)
+      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 수정 가능
+      .select()
+      .single();
+
+    if (error) {
+      console.error('작업 수정 오류:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("작업을 찾을 수 없습니다.");
+    }
+
+    return toTask(data);
   },
 
   completeTask: async (id: string): Promise<Task> => {
     const { data: auth } = await supabase.auth.getUser();
-    const ownerId = auth?.user?.id ?? "test-user-id";
-    
-    const res = await supabase
-      .from("tasks")
-      .update({ 
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({
         completed: 1,
-        completed_at: new Date().toISOString()
+        completed_at: new Date().toISOString(),
       })
-      .eq("id", id)
-      .eq("owner_id", ownerId)
-      .select("id,title,memo,scheduled_at,farm_id,crop_id,task_type,completed,completed_at,owner_id")
+      .eq('id', id)
+      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 완료 가능
+      .select()
       .single();
 
-    return toTask(mustOk(res) as any);
+    if (error) {
+      console.error('작업 완료 오류:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("작업을 찾을 수 없습니다.");
+    }
+
+    return toTask(data);
   },
 
   deleteTask: async (id: string): Promise<void> => {
     const { data: auth } = await supabase.auth.getUser();
-    const ownerId = auth?.user?.id ?? "test-user-id";
-    
-    await supabase
-      .from("tasks")
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    const { error } = await supabase
+      .from('tasks')
       .delete()
-      .eq("id", id)
-      .eq("owner_id", ownerId);
+      .eq('id', id)
+      .eq('user_id', auth.user.id); // 보안: 자신의 작업만 삭제 가능
+
+    if (error) {
+      console.error('작업 삭제 오류:', error);
+      throw error;
+    }
   },
 };

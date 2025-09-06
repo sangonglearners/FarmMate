@@ -20,9 +20,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { insertTaskSchema } from "@shared/schema";
-import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
+import { insertTaskSchema } from "@shared/types/schema";
+import type { InsertTask, Task, Farm, Crop } from "@shared/types/schema";
 import { z } from "zod";
+import { taskApi } from "@shared/api/tasks";
 
 const formSchema = insertTaskSchema;
 
@@ -87,12 +88,8 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
 
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-      const response = await fetch(`/api/tasks/${task?.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      return response.json();
+      if (!task?.id) throw new Error("Task ID is required");
+      return await taskApi.updateTask(task.id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -113,10 +110,8 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/tasks/${task?.id}`, {
-        method: "DELETE",
-      });
-      return response.json();
+      if (!task?.id) throw new Error("Task ID is required");
+      await taskApi.deleteTask(task.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });

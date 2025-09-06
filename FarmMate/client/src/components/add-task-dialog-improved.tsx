@@ -401,39 +401,39 @@ export default function AddTaskDialog({
     }
   };
 
-  const handleWorkCalculatorSave = (tasks: InsertTask[]) => {
+  const handleWorkCalculatorSave = async (tasks: InsertTask[]) => {
     console.log("WorkCalculator 작업 저장:", tasks);
     
-    // 농작업 계산기에서 온 작업들을 로컬 스토리지 형식으로 변환
-    const formattedTasks = tasks.map(task => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      title: task.title,
-      description: task.description || "",
-      taskType: task.taskType || "기타",
-      scheduledDate: task.scheduledDate,
-      completed: 0,
-      farmId: task.farmId?.toString() || "",
-      cropId: task.cropId?.toString() || "",
-      userId: "test-user-id",
-      createdAt: new Date().toISOString(),
-      completedAt: null,
-    }));
+    // 각 작업을 saveTask 함수를 사용하여 사용자별로 저장
+    try {
+      for (const task of tasks) {
+        await saveTask({
+          title: task.title,
+          memo: task.description,
+          scheduledAt: task.scheduledDate,
+          farmId: task.farmId ? Number(task.farmId) : undefined,
+          cropId: task.cropId ? Number(task.cropId) : undefined,
+          taskType: task.taskType,
+        });
+      }
 
-    // 기존 작업 목록에 추가
-    const storedTasks = localStorage.getItem("farmmate-tasks");
-    const existingTasks = storedTasks ? JSON.parse(storedTasks) : [];
-    const allTasks = [...existingTasks, ...formattedTasks];
-    localStorage.setItem("farmmate-tasks", JSON.stringify(allTasks));
+      // 쿼리 무효화로 UI 업데이트
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-    // 쿼리 무효화로 UI 업데이트
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
-
-    toast({
-      title: "농작업 일정이 등록되었습니다.",
-      description: `${tasks.length}개의 작업이 단계별로 추가되었습니다.`,
-    });
-    
-    onOpenChange(false);
+      toast({
+        title: "농작업 일정이 등록되었습니다.",
+        description: `${tasks.length}개의 작업이 단계별로 추가되었습니다.`,
+      });
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error("작업 저장 중 오류:", error);
+      toast({
+        title: "저장 실패",
+        description: "작업 저장 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
   };
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {

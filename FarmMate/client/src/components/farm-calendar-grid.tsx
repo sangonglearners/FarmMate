@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
+import SimpleEditTaskDialog from "@/components/simple-edit-task-dialog";
 import type { Task, Crop } from "@shared/types/schema";
 
 interface FarmCalendarGridProps {
@@ -15,6 +16,8 @@ type ViewMode = "monthly" | "yearly";
 type FarmType = "노지" | "시설1" | "시설2";
 
 export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCalendarGridProps) {
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [selectedFarm, setSelectedFarm] = useState<FarmType>("노지");
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
@@ -353,7 +356,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             periodTasks.map((task) => {
                               const cropName = getCropName(task.cropId);
                               return (
-                                <div key={task.id} className="space-y-0.5">
+                                <div 
+                                  key={task.id} 
+                                  className="space-y-0.5 cursor-pointer hover:opacity-80"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTask(task);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                >
                                   {cropName && (
                                     <div className="text-xs font-medium text-gray-800 truncate">
                                       {cropName}
@@ -455,11 +466,20 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       )}
 
       {/* Add Task Dialog */}
-      <AddTaskDialog
-        open={showAddTaskDialog}
+      <AddTaskDialog 
+        open={showAddTaskDialog} 
         onOpenChange={setShowAddTaskDialog}
         selectedDate={selectedDateForTask}
       />
+
+      {/* Edit Task Dialog */}
+      {selectedTask && (
+        <SimpleEditTaskDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          task={selectedTask}
+        />
+      )}
     </div>
   );
 }

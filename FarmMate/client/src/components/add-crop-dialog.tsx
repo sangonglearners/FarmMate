@@ -32,7 +32,7 @@ import { insertCropSchema } from "../../../shared/schema";
 import type { InsertCrop, Crop } from "../../../shared/schema";
 
 /** ⬇️ 여기부터 Supabase 유틸 임포트 */
-import { saveCrop } from "@/shared/api/saveCrop";
+import { saveCrop, updateCrop } from "@/shared/api/saveCrop";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
 
@@ -147,22 +147,15 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
     },
   });
 
-  /** ⬇️ 수정: /api 호출 → Supabase update */
+  /** ⬇️ 수정: 사용자별 로컬 스토리지에 저장 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertCrop) => {
-      // DB에 status 컬럼이 없다면 status는 제외합니다.
-      const res = await supabase
-        .from("crops")
-        .update({
-          name: data.name,
-          category: (data as any).category,
-          variety: (data as any).variety,
-        })
-        .eq("id", (crop as any)!.id)
-        .select()
-        .single();
-
-      return mustOk(res);
+      return updateCrop((crop as any)!.id, {
+        name: data.name,
+        category: (data as any).category,
+        variety: (data as any).variety,
+        status: (data as any).status,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crops"] });

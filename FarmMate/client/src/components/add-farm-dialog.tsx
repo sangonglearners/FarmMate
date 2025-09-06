@@ -24,10 +24,8 @@ import { useToast } from "@/hooks/use-toast";
 import { insertFarmSchema } from "@shared/schema";
 import type { InsertFarm, Farm } from "@shared/schema";
 
-/** ⬇ Supabase 유틸 */
-import { saveFarm } from "@/shared/api/saveFarm";
-import { supabase } from "@/shared/api/supabase";
-import { mustOk } from "@/shared/api/mustOk";
+/** ⬇ 사용자별 저장 유틸 */
+import { saveFarm, updateFarm } from "@/shared/api/saveFarm";
 
 import { z } from "zod";
 
@@ -73,7 +71,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
     }
   }, [farm, form]);
 
-  /** 생성: /api → Supabase insert */
+  /** 생성: 사용자별 로컬 스토리지에 저장 */
   const createMutation = useMutation({
     mutationFn: async (data: InsertFarm & { name: string }) =>
       saveFarm({
@@ -97,22 +95,15 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
     },
   });
 
-  /** 수정: /api → Supabase update */
+  /** 수정: 사용자별 로컬 스토리지에 저장 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertFarm & { name: string }) => {
-      const res = await supabase
-        .from("farms")
-        .update({
-          name: data.name,
-          environment: (data as any).environment ?? null,
-          row_count: (data as any).rowCount ?? null,
-          area: (data as any).area ?? null,
-        })
-        .eq("id", (farm as any)!.id)
-        .select()
-        .single();
-
-      return mustOk(res);
+      return updateFarm((farm as any)!.id, {
+        name: data.name,
+        environment: (data as any).environment,
+        rowCount: (data as any).rowCount,
+        area: (data as any).area,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["farms"] });

@@ -5,7 +5,7 @@ import { useToast } from "@shared/hooks/use-toast";
 
 export const useTasks = () => {
   return useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
+    queryKey: ["tasks"],
     queryFn: taskApi.getTasks,
   });
 };
