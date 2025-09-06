@@ -6,7 +6,7 @@ import type { Farm, InsertFarm } from "@shared/types/schema";
 
 export const useFarms = () => {
   return useQuery<Farm[]>({
-    queryKey: ["/api/farms"],
+    queryKey: ["farms"],
     queryFn: farmApi.getFarms,
   });
 };

@@ -129,7 +129,7 @@ export default function WorkCalculatorDialog({
         endDate: schedule.endDate,
         farmId: selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
-        userId: "user-1",
+        userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
       };
       console.log("Created work calculator task:", task);
       return task;

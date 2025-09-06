@@ -13,8 +13,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Farm routes
   app.get("/api/farms", async (req, res) => {
     try {
-      // For demo purposes, using user-1
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const farms = await storage.getFarmsByUserId(userId);
       res.json(farms);
     } catch (error) {
@@ -24,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/farms", async (req, res) => {
     try {
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const farmData = insertFarmSchema.parse(req.body);
       const farm = await storage.createFarm(userId, farmData);
       res.json(farm);
@@ -63,7 +62,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Crop routes
   app.get("/api/crops", async (req, res) => {
     try {
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const { search } = req.query;
       
       let crops;
@@ -81,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/crops", async (req, res) => {
     try {
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const cropData = insertCropSchema.parse(req.body);
       const crop = await storage.createCrop(userId, cropData);
       res.json(crop);
@@ -120,7 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Task routes
   app.get("/api/tasks", async (req, res) => {
     try {
-      const userId = "user-1";
+      // 헤더에서 사용자 ID 가져오기 (Supabase 인증 토큰에서 추출하거나 임시로 헤더 사용)
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const { date } = req.query;
       
       let tasks;
@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", async (req, res) => {
     try {
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const taskData = insertTaskSchema.parse(req.body);
       const task = await storage.createTask(userId, taskData);
       res.json(task);
@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Recommendation routes
   app.get("/api/recommendations", async (req, res) => {
     try {
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const recommendations = await storage.getRecommendationsByUserId(userId);
       res.json(recommendations);
     } catch (error) {
@@ -214,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/recommendations", async (req, res) => {
     try {
-      const userId = "user-1";
+      const userId = req.headers['x-user-id'] as string || "anonymous";
       const recommendationData = insertRecommendationSchema.parse(req.body);
       
       // Generate sample recommendation data
