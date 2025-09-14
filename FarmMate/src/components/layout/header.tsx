@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Sprout, Bell, User, Calculator } from "lucide-react";
-import { Button } from "@shared/ui/button";
+import { Button } from "@/components/ui/button";
 
 export default function Header() {
   const [location] = useLocation();

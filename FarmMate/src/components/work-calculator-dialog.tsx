@@ -8,21 +8,21 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
-import { Button } from "@shared/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@shared/ui/card";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@shared/ui/popover";
-import { Calendar } from "@shared/ui/calendar";
-import { cn } from "@shared/lib/utils";
-import { useToast } from "@shared/hooks/use-toast";
-import { apiRequest } from "@shared/api/client";
-import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@shared/constants/crops";
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
 import type { Crop, InsertTask } from "../shared/types/schema";
 
 interface WorkCalculatorDialogProps {

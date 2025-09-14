@@ -1,4 +1,4 @@
-import FarmCalendarGrid from "../../../components/farm-calendar-grid";
+import FarmCalendarGrid from "@/components/farm-calendar-grid";
 import { useTasks } from "@features/task-management";
 import { useCrops } from "@features/crop-management";
 

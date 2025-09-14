@@ -36,8 +36,8 @@ import {
   PopoverTrigger,
 } from "@shared/ui/popover";
 import { useToast } from "@shared/hooks/use-toast";
-import { insertTaskSchema } from "@shared/types/schema";
-import type { InsertTask, Task, Farm, Crop } from "@shared/types/schema";
+import { insertTaskSchema } from "../../../shared/schema";
+import type { InsertTask, Task, Farm, Crop } from "../../../shared/schema";
 import { apiRequest } from "@shared/api/client";
 import { z } from "zod";
 import { Calendar } from "@shared/ui/calendar";

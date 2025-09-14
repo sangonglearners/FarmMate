@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
-import AddTaskDialog from "./add-task-dialog-improved";
+import AddTaskDialog from "@/components/add-task-dialog-improved";
 import type { Task, Crop } from "@shared/types/schema";
 
 interface FarmCalendarGridProps {

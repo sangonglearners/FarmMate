@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, CheckCircle2 } from "lucide-react";
-import { Button } from "@shared/ui/button";
+import { Button } from "@/components/ui/button";
 import type { Task, Crop, Farm } from "@shared/schema";
 
 interface TaskCardProps {
