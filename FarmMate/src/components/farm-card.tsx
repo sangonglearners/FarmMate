@@ -1,12 +1,12 @@
 import { MoreVertical, Edit, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@shared/ui/card";
-import { Button } from "@shared/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@shared/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import type { Farm } from "@shared/schema";
 
 interface FarmCardProps {
