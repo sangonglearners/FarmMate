@@ -72,7 +72,7 @@ export default function FarmsPage() {
         </div>
 
         {farms && farms.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
             {farms.map((farm) => {
               const farmCrops = getFarmCrops(farm.id);
               
