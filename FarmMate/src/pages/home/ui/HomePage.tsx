@@ -143,27 +143,25 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{selectedDateTasks.length}</div>
-              <div className="text-xs text-gray-600">선택된 날짜 작업</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">{overdueTasks.length}</div>
-              <div className="text-xs text-gray-600">지연 작업</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{upcomingTasks.length}</div>
-              <div className="text-xs text-gray-600">예정 작업</div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Recommendation Banner */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="max-w-[70%]">
+                <p className="text-xs text-gray-600 mb-1">이번 시즌에는</p>
+                <h2 className="text-base font-semibold text-gray-900 leading-snug">
+                  무엇을, 언제, 어디에, 얼마나 심지?
+                </h2>
+                <Button size="sm" className="mt-3" onClick={() => setLocation('/calendar')}>
+                  작물 추천 받으러가기
+                </Button>
+              </div>
+              <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center text-4xl select-none">
+                🥕
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Calendar Planner */}
         <Card>
