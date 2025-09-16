@@ -12,6 +12,7 @@ import {
 } from "@shared/ui/dropdown-menu";
 import type { Crop } from "@shared/types/schema";
 import type { FarmEntity } from "@shared/api/farm.repository";
+import { Separator } from "@shared/ui/separator";
 
 export default function FarmsPage() {
   const [isAddFarmDialogOpen, setIsAddFarmDialogOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function FarmsPage() {
       {/* Farm List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">내 농장 목록</h2>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-gray-600" /> 내 농장 목록</h2>
           <Button 
             size="sm" 
             onClick={() => setIsAddFarmDialogOpen(true)}
@@ -72,7 +73,7 @@ export default function FarmsPage() {
         </div>
 
         {farms && farms.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {farms.map((farm) => {
               const farmCrops = getFarmCrops(farm.id);
               
@@ -126,10 +127,12 @@ export default function FarmsPage() {
         )}
       </div>
 
+      <Separator className="my-2" />
+
       {/* Crop Management */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">내 작물 관리</h2>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Sprout className="w-5 h-5 text-gray-600" /> 내 작물 관리</h2>
           <Button 
             size="sm" 
             onClick={() => setIsAddCropDialogOpen(true)}
@@ -141,8 +144,8 @@ export default function FarmsPage() {
         </div>
 
         {crops && crops.length > 0 ? (
-          <div className="space-y-3">
-            {crops.slice(0, 5).map((crop) => (
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+            {crops.map((crop) => (
               <Card key={crop.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -178,14 +181,6 @@ export default function FarmsPage() {
                 </CardContent>
               </Card>
             ))}
-            
-            {crops.length > 5 && (
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-gray-500">+{crops.length - 5}개 더 보기</p>
-                </CardContent>
-              </Card>
-            )}
           </div>
         ) : (
           <Card>
