@@ -22,8 +22,9 @@ import { RadioGroup, RadioGroupItem } from "@shared/ui/radio-group";
 import { Label } from "@shared/ui/label";
 import { useToast } from "@shared/hooks/use-toast";
 import { insertFarmSchema } from "@shared/types/schema";
-import type { InsertFarm, Farm } from "@shared/types/schema";
-import { apiRequest } from "@shared/api/client";
+import type { InsertFarm } from "@shared/types/schema";
+import type { FarmEntity } from "@shared/api/farm.repository";
+import { farmApi } from "@features/farm-management/api/farm.api";
 import { z } from "zod";
 
 const formSchema = insertFarmSchema.extend({
@@ -33,7 +34,7 @@ const formSchema = insertFarmSchema.extend({
 interface AddFarmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  farm?: Farm | null;
+  farm?: FarmEntity | null;
 }
 
 export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialogProps) {
@@ -56,7 +57,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
     if (farm) {
       form.reset({
         name: farm.name,
-        environment: "노지",
+        environment: farm.environment || "노지",
         rowCount: farm.rowCount,
         area: farm.area,
       });
@@ -72,8 +73,13 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertFarm & { name: string }) => {
-      const response = await apiRequest("POST", "/api/farms", data);
-      return response.json();
+      return await farmApi.createFarm({
+        environment: data.environment,
+        rowCount: data.rowCount,
+        area: data.area,
+        // name은 schema 밖 값이라 별도 전달
+        ...(data as any),
+      } as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
@@ -94,8 +100,12 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
 
   const updateMutation = useMutation({
     mutationFn: async (data: InsertFarm & { name: string }) => {
-      const response = await apiRequest("PUT", `/api/farms/${farm!.id}`, data);
-      return response.json();
+      return await farmApi.updateFarm(farm!.id, {
+        environment: data.environment,
+        rowCount: data.rowCount,
+        area: data.area,
+        ...(data as any),
+      } as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/farms"] });

@@ -20,6 +20,29 @@ export class CropRepository extends BaseRepository {
     if (error) throw new Error(error.message)
     return data
   }
+
+  async update(cropId: string, input: Partial<{ name: string; variety: string; category: string; farm_id?: string; status?: string }>) {
+    const userId = await this.withUserId()
+    const { data, error } = await this.supabase
+      .from('crops')
+      .update(input)
+      .eq('id', cropId)
+      .eq('user_id', userId)
+      .select()
+      .single()
+    if (error) throw new Error(error.message)
+    return data
+  }
+
+  async remove(cropId: string) {
+    const userId = await this.withUserId()
+    const { error } = await this.supabase
+      .from('crops')
+      .delete()
+      .eq('id', cropId)
+      .eq('user_id', userId)
+    if (error) throw new Error(error.message)
+  }
 }
 
 
