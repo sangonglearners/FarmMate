@@ -28,7 +28,7 @@ import {
 import { useToast } from "@shared/hooks/use-toast";
 import { insertCropSchema } from "@shared/types/schema";
 import type { InsertCrop, Crop } from "@shared/types/schema";
-import { useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
+import { useCrops as useMyCrops, useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
 import { useFarms } from "@features/farm-management";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
@@ -68,21 +68,7 @@ interface AddCropDialogProps {
   showFarmSelect?: boolean;
 }
 
-// ✅ 임시 작물 목록 (DB 연결 전까지 사용)
-//    이후 실제 DB 연동 시, 아래 TEMP_CROPS 대신 useQuery로 서버 데이터를 주입하세요.
-//    예: const { data: crops = [] } = useQuery({ queryKey: ["/api/crops/options"], queryFn: fetchCropOptions })
-const TEMP_CROPS = [
-  // 기존 대표 작물 중 유지: 양배추, 당근 (대분류 추가)
-  { id: "cabbage", majorCategory: "배추", name: "양배추", category: "배추", varieties: ["그린", "퍼플", "레드"] },
-  { id: "carrot", majorCategory: "당근", name: "당근", category: "뿌리채소", varieties: ["오렌지", "퍼플", "화이트"] },
-
-  // 신규 대표 작물 목록
-  { id: "bean-snap-pea",      majorCategory: "콩_완두", name: "스냅피",  category: null,        varieties: ["슈가앤", "슈가레이스", "스시나인", "구르메", "슈가스냅"] },
-  { id: "bean-snow-pea",      majorCategory: "콩_완두", name: "스노우피", category: null,        varieties: ["니무라(그린)", "노를리(그린)", "골든스윗"] },
-  { id: "bean-green-bean",    majorCategory: "콩_채두", name: "그린빈",  category: null,        varieties: ["칼리마", "캐피타노"] },
-  { id: "bean-shell-bean",    majorCategory: "콩_채두", name: "쉘빈",    category: "드래곤빈", varieties: [] },
-  { id: "bean-broad-bean",    majorCategory: "콩_잠두", name: "풋잠두",  category: null,        varieties: ["소라마메", "브로드빈"] },
-];
+// 대표 작물 선택 소스는 '내 작물 관리'에서 등록된 나의 작물 목록을 사용한다.
 
 export type CropOption = {
   id: string;
@@ -96,14 +82,18 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: farms = [] } = showFarmSelect ? useFarms() : { data: [] as any[] } as any;
+  const { data: myCrops = [] } = useMyCrops();
 
-  // ⚙️ 실제 DB 연동 시 이 부분을 교체하세요.
-  // const { data: crops = TEMP_CROPS } = useQuery<CropOption[]>({
-  //   queryKey: ["/api/crops/options"],
-  //   queryFn: async () => (await apiRequest("GET", "/api/crops/options")).json(),
-  //   staleTime: 5 * 60 * 1000,
-  // });
-  const crops: CropOption[] = TEMP_CROPS;
+  // 내 작물 목록을 대표 작물 선택 소스로 변환
+  const crops: CropOption[] = useMemo(() => {
+    return (myCrops || []).map((c: any) => ({
+      id: c.id,
+      majorCategory: c.category ?? "",
+      name: c.name ?? "",
+      category: c.category ?? "",
+      varieties: c.variety ? [c.variety] : [],
+    }));
+  }, [myCrops]);
 
   const [selectedCrop, setSelectedCrop] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -134,8 +124,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
         status: crop.status || "growing",
         farmId: crop.farmId || undefined,
       });
-      const foundCrop = crops.find((c) => c.name === crop.name);
-      if (foundCrop) setSelectedCrop(foundCrop.id);
+      setSelectedCrop(crop.id);
     } else {
       form.reset({ category: "", name: "", variety: "", status: "growing", farmId: defaultFarmId || undefined });
       setSelectedCrop("");
