@@ -2,10 +2,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@shared/hooks/use-toast";
 import { farmApi } from "../api/farm.api";
-import type { Farm, InsertFarm } from "@shared/types/schema";
+import type { InsertFarm } from "@shared/types/schema";
+import type { FarmEntity } from "@shared/api/farm.repository";
 
 export const useFarms = () => {
-  return useQuery<Farm[]>({
+  return useQuery<FarmEntity[]>({
     queryKey: ["/api/farms"],
     queryFn: farmApi.getFarms,
   });
