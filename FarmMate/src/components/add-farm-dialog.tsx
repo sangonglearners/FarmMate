@@ -21,9 +21,9 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { insertFarmSchema } from "@shared/schema";
-import type { InsertFarm, Farm } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { insertFarmSchema } from "@shared/types";
+import type { InsertFarm, Farm } from "@shared/types";
+import { apiRequest } from "@shared/api";
 import { z } from "zod";
 
 const formSchema = insertFarmSchema.extend({

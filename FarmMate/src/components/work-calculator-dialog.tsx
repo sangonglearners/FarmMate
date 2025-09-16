@@ -21,9 +21,9 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@shared/api";
 import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
-import type { Crop, InsertTask } from "../shared/types/schema";
+import type { Crop, InsertTask } from "@shared/types";
 
 interface WorkCalculatorDialogProps {
   open: boolean;
@@ -129,7 +129,6 @@ export default function WorkCalculatorDialog({
         endDate: schedule.endDate,
         farmId: selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
-        userId: "user-1",
       };
       console.log("Created work calculator task:", task);
       return task;
