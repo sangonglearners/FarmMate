@@ -1,4 +1,4 @@
-import type { Task, Crop } from "../../../shared/schema";
+import type { Task, Crop } from "@shared/types";
 
 interface CalendarGridProps {
   currentDate: Date;

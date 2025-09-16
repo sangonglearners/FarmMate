@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
-import { Calendar, CalendarIcon, Check, Search, Calculator, ChevronDown } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Search, Calculator, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
@@ -36,15 +36,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Calendar } from "@shared/ui/calendar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { insertTaskSchema } from "../shared/types/schema";
-import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { insertTaskSchema } from "@shared/types";
+import type { InsertTask, Task, Farm, Crop } from "@shared/types";
+import { apiRequest } from "@shared/api";
 import WorkCalculatorDialog from "./work-calculator-dialog";
 import { KEY_CROPS, TASK_TYPES } from "@/shared/constants/crops";
 import { z } from "zod";
@@ -82,7 +83,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     queryKey: ["/api/crops"],
   });
 
-  const form = useForm<InsertTask & { title: string; environment: string }>({
+  const form = useForm<InsertTask & { title?: string; environment?: string }>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
@@ -91,7 +92,6 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       scheduledDate: selectedDate || "",
       farmId: "",
       cropId: "",
-      userId: "user-1",
       environment: "",
     },
   });
@@ -109,7 +109,6 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         scheduledDate: task.scheduledDate,
         farmId: task.farmId,
         cropId: task.cropId,
-        userId: task.userId,
         environment: farm?.environment || "",
       });
       
@@ -131,7 +130,6 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         scheduledDate: selectedDate || "",
         farmId: "",
         cropId: "",
-        userId: "user-1",
         environment: "",
       });
       
@@ -322,7 +320,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     bulkCreateMutation.mutate(tasks);
   };
 
-  const onSubmit = (data: InsertTask & { title: string; environment: string }) => {
+  const onSubmit = (data: InsertTask & { title?: string; environment?: string }) => {
     console.log("Form submitted with data:", data);
     console.log("Registration mode:", registrationMode);
     console.log("Selected works:", selectedWorks);
@@ -665,7 +663,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                           <Calendar
                             mode="single"
                             selected={dateRange.from ? new Date(dateRange.from) : undefined}
-                            onSelect={(date) => {
+                            onSelect={(date?: Date) => {
                               if (date) {
                                 const dateStr = format(date, "yyyy-MM-dd");
                                 setDateRange(prev => ({ ...prev, from: dateStr }));
@@ -703,7 +701,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                           <Calendar
                             mode="single"
                             selected={dateRange.to ? new Date(dateRange.to) : undefined}
-                            onSelect={(date) => {
+                            onSelect={(date?: Date) => {
                               if (date) {
                                 setDateRange(prev => ({ ...prev, to: format(date, "yyyy-MM-dd") }));
                               }
@@ -748,7 +746,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                           <Calendar
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => {
+                            onSelect={(date?: Date) => {
                               field.onChange(date ? format(date, "yyyy-MM-dd") : "");
                             }}
                             disabled={(date) =>
@@ -774,6 +772,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                       <Textarea
                         placeholder="추가 메모를 입력하세요"
                         {...field}
+                        value={field.value ?? ""}
                       />
                     </FormControl>
                     <FormMessage />
