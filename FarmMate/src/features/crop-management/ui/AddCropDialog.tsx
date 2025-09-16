@@ -28,7 +28,8 @@ import {
 import { useToast } from "@shared/hooks/use-toast";
 import { insertCropSchema } from "@shared/types/schema";
 import type { InsertCrop, Crop } from "@shared/types/schema";
-import { apiRequest } from "@shared/api/client";
+import { useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
+import { useFarms } from "@features/farm-management";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
 
@@ -63,6 +64,8 @@ interface AddCropDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   crop?: Crop | null;
+  defaultFarmId?: string;
+  showFarmSelect?: boolean;
 }
 
 // ✅ 임시 작물 목록 (DB 연결 전까지 사용)
@@ -89,9 +92,10 @@ export type CropOption = {
   varieties: string[] | undefined;
 };
 
-export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialogProps) {
+export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId, showFarmSelect }: AddCropDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: farms = [] } = showFarmSelect ? useFarms() : { data: [] as any[] } as any;
 
   // ⚙️ 실제 DB 연동 시 이 부분을 교체하세요.
   // const { data: crops = TEMP_CROPS } = useQuery<CropOption[]>({
@@ -112,6 +116,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
       name: "",
       variety: "",
       status: "growing",
+      farmId: defaultFarmId || undefined,
     },
   });
 
@@ -127,11 +132,12 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
         name: crop.name,
         variety: crop.variety,
         status: crop.status || "growing",
+        farmId: crop.farmId || undefined,
       });
       const foundCrop = crops.find((c) => c.name === crop.name);
       if (foundCrop) setSelectedCrop(foundCrop.id);
     } else {
-      form.reset({ category: "", name: "", variety: "", status: "growing" });
+      form.reset({ category: "", name: "", variety: "", status: "growing", farmId: defaultFarmId || undefined });
       setSelectedCrop("");
       setSearchTerm("");
     }
@@ -159,47 +165,26 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
     });
   }, [crops, searchTerm]);
 
-  const createMutation = useMutation({
-    mutationFn: async (data: InsertCrop) => {
-      const response = await apiRequest("POST", "/api/crops", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
-      toast({ title: "작물 추가 완료", description: "새 작물이 성공적으로 추가되었습니다." });
-      onOpenChange(false);
-    },
-    onError: () => {
-      toast({
-        title: "추가 실패",
-        description: "작물 추가 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: InsertCrop) => {
-      const response = await apiRequest("PUT", `/api/crops/${crop!.id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
-      toast({ title: "작물 수정 완료", description: "작물 정보가 성공적으로 수정되었습니다." });
-      onOpenChange(false);
-    },
-    onError: () => {
-      toast({
-        title: "수정 실패",
-        description: "작물 수정 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    },
-  });
+  const createMutation = useCreateCrop();
+  const updateMutation = useUpdateCrop();
 
   const onSubmit = (data: InsertCrop) => {
-    if (crop) updateMutation.mutate(data);
-    else createMutation.mutate(data);
+    if (crop) {
+      updateMutation.mutate(
+        { id: crop.id, data },
+        {
+          onSuccess: () => {
+            onOpenChange(false);
+          },
+        }
+      );
+    } else {
+      createMutation.mutate(data, {
+        onSuccess: () => {
+          onOpenChange(false);
+        },
+      });
+    }
   };
 
   const openNewCropModal = () => {
@@ -285,6 +270,32 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
               )}
             </div>
 
+            {/* 농장 선택 (옵션) */}
+            {showFarmSelect && (
+              <FormField
+                control={form.control}
+                name="farmId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>농장</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="등록할 농장을 선택하세요 (선택사항)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {farms.map((f: any) => (
+                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             {/* 품종 선택 (대표 작물 선택 시 노출) */}
             {selectedCropData && (
               <FormField
@@ -323,7 +334,8 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
               disabled={
                 createMutation.isPending || 
                 updateMutation.isPending || 
-                (searchTerm.trim() !== "" && filteredCrops.length === 0) // 검색 결과가 없을 때 비활성화
+                (searchTerm.trim() !== "" && filteredCrops.length === 0) ||
+                (!crop && !selectedCrop)
               }
             >
               {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
