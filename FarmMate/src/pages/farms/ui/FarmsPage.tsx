@@ -1,17 +1,28 @@
 import { useEffect, useState } from "react";
-import { Plus, ChevronRight, Sprout, MapPin } from "lucide-react";
+import { Plus, Sprout, MapPin, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Card, CardContent } from "@shared/ui/card";
-import { AddFarmDialog, useFarms } from "@features/farm-management";
-import { AddCropDialog, useCrops } from "@features/crop-management";
-import type { Farm, Crop } from "@shared/types/schema";
+import { AddFarmDialog, useFarms, useDeleteFarm } from "@features/farm-management";
+import { AddCropDialog, useCrops, useDeleteCrop } from "@features/crop-management";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@shared/ui/dropdown-menu";
+import type { Crop } from "@shared/types/schema";
+import type { FarmEntity } from "@shared/api/farm.repository";
 
 export default function FarmsPage() {
   const [isAddFarmDialogOpen, setIsAddFarmDialogOpen] = useState(false);
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
+  const [editingFarm, setEditingFarm] = useState<FarmEntity | null>(null);
+  const [editingCrop, setEditingCrop] = useState<Crop | null>(null);
   
   const { data: farms, isLoading } = useFarms();
   const { data: crops } = useCrops();
+  const deleteFarm = useDeleteFarm();
+  const deleteCrop = useDeleteCrop();
 
   // Open dialogs when query params are present (e.g., /farms?add=farm or ?add=crop)
   useEffect(() => {
@@ -74,14 +85,27 @@ export default function FarmsPage() {
                           <MapPin className="w-4 h-4 text-gray-500" />
                           <h3 className="font-medium text-gray-900">{farm.name}</h3>
                         </div>
-                        <p className="text-sm text-gray-600">{farm.location}</p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {farm.environment === 'outdoor' ? '노지' : 
-                           farm.environment === 'greenhouse' ? '시설' : '수경'} | 
-                          {farm.size}㎡ | 작물 {farmCrops.length}종
+                          {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount} | 작물 {farmCrops.length}종
                         </p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => { setEditingFarm(farm); setIsAddFarmDialogOpen(true); }}>
+                              <Edit className="w-4 h-4 mr-2" /> 수정
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => deleteFarm.mutate(farm.id)}>
+                              <Trash2 className="w-4 h-4 mr-2" /> 삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -135,7 +159,21 @@ export default function FarmsPage() {
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setEditingCrop(crop); setIsAddCropDialogOpen(true); }}>
+                          <Edit className="w-4 h-4 mr-2" /> 수정
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => deleteCrop.mutate(crop.id)}>
+                          <Trash2 className="w-4 h-4 mr-2" /> 삭제
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -165,12 +203,14 @@ export default function FarmsPage() {
 
       <AddFarmDialog
         open={isAddFarmDialogOpen}
-        onOpenChange={setIsAddFarmDialogOpen}
+        onOpenChange={(open) => { setIsAddFarmDialogOpen(open); if (!open) setEditingFarm(null); }}
+        farm={editingFarm}
       />
       
       <AddCropDialog
         open={isAddCropDialogOpen}
-        onOpenChange={setIsAddCropDialogOpen}
+        onOpenChange={(open) => { setIsAddCropDialogOpen(open); if (!open) setEditingCrop(null); }}
+        crop={editingCrop}
       />
     </div>
   );
