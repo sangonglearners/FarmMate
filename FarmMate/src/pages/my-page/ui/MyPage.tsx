@@ -128,7 +128,7 @@ export default function MyPage() {
           <Button variant="ghost" size="sm" onClick={() => setIsAddFarmDialogOpen(true)}>추가</Button>
         </div>
         {farms && farms.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
             {farms.map((f) => (
               <Card key={f.id}>
                 <CardContent className="p-4">
