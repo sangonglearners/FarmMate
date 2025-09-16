@@ -1,26 +1,37 @@
-// Farm management API functions
-import { apiRequest } from "@shared/api/client";
-import type { Farm, InsertFarm } from "@shared/types/schema";
+// Farm management API functions (Supabase direct via repository)
+import type { InsertFarm } from "@shared/types/schema";
+import { FarmRepository } from "@shared/api/farm.repository";
+import type { FarmEntity } from "@shared/api/farm.repository";
 
 export const farmApi = {
-  getFarms: async (): Promise<Farm[]> => {
-    const response = await fetch("/api/farms");
-    if (!response.ok) throw new Error("Failed to fetch farms");
-    return response.json();
+  getFarms: async (): Promise<FarmEntity[]> => {
+    const repo = new FarmRepository();
+    return await repo.list();
   },
 
-  createFarm: async (farmData: InsertFarm): Promise<Farm> => {
-    const response = await apiRequest("POST", "/api/farms", farmData);
-    return response.json();
+  createFarm: async (farmData: InsertFarm): Promise<FarmEntity> => {
+    const repo = new FarmRepository();
+    return await repo.create({
+      name: (farmData as any).name,
+      environment: farmData.environment,
+      rowCount: farmData.rowCount,
+      area: farmData.area,
+    });
   },
 
-  updateFarm: async (id: string, farmData: Partial<InsertFarm>): Promise<Farm> => {
-    const response = await apiRequest("PUT", `/api/farms/${id}`, farmData);
-    return response.json();
+  updateFarm: async (id: string, farmData: Partial<InsertFarm>): Promise<FarmEntity> => {
+    const repo = new FarmRepository();
+    return await repo.update(id, {
+      name: (farmData as any)?.name,
+      environment: farmData.environment,
+      rowCount: farmData.rowCount,
+      area: farmData.area,
+    });
   },
 
   deleteFarm: async (id: string): Promise<{ success: boolean }> => {
-    const response = await apiRequest("DELETE", `/api/farms/${id}`);
-    return response.json();
+    const repo = new FarmRepository();
+    await repo.remove(id);
+    return { success: true };
   },
 };
