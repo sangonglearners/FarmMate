@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Sprout, Bell, User, Calculator } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Sprout } from "lucide-react";
 
 export default function Header() {
   const [location] = useLocation();
@@ -25,15 +24,7 @@ export default function Header() {
             </div>
           </Link>
           
-          {/* 모바일 앱용 간단한 아이콘들 */}
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" title="농작업 계산기">
-              <Calculator className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Bell className="w-5 h-5" />
-            </Button>
-          </div>
+          
         </div>
       </div>
     </header>
