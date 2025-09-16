@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@shared/ui/button';
 import { Card, CardContent } from '@shared/ui/card';
-import { MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, MapPin, Sprout } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@shared/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@shared/ui/dialog';
 import { Settings, Camera } from 'lucide-react';
@@ -13,6 +13,7 @@ import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
+import { Separator } from '@shared/ui/separator';
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);
@@ -124,7 +125,7 @@ export default function MyPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">내 농장 정보</h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2"><MapPin className="w-5 h-5 text-gray-600" /> 내 농장 정보</h2>
           <Button variant="ghost" size="sm" onClick={() => setIsAddFarmDialogOpen(true)}>추가</Button>
         </div>
         {farms && farms.length > 0 ? (
@@ -170,13 +171,15 @@ export default function MyPage() {
         )}
       </section>
 
+      <Separator className="my-2" />
+
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">내 작물 정보</h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2"><Sprout className="w-5 h-5 text-gray-600" /> 내 작물 정보</h2>
           <Button variant="ghost" size="sm" onClick={() => setIsAddCropDialogOpen(true)}>수정</Button>
         </div>
         {crops && crops.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
             {crops.map((c) => (
               <Card key={c.id}>
                 <CardContent className="p-4">
