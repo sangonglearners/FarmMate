@@ -31,43 +31,17 @@ export default function HomePage() {
     });
   };
 
-  // 로컬 스토리지에서 작업 목록 가져오기
+  // Supabase에서 작업 목록 가져오기
   const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
     queryKey: ["tasks"],
-    queryFn: () => {
-      const storedTasks = localStorage.getItem("farmmate-tasks");
-      if (storedTasks) {
-        const parsedTasks = JSON.parse(storedTasks);
-        // 중복 제거 후 다시 저장
-        const uniqueTasks = removeDuplicateTasks(parsedTasks);
-        if (uniqueTasks.length !== parsedTasks.length) {
-          localStorage.setItem("farmmate-tasks", JSON.stringify(uniqueTasks));
-        }
-        return uniqueTasks;
+    queryFn: async () => {
+      try {
+        const { taskApi } = await import("@shared/api/tasks");
+        return await taskApi.getTasks();
+      } catch (error) {
+        console.error("작업 목록 로딩 실패:", error);
+        return [];
       }
-      // 처음 실행 시에만 테스트 데이터 생성
-      const hasInitialized = localStorage.getItem("farmmate-initialized");
-      if (!hasInitialized) {
-        const testTasks = [
-          {
-            id: "test-1",
-            title: "토마토 파종",
-            description: "체리토마토 씨앗 파종하기",
-            taskType: "파종",
-            scheduledDate: new Date().toISOString().split('T')[0], // 오늘
-            completed: 0,
-            farmId: "",
-            cropId: "",
-            userId: "test-user-id",
-            createdAt: new Date().toISOString(),
-            completedAt: null,
-          }
-        ];
-        localStorage.setItem("farmmate-tasks", JSON.stringify(testTasks));
-        localStorage.setItem("farmmate-initialized", "true");
-        return testTasks;
-      }
-      return [];
     },
   });
   const { data: crops = [] } = useCrops();

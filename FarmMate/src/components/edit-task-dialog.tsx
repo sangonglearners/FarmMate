@@ -1,18 +1,19 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@shared/ui/dialog";
+import { Button } from "@shared/ui/button";
+import { Input } from "@shared/ui/input";
+import { Label } from "@shared/ui/label";
+import { Calendar } from "@shared/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@shared/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
+import { Checkbox } from "@shared/ui/checkbox";
 import { CalendarIcon, Edit2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Task, Farm, Crop } from "@shared/schema";
+import { cn } from "../lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { useFarms } from "@features/farm-management";
+import { useCrops } from "@features/crop-management";
+import type { Task } from "@shared/types/schema";
 
 interface EditTaskDialogProps {
   task: Task;
@@ -21,6 +22,7 @@ interface EditTaskDialogProps {
 
 export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
   const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState(task.title);
   const [taskType, setTaskType] = useState(task.taskType);
   const [startDate, setStartDate] = useState<Date | undefined>(
@@ -35,13 +37,8 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [isAutoTitle, setIsAutoTitle] = useState(true); // 자동 제목 생성 여부
 
-  const { data: farms } = useQuery<Farm[]>({
-    queryKey: ["/api/farms"],
-  });
-
-  const { data: crops } = useQuery<Crop[]>({
-    queryKey: ["/api/crops"],
-  });
+  const { data: farms } = useFarms();
+  const { data: crops } = useCrops();
 
   // 이랑 번호 추출
   useEffect(() => {
@@ -53,8 +50,8 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
     }
   }, [task.description]);
 
-  const selectedFarm = farms?.find(farm => farm.id === selectedFarmId);
-  const selectedCrop = crops?.find(crop => crop.id === selectedCropId);
+  const selectedFarm = farms?.find((farm: any) => farm.id === selectedFarmId);
+  const selectedCrop = crops?.find((crop: any) => crop.id === selectedCropId);
 
   // 기본 제목 생성 함수
   const generateDefaultTitle = () => {
@@ -113,11 +110,8 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
         description: selectedRows.length > 0 ? `이랑: ${selectedRows.join(", ")}번` : description,
       };
 
-      await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateData),
-      });
+      const { taskApi } = await import("@shared/api/tasks");
+      await taskApi.updateTask(task.id, updateData);
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setOpen(false);
@@ -180,7 +174,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
             <Select value={selectedCropId} onValueChange={(value) => {
               setSelectedCropId(value);
               if (isAutoTitle) {
-                const newCrop = crops?.find(c => c.id === value);
+                const newCrop = crops?.find((c: any) => c.id === value);
                 if (newCrop && taskType) {
                   setTitle(`${newCrop.name} ${taskType}`);
                 }
@@ -190,7 +184,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                 <SelectValue placeholder="작물을 선택하세요" />
               </SelectTrigger>
               <SelectContent>
-                {crops?.map((crop) => (
+                {crops?.map((crop: any) => (
                   <SelectItem key={crop.id} value={crop.id || ""}>
                     {crop.name || crop.category}
                   </SelectItem>
