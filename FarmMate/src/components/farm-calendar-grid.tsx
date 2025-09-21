@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
 import SimpleEditTaskDialog from "@/components/simple-edit-task-dialog";
 import type { Task, Crop } from "@shared/types/schema";
+import { useFarms } from "@/features/farm-management/model/farm.hooks";
+import type { FarmEntity } from "@shared/api/farm.repository";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -13,13 +15,15 @@ interface FarmCalendarGridProps {
 }
 
 type ViewMode = "monthly" | "yearly";
-type FarmType = "노지" | "시설1" | "시설2";
 
 export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCalendarGridProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
-  const [selectedFarm, setSelectedFarm] = useState<FarmType>("노지");
+  const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
+  
+  // 농장 데이터 가져오기
+  const { data: farms = [], isLoading: farmsLoading } = useFarms();
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
@@ -37,8 +41,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 현재 뷰 모드에 따른 날짜
   const currentDate = viewMode === "monthly" ? monthlyDate : yearlyDate;
 
-  // 이랑 번호 (임시로 1-15까지)
-  const rowNumbers = Array.from({ length: 15 }, (_, i) => i + 1);
+  // 첫 번째 농장을 기본값으로 설정
+  useEffect(() => {
+    if (farms.length > 0 && !selectedFarm) {
+      setSelectedFarm(farms[0]);
+    }
+  }, [farms, selectedFarm]);
+
+  // 선택된 농장의 이랑 수에 따른 이랑 번호 생성
+  const rowNumbers = selectedFarm 
+    ? Array.from({ length: selectedFarm.rowCount }, (_, i) => i + 1)
+    : Array.from({ length: 15 }, (_, i) => i + 1); // 기본값 15개
 
   // 월간 뷰: 현재 표시할 10일 계산 (다음 달 날짜 포함)
   const getMonthlyDays = () => {
@@ -88,6 +101,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
       return tasks.filter(task => 
         task.scheduledDate === dateStr && 
+        task.farmId === selectedFarm?.id && // 선택된 농장의 작업만 표시
         (task.rowNumber === rowNumber || (!task.rowNumber && rowNumber === 1))
       );
     } else {
@@ -95,6 +109,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const year = currentDate.getFullYear();
       return tasks.filter(task => {
         if (!task.scheduledDate) return false;
+        if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
         if (task.rowNumber !== rowNumber && !(task.rowNumber === null && rowNumber === 1)) return false;
         const taskDate = new Date(task.scheduledDate);
         return taskDate.getFullYear() === year && taskDate.getMonth() + 1 === dayInfo.month;
@@ -198,16 +213,32 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       {/* 컨트롤 */}
       <div className="flex items-center justify-between">
         {/* 농장 선택 */}
-        <Select value={selectedFarm} onValueChange={(value: FarmType) => setSelectedFarm(value)}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="노지">노지</SelectItem>
-            <SelectItem value="시설1">시설1</SelectItem>
-            <SelectItem value="시설2">시설2</SelectItem>
-          </SelectContent>
-        </Select>
+        {farmsLoading ? (
+          <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
+        ) : farms.length > 0 ? (
+          <Select 
+            value={selectedFarm?.id || ""} 
+            onValueChange={(value) => {
+              const farm = farms.find(f => f.id === value);
+              if (farm) setSelectedFarm(farm);
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="농장 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              {farms.map((farm) => (
+                <SelectItem key={farm.id} value={farm.id}>
+                  {farm.name} ({farm.environment})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="text-sm text-gray-500">
+            등록된 농장이 없습니다
+          </div>
+        )}
 
         {/* 뷰 모드 선택 */}
         <div className="flex space-x-2">
@@ -417,10 +448,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           
           <div className="space-y-3">
             {tasks
-              .filter(task => task.scheduledDate === selectedCellDate)
+              .filter(task => task.scheduledDate === selectedCellDate && task.farmId === selectedFarm?.id)
               .length > 0 ? (
               tasks
-                .filter(task => task.scheduledDate === selectedCellDate)
+                .filter(task => task.scheduledDate === selectedCellDate && task.farmId === selectedFarm?.id)
                 .map((task) => {
                   const crop = crops.find(c => c.id === task.cropId);
                   return (

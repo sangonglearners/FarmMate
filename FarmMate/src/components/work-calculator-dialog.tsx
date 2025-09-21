@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Calendar as CalendarIcon, Save, Plus, Calculator } from "lucide-react";
@@ -10,18 +9,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
 import type { Crop, InsertTask } from "../shared/types/schema";
 
@@ -129,6 +121,7 @@ export default function WorkCalculatorDialog({
         endDate: schedule.endDate,
         farmId: selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
+        rowNumber: undefined, // 이랑 번호는 작업 등록 시 선택
         userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
       };
       console.log("Created work calculator task:", task);
