@@ -7,8 +7,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
-import { Button } from "@shared/ui/button";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -16,18 +16,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
-import { Input } from "@shared/ui/input";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/select";
-import { useToast } from "@shared/hooks/use-toast";
-import { insertCropSchema } from "@shared/types/schema";
-import type { InsertCrop, Crop } from "@shared/types/schema";
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { insertCropSchema } from "@shared/schema";
+import type { InsertCrop, Crop } from "@shared/schema";
 import { useCrops as useMyCrops, useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
 import { useFarms } from "@features/farm-management";
 import { z } from "zod";

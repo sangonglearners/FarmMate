@@ -1,7 +1,7 @@
 // Crop management API functions (Supabase via repository)
-import type { InsertCrop } from "@shared/types/schema";
-import { CropRepository } from "@shared/api/crop.repository";
-import type { Crop } from "@shared/types/schema";
+import type { InsertCrop } from "@shared/schema";
+import { CropRepository } from "@/shared/api/crop.repository";
+import type { Crop } from "@shared/schema";
 
 export const cropApi = {
   getCrops: async (_search?: string): Promise<Crop[]> => {

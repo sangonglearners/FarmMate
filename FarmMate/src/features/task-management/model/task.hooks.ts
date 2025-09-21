@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { taskApi } from "@shared/api/tasks";
-import type { Task, InsertTask } from "@shared/types/schema";
-import { useToast } from "@shared/hooks/use-toast";
+import { taskApi } from "@/shared/api/tasks";
+import type { Task, InsertTask } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 export const useTasks = () => {
   return useQuery<Task[]>({

@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@shared/ui/button";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
-import { Textarea } from "@shared/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,25 +22,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/select";
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@shared/ui/popover";
-import { useToast } from "@shared/hooks/use-toast";
-import { insertTaskSchema } from "../../../shared/schema";
-import type { InsertTask, Task, Farm, Crop } from "../../../shared/schema";
-import { apiRequest } from "@shared/api/client";
+} from "@/components/ui/popover";
+import { useToast } from "@/hooks/use-toast";
+import { insertTaskSchema } from "@shared/schema";
+import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
+import { apiRequest } from "@/shared/api/client";
 import { z } from "zod";
-import { Calendar } from "@shared/ui/calendar";
+import { Calendar } from "@/components/ui/calendar";
 
 const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),

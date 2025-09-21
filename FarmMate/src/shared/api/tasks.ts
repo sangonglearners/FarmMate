@@ -1,4 +1,4 @@
-import type { Task, InsertTask } from "@shared/types/schema";
+import type { Task, InsertTask } from "@shared/schema";
 import { apiRequest } from "./client";
 
 export const taskApi = {
