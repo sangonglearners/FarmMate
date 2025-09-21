@@ -370,7 +370,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     return (
                       <div
                         key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                        className={`flex-1 p-2 border-r border-gray-200 last:border-r-0 min-h-[80px] cursor-pointer hover:bg-gray-50 transition-colors ${
+                        className={`flex-1 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors ${
                           isTodayCell ? "bg-green-50 border-green-200" : ""
                         } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                           viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
@@ -403,7 +403,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       {cropName}
                                     </div>
                                   )}
-                                  <div className={`text-xs px-1 py-0.5 rounded border break-words ${getTaskColor(task.taskType)}`}>
+                                  <div 
+                                    className={`text-xs px-1 py-0.5 rounded border break-words leading-tight ${getTaskColor(task.taskType)}`}
+                                    style={{
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden',
+                                      wordWrap: 'break-word',
+                                      maxHeight: '2.5rem'
+                                    }}
+                                  >
                                     {task.taskType}
                                   </div>
                                 </div>

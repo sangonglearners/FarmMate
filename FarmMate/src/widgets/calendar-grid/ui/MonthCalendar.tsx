@@ -81,7 +81,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
         return (
           <div
             key={index}
-            className={`min-h-16 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+            className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
               !isCurrentMonth ? 'text-gray-400' : ''
             } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
               isSelected ? 'bg-blue-50 border-blue-300' : ''

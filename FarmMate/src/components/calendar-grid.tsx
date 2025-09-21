@@ -120,7 +120,7 @@ export default function CalendarGrid({
         return (
           <div
             key={dateStr}
-            className={`min-h-24 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 ${
+            className={`min-h-28 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 ${
               isToday ? "bg-primary/5 border-primary" : ""
             } ${dayTasks.length > 0 ? "bg-gray-50" : ""}`}
             onClick={() => onDateClick(dateStr)}
@@ -136,6 +136,14 @@ export default function CalendarGrid({
                   className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(
                     (task as any).taskType
                   )}`}
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    wordWrap: 'break-word',
+                    maxHeight: '2.5rem'
+                  }}
                   title={`${getCropName(task.cropId)} - ${(task as any).taskType}`}
                 >
                   {getCropName(task.cropId)} {(task as any).taskType}
