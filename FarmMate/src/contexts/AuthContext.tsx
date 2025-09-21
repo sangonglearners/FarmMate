@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, signInWithGoogle, signOut, getCurrentUser, onAuthStateChange, handleAuthCallback } from '../lib/supabaseClient'
+import { supabase, signInWithGoogle, signOut, getCurrentUser, onAuthStateChange, handleAuthCallback } from '@/lib/supabaseClient'
 
 interface AuthContextType {
   user: User | null
@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth()
 
     // 인증 상태 변경 구독
-    const { data: { subscription } } = onAuthStateChange((event, session) => {
+    const { data: { subscription } } = onAuthStateChange((event: string, session: any) => {
       console.log('인증 상태 변경:', event, session)
       
       // SIGNED_IN 이벤트 발생 시 OAuth 성공 플래그 설정
