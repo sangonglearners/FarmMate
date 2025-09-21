@@ -43,6 +43,8 @@ import {
 import { useToast } from "@shared/hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
+import type { FarmEntity } from "@shared/api/farm.repository";
+import { useLocation } from "wouter";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@shared/api/client";
 
@@ -50,6 +52,7 @@ import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import { saveTask } from "@/shared/api/saveTask";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
+import { useFarms } from "@features/farm-management";
 
 import { z } from "zod";
 import { Calendar } from "@shared/ui/calendar";
@@ -57,7 +60,7 @@ import WorkCalculatorDialog from "./work-calculator-dialog";
 
 const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),
-  environment: z.string().min(1, "재배환경을 선택해주세요"),
+  environment: z.string().optional(), // 농장 선택 시 자동 설정
   endDate: z.string().optional(),
   rowNumber: z.number().optional(),
 });
@@ -92,8 +95,6 @@ const individualTaskTypes = [
   "저장-포장",
 ];
 
-const environments = ["노지", "시설1", "시설2"];
-
 interface AddTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -117,11 +118,10 @@ export default function AddTaskDialog({
   const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
-  const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
+  const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
+  const [, setLocation] = useLocation();
 
-  const { data: farms } = useQuery<Farm[]>({
-    queryKey: ["/api/farms"],
-  });
+  const { data: farms, isLoading: farmsLoading } = useFarms();
 
   const { data: crops } = useQuery<Crop[]>({
     queryKey: ["/api/crops"],
@@ -159,6 +159,17 @@ export default function AddTaskDialog({
       form.setValue("title", `${cropName}_${taskType}`);
     }
   }, [form.watch("taskType"), customCropName, cropSearchTerm, form]);
+
+  // 첫 번째 농장을 기본값으로 설정
+  useEffect(() => {
+    if (farms && farms.length > 0 && !task && open && !selectedFarm) {
+      const firstFarm = farms[0];
+      setSelectedFarm(firstFarm);
+      form.setValue("farmId", firstFarm.id);
+      form.setValue("environment", firstFarm.environment || "");
+      console.log("첫 번째 농장이 자동 선택되었습니다:", firstFarm.name);
+    }
+  }, [farms, task, open, selectedFarm, form]);
 
   // 수정 모드 초기화
   useEffect(() => {
@@ -198,7 +209,7 @@ export default function AddTaskDialog({
       setCustomCropName("");
       setSelectedWorks([]);
       setSelectedCrop(null);
-      setSelectedFarm(null);
+      // selectedFarm은 첫 번째 농장으로 자동 설정되므로 null로 초기화하지 않음
     }
   }, [task, open, selectedDate, crops, farms, form]);
 
@@ -364,6 +375,10 @@ export default function AddTaskDialog({
         toast({ title: "작업을 선택해주세요", variant: "destructive" });
         return;
       }
+      if (!form.getValues("farmId")) {
+        toast({ title: "농장을 선택해주세요", variant: "destructive" });
+        return;
+      }
       const tasks: InsertTask[] = selectedWorks.map((work) => ({
         title: form.getValues("title") || `${cropName} ${work}`,
         description:
@@ -384,6 +399,10 @@ export default function AddTaskDialog({
           title: "시작/종료 날짜를 모두 선택해주세요",
           variant: "destructive",
         });
+        return;
+      }
+      if (!form.getValues("farmId")) {
+        toast({ title: "농장을 선택해주세요", variant: "destructive" });
         return;
       }
       const work = form.getValues("taskType") || "";
@@ -447,6 +466,16 @@ export default function AddTaskDialog({
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     const { environment, ...taskData } = data; // DB에 없는 폼 전용 필드 제거
 
+    // 농장 선택 검증
+    if (!data.farmId) {
+      toast({
+        title: "농장을 선택해주세요",
+        description: "작업을 등록하려면 농장을 먼저 선택해야 합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (task) {
       updateMutation.mutate(taskData as InsertTask);
       return;
@@ -464,6 +493,10 @@ export default function AddTaskDialog({
   const openWorkCalculator = () => {
     if (!selectedCrop && !customCropName) {
       toast({ title: "작물을 선택해주세요", variant: "destructive" });
+      return;
+    }
+    if (!selectedFarm) {
+      toast({ title: "농장을 선택해주세요", variant: "destructive" });
       return;
     }
     setShowWorkCalculator(true);
@@ -616,58 +649,92 @@ export default function AddTaskDialog({
                     <FormLabel>농장 *</FormLabel>
                     <Select 
                       onValueChange={(value) => {
-                        field.onChange(value);
-                        const farm = farms?.find(f => f.id === value);
-                        if (farm) {
-                          setSelectedFarm(farm);
-                          form.setValue("environment", farm.environment || "");
+                        try {
+                          field.onChange(value);
+                          const farm = farms?.find(f => f.id === value);
+                          if (farm) {
+                            setSelectedFarm(farm);
+                            form.setValue("environment", farm.environment || "");
+                            // 농장 선택 시 성공 메시지 표시
+                            console.log("농장이 선택되었습니다:", farm.name);
+                          }
+                        } catch (error) {
+                          console.error("농장 선택 중 오류:", error);
+                          toast({
+                            title: "농장 선택 오류",
+                            description: "농장 선택 중 오류가 발생했습니다. 다시 시도해주세요.",
+                            variant: "destructive",
+                          });
                         }
                       }} 
                       value={field.value || ""}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="농장을 선택해주세요" />
+                          <SelectValue 
+                            placeholder={
+                              farmsLoading 
+                                ? "농장 목록을 불러오는 중..." 
+                                : farms?.length === 0 
+                                  ? "등록된 농장이 없습니다" 
+                                  : "농장을 선택해주세요"
+                            } 
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {farms?.map((farm) => (
-                          <SelectItem key={farm.id} value={farm.id}>
-                            {farm.name} ({farm.environment})
+                        {farmsLoading ? (
+                          <SelectItem value="loading" disabled>
+                            농장 목록을 불러오는 중...
                           </SelectItem>
-                        ))}
+                        ) : farms?.length === 0 ? (
+                          <SelectItem value="no-farms" disabled>
+                            등록된 농장이 없습니다. 농장을 먼저 추가해주세요.
+                          </SelectItem>
+                        ) : (
+                          farms?.map((farm) => (
+                            <SelectItem key={farm.id} value={farm.id}>
+                              {farm.name} ({farm.environment}) - {farm.rowCount}이랑
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
+                    {!farmsLoading && farms?.length === 0 && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-700 mb-2">
+                          작업을 등록하려면 먼저 농장을 추가해야 합니다.
+                        </p>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            onOpenChange(false);
+                            setLocation('/farms?add=farm');
+                          }}
+                          className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                        >
+                          농장 추가하러 가기
+                        </Button>
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />
 
-              {/* 재배환경(폼 전용) */}
-              <FormField
-                control={form.control}
-                name="environment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>재배환경 *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="재배환경을 선택해주세요" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {environments.map((env) => (
-                          <SelectItem key={env} value={env}>
-                            {env}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* 선택된 농장의 재배환경 표시 */}
+              {selectedFarm && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">재배환경:</span> {selectedFarm.environment}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">이용 가능 이랑:</span> {selectedFarm.rowCount}개
+                  </p>
+                </div>
+              )}
 
               {/* 이랑 선택 */}
               {selectedFarm && (
@@ -678,8 +745,14 @@ export default function AddTaskDialog({
                     <FormItem>
                       <FormLabel>이랑 번호 (선택사항)</FormLabel>
                       <Select 
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
-                        value={field.value?.toString() || ""}
+                        onValueChange={(value) => {
+                          if (value === "all") {
+                            field.onChange(undefined); // 전체 이랑 선택 시 undefined
+                          } else {
+                            field.onChange(value ? parseInt(value) : undefined);
+                          }
+                        }} 
+                        value={field.value?.toString() || "all"}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -687,7 +760,7 @@ export default function AddTaskDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">전체 이랑</SelectItem>
+                          <SelectItem value="all">전체 이랑</SelectItem>
                           {Array.from({ length: selectedFarm.rowCount }, (_, i) => i + 1).map((rowNum) => (
                             <SelectItem key={rowNum} value={rowNum.toString()}>
                               {rowNum}번 이랑
