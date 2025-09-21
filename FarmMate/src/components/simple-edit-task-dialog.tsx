@@ -20,8 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { insertTaskSchema } from "@shared/schema";
-import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
+import { insertTaskSchema } from "@shared/types";
+import type { InsertTask, Task, Farm, Crop } from "@shared/types";
 import { z } from "zod";
 
 const formSchema = insertTaskSchema;

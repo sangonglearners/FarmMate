@@ -1,7 +1,7 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './components/LoginPage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Router, Route, Switch } from 'wouter';
+import { Router, Route } from 'wouter';
 import HomePage from './pages/home/ui/HomePage';
 import { FarmsPage } from './pages/farms';
 import CalendarPage from './pages/calendar/ui/CalendarPage';
@@ -25,22 +25,14 @@ function MainApp() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Layout>
-          <Switch>
-            <Route path="/" component={HomePage} />
-            <Route path="/farms" component={FarmsPage} />
-            <Route path="/crops" component={FarmsPage} /> {/* 작물관리는 농장관리와 동일 */}
-            <Route path="/calendar" component={CalendarPage} />
-            <Route path="/recommendations">
-              {/* 작물추천 페이지는 아직 구현되지 않았으므로 홈으로 리다이렉트 */}
-              <HomePage />
-            </Route>
-            <Route path="/my-page" component={MyPage} />
-            <Route path="/auth/callback">
-              {/* OAuth 콜백 후 홈화면으로 */}
-              <HomePage />
-            </Route>
-            <Route component={NotFound} />
-          </Switch>
+          <Route path="/" component={HomePage} />
+          <Route path="/farms" component={FarmsPage} />
+          <Route path="/crops" component={FarmsPage} />
+          <Route path="/calendar" component={CalendarPage} />
+          <Route path="/recommendations" component={HomePage} />
+          <Route path="/my-page" component={MyPage} />
+          <Route path="/auth/callback" component={HomePage} />
+          {/* NotFound는 추후 useRoute 조합으로 추가 */}
         </Layout>
       </Router>
     </QueryClientProvider>
