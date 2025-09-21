@@ -40,7 +40,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@shared/api";
 import { z } from "zod";
 
 const formSchema = insertTaskSchema.extend({

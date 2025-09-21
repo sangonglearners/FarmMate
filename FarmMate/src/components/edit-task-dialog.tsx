@@ -11,8 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarIcon, Edit2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Task, Farm, Crop } from "@shared/schema";
+import { queryClient } from "@shared/api";
+import type { Task, Farm, Crop } from "@shared/types";
 
 interface EditTaskDialogProps {
   task: Task;
