@@ -9,6 +9,7 @@ export async function saveTask(input: {
   farmId?: number; 
   cropId?: number; 
   taskType?: string;
+  rowNumber?: number;
 }) {
   // taskApi.createTask를 사용하여 Supabase에 저장
   const taskData = {
@@ -18,6 +19,7 @@ export async function saveTask(input: {
     scheduledDate: input.scheduledAt || new Date().toISOString().split('T')[0],
     farmId: input.farmId?.toString() || "",
     cropId: input.cropId?.toString() || "",
+    rowNumber: input.rowNumber || null,
     completed: 0,
   };
   

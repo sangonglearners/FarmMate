@@ -59,6 +59,7 @@ const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),
   environment: z.string().min(1, "재배환경을 선택해주세요"),
   endDate: z.string().optional(),
+  rowNumber: z.number().optional(),
 });
 
 // 핵심 작물 목록
@@ -116,6 +117,7 @@ export default function AddTaskDialog({
   const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
+  const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
 
   const { data: farms } = useQuery<Farm[]>({
     queryKey: ["/api/farms"],
@@ -136,6 +138,7 @@ export default function AddTaskDialog({
       farmId: "",
       cropId: "",
       environment: "",
+      rowNumber: undefined,
     },
   });
 
@@ -172,6 +175,7 @@ export default function AddTaskDialog({
         farmId: (task as any).farmId || "",
         cropId: (task as any).cropId || "",
         environment: farm?.environment || "",
+        rowNumber: (task as any).rowNumber || undefined,
       });
 
       if (crop) {
@@ -188,11 +192,13 @@ export default function AddTaskDialog({
         farmId: "",
         cropId: "",
         environment: "",
+        rowNumber: undefined,
       });
       setCropSearchTerm("");
       setCustomCropName("");
       setSelectedWorks([]);
       setSelectedCrop(null);
+      setSelectedFarm(null);
     }
   }, [task, open, selectedDate, crops, farms, form]);
 
@@ -220,7 +226,10 @@ export default function AddTaskDialog({
     setSelectedCrop(crop);
 
     const farm = farms?.find((f) => f.id === (crop as any).farmId);
-    if (farm) form.setValue("environment", farm.environment);
+    if (farm) {
+      form.setValue("environment", farm.environment || "");
+      setSelectedFarm(farm);
+    }
   };
 
   const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
@@ -246,6 +255,8 @@ export default function AddTaskDialog({
         scheduledAt: (data as any).scheduledDate,
         farmId: (data as any).farmId ? Number((data as any).farmId) : undefined,
         cropId: (data as any).cropId ? Number((data as any).cropId) : undefined,
+        rowNumber: (data as any).rowNumber || undefined,
+        taskType: (data as any).taskType || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -362,6 +373,7 @@ export default function AddTaskDialog({
         scheduledDate: startDate,
         farmId: form.getValues("farmId") || "",
         cropId: form.getValues("cropId") || "",
+        rowNumber: form.getValues("rowNumber") || undefined,
       }));
       bulkCreateMutation.mutate(tasks);
     } else {
@@ -389,6 +401,7 @@ export default function AddTaskDialog({
           scheduledDate: format(d, "yyyy-MM-dd"),
           farmId: form.getValues("farmId") || "",
           cropId: form.getValues("cropId") || "",
+          rowNumber: form.getValues("rowNumber") || undefined,
         });
       }
       bulkCreateMutation.mutate(tasks);
@@ -403,11 +416,12 @@ export default function AddTaskDialog({
       for (const task of tasks) {
         await saveTask({
           title: task.title,
-          memo: task.description,
+          memo: task.description || undefined,
           scheduledAt: task.scheduledDate,
           farmId: task.farmId ? Number(task.farmId) : undefined,
           cropId: task.cropId ? Number(task.cropId) : undefined,
           taskType: task.taskType,
+          rowNumber: task.rowNumber || undefined,
         });
       }
 
@@ -593,6 +607,42 @@ export default function AddTaskDialog({
                 )}
               </div>
 
+              {/* 농장 선택 */}
+              <FormField
+                control={form.control}
+                name="farmId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>농장 *</FormLabel>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        const farm = farms?.find(f => f.id === value);
+                        if (farm) {
+                          setSelectedFarm(farm);
+                          form.setValue("environment", farm.environment || "");
+                        }
+                      }} 
+                      value={field.value || ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="농장을 선택해주세요" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {farms?.map((farm) => (
+                          <SelectItem key={farm.id} value={farm.id}>
+                            {farm.name} ({farm.environment})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               {/* 재배환경(폼 전용) */}
               <FormField
                 control={form.control}
@@ -618,6 +668,41 @@ export default function AddTaskDialog({
                   </FormItem>
                 )}
               />
+
+              {/* 이랑 선택 */}
+              {selectedFarm && (
+                <FormField
+                  control={form.control}
+                  name="rowNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>이랑 번호 (선택사항)</FormLabel>
+                      <Select 
+                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
+                        value={field.value?.toString() || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="이랑 번호를 선택해주세요" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">전체 이랑</SelectItem>
+                          {Array.from({ length: selectedFarm.rowCount }, (_, i) => i + 1).map((rowNum) => (
+                            <SelectItem key={rowNum} value={rowNum.toString()}>
+                              {rowNum}번 이랑
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                      <p className="text-xs text-gray-500">
+                        선택하지 않으면 전체 이랑에 작업이 등록됩니다
+                      </p>
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* 농작업 선택 */}
               {!task && registrationMode === "batch" ? (
