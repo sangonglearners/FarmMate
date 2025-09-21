@@ -217,10 +217,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
         ) : farms.length > 0 ? (
           <Select 
-            value={selectedFarm?.id || ""} 
+            value={selectedFarm?.id || "no-farm"} 
             onValueChange={(value) => {
-              const farm = farms.find(f => f.id === value);
-              if (farm) setSelectedFarm(farm);
+              if (value !== "no-farm") {
+                const farm = farms.find(f => f.id === value);
+                if (farm) setSelectedFarm(farm);
+              }
             }}
           >
             <SelectTrigger className="w-40">

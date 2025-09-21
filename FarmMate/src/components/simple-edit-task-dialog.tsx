@@ -50,15 +50,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
     queryKey: ["/api/crops"],
   });
 
-  // 농장별 이랑 개수
-  const getRowCount = (environment: string) => {
-    switch (environment) {
-      case '노지': return 40;
-      case '시설1': return 20;
-      case '시설2': return 10;
-      default: return 0;
-    }
-  };
+  // 농장별 이랑 개수는 실제 농장 데이터에서 가져옴
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(formSchema),
@@ -191,7 +183,11 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
 
           <div className="space-y-2">
             <Label htmlFor="farmId">농장</Label>
-            <Select value={form.watch("farmId") || ""} onValueChange={(value) => form.setValue("farmId", value)}>
+            <Select value={form.watch("farmId") || "no-farm-selected"} onValueChange={(value) => {
+              if (value !== "no-farm-selected") {
+                form.setValue("farmId", value);
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="농장을 선택하세요" />
               </SelectTrigger>
@@ -209,7 +205,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
               <Label>이랑 선택</Label>
               {(() => {
                 const selectedFarm = farms.find(f => f.id === form.watch("farmId"));
-                const rowCount = selectedFarm ? getRowCount(selectedFarm.environment) : 0;
+                const rowCount = selectedFarm ? selectedFarm.rowCount : 0;
                 const currentRow = task?.description?.match(/이랑: (\d+)번/)?.[1];
                 
                 return (
@@ -241,7 +237,7 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
               <Label>이랑 정보</Label>
               {(() => {
                 const selectedFarm = farms.find(f => f.id === form.watch("farmId"));
-                const rowCount = selectedFarm ? getRowCount(selectedFarm.environment) : 0;
+                const rowCount = selectedFarm ? selectedFarm.rowCount : 0;
                 return (
                   <div className="text-sm text-gray-600 p-2 bg-gray-50 rounded">
                     {selectedFarm?.environment}: 총 {rowCount}개 이랑 이용 가능
@@ -253,7 +249,11 @@ export default function SimpleEditTaskDialog({ open, onOpenChange, task }: Simpl
 
           <div className="space-y-2">
             <Label htmlFor="cropId">작물</Label>
-            <Select value={form.watch("cropId") || ""} onValueChange={(value) => form.setValue("cropId", value)}>
+            <Select value={form.watch("cropId") || "no-crop-selected"} onValueChange={(value) => {
+              if (value !== "no-crop-selected") {
+                form.setValue("cropId", value);
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="작물을 선택하세요" />
               </SelectTrigger>

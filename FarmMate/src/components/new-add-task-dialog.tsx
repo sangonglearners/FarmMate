@@ -84,17 +84,13 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
     queryFn: () => import("@shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
   });
 
-  // 재배환경별 이랑 개수
-  const getRowCount = (environment: string) => {
-    switch (environment) {
-      case '노지': return 40;
-      case '시설1': return 20;
-      case '시설2': return 10;
-      default: return 0;
-    }
-  };
-
-  const rowOptions = selectedEnvironment ? Array.from({ length: getRowCount(selectedEnvironment) }, (_, i) => i + 1) : [];
+  // 선택된 농장의 실제 이랑 개수 사용
+  const selectedFarmData = farms?.find(farm => 
+    farm.environment === selectedEnvironment || 
+    (selectedEnvironment === '노지' && farm.name.includes('노지'))
+  );
+  
+  const rowOptions = selectedFarmData ? Array.from({ length: selectedFarmData.rowCount }, (_, i) => i + 1) : [];
 
   const form = useForm<InsertTask & { environment: string }>({
     resolver: zodResolver(formSchema),
