@@ -1,9 +1,9 @@
 // Farm management hooks
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@shared/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { farmApi } from "../api/farm.api";
-import type { InsertFarm } from "@shared/types/schema";
-import type { FarmEntity } from "@shared/api/farm.repository";
+import type { InsertFarm } from "@shared/schema";
+import type { FarmEntity } from "@/shared/api/farm.repository";
 
 export const useFarms = () => {
   return useQuery<FarmEntity[]>({

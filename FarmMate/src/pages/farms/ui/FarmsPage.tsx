@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Sprout, MapPin, MoreVertical, Edit, Trash2 } from "lucide-react";
-import { Button } from "@shared/ui/button";
-import { Card, CardContent } from "@shared/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { AddFarmDialog, useFarms, useDeleteFarm } from "@features/farm-management";
 import { AddCropDialog, useCrops, useDeleteCrop } from "@features/crop-management";
 import {
@@ -9,10 +9,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@shared/ui/dropdown-menu";
-import type { Crop } from "@shared/types/schema";
-import type { FarmEntity } from "@shared/api/farm.repository";
-import { Separator } from "@shared/ui/separator";
+} from "@/components/ui/dropdown-menu";
+import type { Crop } from "@shared/schema";
+import type { FarmEntity } from "@/shared/api/farm.repository";
+import { Separator } from "@/components/ui/separator";
 
 export default function FarmsPage() {
   const [isAddFarmDialogOpen, setIsAddFarmDialogOpen] = useState(false);

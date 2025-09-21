@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@shared/ui/button';
-import { Card, CardContent } from '@shared/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { MoreVertical, Edit, Trash2, MapPin, Sprout } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@shared/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@shared/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Settings, Camera } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
-import { Input } from '@shared/ui/input';
+import { Input } from '@/components/ui/input';
 import { useFarms, useDeleteFarm } from '@features/farm-management';
 import { useCrops, useDeleteCrop } from '@features/crop-management';
 import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Separator } from '@shared/ui/separator';
+import { Separator } from '@/components/ui/separator';
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);

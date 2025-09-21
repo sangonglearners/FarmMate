@@ -26,8 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { insertCropSchema } from "../../../shared/schema";
-import type { InsertCrop, Crop } from "../../../shared/schema";
+import { insertCropSchema } from "@shared/schema";
+import type { InsertCrop, Crop } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";

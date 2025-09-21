@@ -1,2 +1,2 @@
 // Farm entity types
-export type { Farm, InsertFarm } from "@shared/types/schema";
+export type { Farm, InsertFarm } from "@shared/schema";

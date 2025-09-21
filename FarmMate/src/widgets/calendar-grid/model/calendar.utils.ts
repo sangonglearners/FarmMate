@@ -1,5 +1,5 @@
 // Calendar widget utility functions
-import type { Task, Crop } from "@shared/types/schema";
+import type { Task, Crop } from "@shared/schema";
 
 export interface CalendarDay {
   day: number;

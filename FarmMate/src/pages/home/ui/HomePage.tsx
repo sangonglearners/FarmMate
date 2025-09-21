@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft } from "lucide-react";
-import { Button } from "@shared/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@shared/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarGrid } from "@widgets/calendar-grid";
 import MonthCalendar from "@widgets/calendar-grid/ui/MonthCalendar";
 import { useTasks } from "@features/task-management";
