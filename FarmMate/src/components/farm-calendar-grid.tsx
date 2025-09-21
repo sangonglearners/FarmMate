@@ -403,7 +403,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       {cropName}
                                     </div>
                                   )}
-                                  <div className={`text-xs px-1 py-0.5 rounded border truncate ${getTaskColor(task.taskType)}`}>
+                                  <div className={`text-xs px-1 py-0.5 rounded border break-words ${getTaskColor(task.taskType)}`}>
                                     {task.taskType}
                                   </div>
                                 </div>

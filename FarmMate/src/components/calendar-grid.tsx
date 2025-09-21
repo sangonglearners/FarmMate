@@ -133,7 +133,7 @@ export default function CalendarGrid({
               {dayTasks.slice(0, 2).map((task) => (
                 <div
                   key={task.id}
-                  className={`text-xs px-1 py-0.5 rounded truncate ${getTaskColor(
+                  className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(
                     (task as any).taskType
                   )}`}
                   title={`${getCropName(task.cropId)} - ${(task as any).taskType}`}
