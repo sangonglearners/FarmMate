@@ -73,7 +73,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           today.getMonth() === month &&
           today.getFullYear() === year;
           
-        const isSelected = selectedDate === currentDate.toISOString().split('T')[0];
+        // 날짜 문자열을 직접 생성하여 시간대 문제 방지
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isSelected = selectedDate === dateStr;
         const isCurrentMonth = currentDate.getMonth() === month;
 
         return (
@@ -85,7 +87,6 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               isSelected ? 'bg-blue-50 border-blue-300' : ''
             } ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
             onClick={() => {
-              const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               onDateClick(dateStr);
             }}
           >
