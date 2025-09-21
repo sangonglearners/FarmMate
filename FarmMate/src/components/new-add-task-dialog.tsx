@@ -111,12 +111,9 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: InsertTask[]) => {
+      const { taskApi } = await import("@shared/api/tasks");
       for (const task of data) {
-        await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(task),
-        });
+        await taskApi.createTask(task);
       }
     },
     onSuccess: () => {

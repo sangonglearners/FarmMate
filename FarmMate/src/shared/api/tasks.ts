@@ -44,7 +44,7 @@ export async function listTasksByDate(date: string): Promise<Task[]> {
   }
 
   const { data, error } = await supabase
-    .from('tasks')
+    .from('tasks_v1')
     .select('*')
     .eq('user_id', auth.user.id)
     .eq('scheduled_date', date)
@@ -65,7 +65,7 @@ export async function listTasksRange(start: string, end: string): Promise<Task[]
   }
 
   const { data, error } = await supabase
-    .from('tasks')
+    .from('tasks_v1')
     .select('*')
     .eq('user_id', auth.user.id)
     .gte('scheduled_date', start)
@@ -97,7 +97,7 @@ export const taskApi = {
     }
 
     const { data, error } = await supabase
-      .from('tasks')
+      .from('tasks_v1')
       .insert({
         user_id: auth.user.id,
         title: taskData.title,
@@ -128,7 +128,7 @@ export const taskApi = {
     }
 
     const { data, error } = await supabase
-      .from('tasks')
+      .from('tasks_v1')
       .update({
         title: taskData.title,
         description: taskData.description || null,
@@ -164,7 +164,7 @@ export const taskApi = {
     }
 
     const { data, error } = await supabase
-      .from('tasks')
+      .from('tasks_v1')
       .update({
         completed: 1,
         completed_at: new Date().toISOString(),
@@ -193,7 +193,7 @@ export const taskApi = {
     }
 
     const { error } = await supabase
-      .from('tasks')
+      .from('tasks_v1')
       .delete()
       .eq('id', id)
       .eq('user_id', auth.user.id); // 보안: 자신의 작업만 삭제 가능

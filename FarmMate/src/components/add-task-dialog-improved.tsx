@@ -268,23 +268,18 @@ export default function AddTaskDialog({
   /** 수정 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-      const storedTasks = localStorage.getItem("farmmate-tasks");
-      const tasks = storedTasks ? JSON.parse(storedTasks) : [];
-      
-      const taskIndex = tasks.findIndex((t: any) => t.id === (task as any)!.id);
-      if (taskIndex !== -1) {
-        tasks[taskIndex] = {
-          ...tasks[taskIndex],
-          title: data.title!,
-          description: (data as any).description || "",
-          scheduledDate: (data as any).scheduledDate || tasks[taskIndex].scheduledDate,
-          farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
-          cropId: (data as any).cropId ? (data as any).cropId.toString() : "",
-        };
-        localStorage.setItem("farmmate-tasks", JSON.stringify(tasks));
-        return tasks[taskIndex];
-      }
-      throw new Error("작업을 찾을 수 없습니다.");
+      const { taskApi } = await import("@shared/api/tasks");
+      return await taskApi.updateTask((task as any)!.id, {
+        title: data.title!,
+        description: (data as any).description || "",
+        taskType: (data as any).taskType || "기타",
+        scheduledDate: (data as any).scheduledDate,
+        endDate: (data as any).endDate || null,
+        farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
+        cropId: (data as any).cropId ? (data as any).cropId.toString() : "",
+        rowNumber: (data as any).rowNumber || null,
+        completed: (data as any).completed || 0,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -307,26 +302,25 @@ export default function AddTaskDialog({
   /** 대량 저장 (일괄/개별) */
   const bulkCreateMutation = useMutation({
     mutationFn: async (tasks: InsertTask[]) => {
-      const storedTasks = localStorage.getItem("farmmate-tasks");
-      const existingTasks = storedTasks ? JSON.parse(storedTasks) : [];
+      const { taskApi } = await import("@shared/api/tasks");
+      const results = [];
       
-      const newTasks = tasks.map((t) => ({
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // 고유 ID
-        title: t.title!,
-        description: (t as any).description || "",
-        taskType: (t as any).taskType || "기타",
-        scheduledDate: (t as any).scheduledDate || new Date().toISOString().split('T')[0],
-        completed: 0,
-        farmId: (t as any).farmId ? (t as any).farmId.toString() : "",
-        cropId: (t as any).cropId ? (t as any).cropId.toString() : "",
-        userId: "test-user-id",
-        createdAt: new Date().toISOString(),
-        completedAt: null,
-      }));
+      for (const task of tasks) {
+        const result = await taskApi.createTask({
+          title: task.title!,
+          description: (task as any).description || "",
+          taskType: (task as any).taskType || "기타",
+          scheduledDate: (task as any).scheduledDate || new Date().toISOString().split('T')[0],
+          endDate: (task as any).endDate || null,
+          farmId: (task as any).farmId ? (task as any).farmId.toString() : "",
+          cropId: (task as any).cropId ? (task as any).cropId.toString() : "",
+          rowNumber: (task as any).rowNumber || null,
+          completed: 0,
+        });
+        results.push(result);
+      }
       
-      const allTasks = [...existingTasks, ...newTasks];
-      localStorage.setItem("farmmate-tasks", JSON.stringify(allTasks));
-      return newTasks;
+      return results;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
