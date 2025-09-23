@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/ui/card";
 import { CalendarGrid } from "@widgets/calendar-grid";
 import MonthCalendar from "@widgets/calendar-grid/ui/MonthCalendar";
-import { useTasks } from "@features/task-management";
+
 import { useCrops } from "@features/crop-management";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "@entities/task/model/utils";
 import { useLocation } from "wouter";
@@ -17,7 +18,32 @@ export default function HomePage() {
   const [showMonthView, setShowMonthView] = useState(false);
   const [, setLocation] = useLocation();
 
-  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
+  // 중복 제거 함수
+  const removeDuplicateTasks = (tasks: any[]) => {
+    const seen = new Set();
+    return tasks.filter(task => {
+      const key = `${task.title}-${task.scheduledDate}-${task.description}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  };
+
+  // Supabase에서 작업 목록 가져오기
+  const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => {
+      try {
+        const { taskApi } = await import("@shared/api/tasks");
+        return await taskApi.getTasks();
+      } catch (error) {
+        console.error("작업 목록 로딩 실패:", error);
+        return [];
+      }
+    },
+  });
   const { data: crops = [] } = useCrops();
 
   const handleDateClick = (dateStr: string) => {
@@ -235,82 +261,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* Selected Date's Tasks */}
-        {selectedDateTasks.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5" />
-                  <span>{formatSelectedDate()}의 작업</span>
-                </span>
-                <Button variant="ghost" size="sm" onClick={handleAddTaskClick}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-3">
-              {selectedDateTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="text-xl">{getTaskIcon(task.taskType)}</div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">
-                        {getCropName(task.cropId)} - {task.taskType}
-                      </h4>
-                      {task.description && (
-                        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className={`text-xs px-2 py-1 rounded-full ${getTaskColor(task.taskType)}`}>
-                    {task.completed === 1 ? '완료' : '예정'}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Overdue Tasks */}
-        {overdueTasks.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span className="flex items-center space-x-2 text-red-600">
-                  <Clock className="w-5 h-5" />
-                  <span>지연된 작업</span>
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-3">
-              {overdueTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-3 border border-red-200 bg-red-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="text-xl">{getTaskIcon(task.taskType)}</div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">
-                        {getCropName(task.cropId)} - {task.taskType}
-                      </h4>
-                      <p className="text-sm text-red-600">
-                        예정일: {formatDisplayDate(task.scheduledDate)}
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" className="text-red-600 border-red-200">
-                    처리하기
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Selected Date's Schedule */}
         <Card>
@@ -334,7 +285,7 @@ export default function HomePage() {
                       <div className="text-lg">{getTaskIcon(task.taskType)}</div>
                       <div>
                         <h4 className="font-medium text-gray-900">
-                          {getCropName(task.cropId)} - {task.taskType}
+                          {task.title}
                         </h4>
                         <p className="text-sm text-gray-600">
                           {formatDisplayDate(task.scheduledDate)}

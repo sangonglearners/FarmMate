@@ -5,15 +5,15 @@ import { useToast } from "@shared/hooks/use-toast";
 
 export const useTasks = () => {
   return useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
+    queryKey: ["tasks"],
     queryFn: taskApi.getTasks,
   });
 };
 
 export const useTasksByDate = (date: string) => {
   return useQuery<Task[]>({
-    queryKey: ["/api/tasks", { date }],
-    queryFn: () => taskApi.getTasksByDate(date),
+    queryKey: ["tasks", { date }],
+    queryFn: () => import("@shared/api/tasks").then(m => m.listTasksByDate(date)),
     enabled: !!date,
   });
 };
@@ -25,7 +25,7 @@ export const useCreateTask = () => {
   return useMutation({
     mutationFn: taskApi.createTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "작업 생성 완료",
         description: "새 작업이 성공적으로 생성되었습니다.",
@@ -49,7 +49,7 @@ export const useUpdateTask = () => {
     mutationFn: ({ id, task }: { id: string; task: Partial<InsertTask> }) =>
       taskApi.updateTask(id, task),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "작업 수정 완료",
         description: "작업이 성공적으로 수정되었습니다.",
@@ -72,7 +72,7 @@ export const useCompleteTask = () => {
   return useMutation({
     mutationFn: taskApi.completeTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "작업 완료",
         description: "작업이 성공적으로 완료되었습니다.",
@@ -95,7 +95,7 @@ export const useDeleteTask = () => {
   return useMutation({
     mutationFn: taskApi.deleteTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "작업 삭제 완료",
         description: "작업이 성공적으로 삭제되었습니다.",

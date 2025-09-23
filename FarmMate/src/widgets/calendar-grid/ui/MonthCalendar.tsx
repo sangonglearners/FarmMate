@@ -73,19 +73,20 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           today.getMonth() === month &&
           today.getFullYear() === year;
           
-        const isSelected = selectedDate === currentDate.toISOString().split('T')[0];
+        // 날짜 문자열을 직접 생성하여 시간대 문제 방지
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isSelected = selectedDate === dateStr;
         const isCurrentMonth = currentDate.getMonth() === month;
 
         return (
           <div
             key={index}
-            className={`min-h-16 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+            className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
               !isCurrentMonth ? 'text-gray-400' : ''
             } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
               isSelected ? 'bg-blue-50 border-blue-300' : ''
             } ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
             onClick={() => {
-              const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               onDateClick(dateStr);
             }}
           >
