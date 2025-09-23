@@ -6,7 +6,7 @@ import type { Crop, InsertCrop } from "@shared/types/schema";
 
 export const useCrops = (search?: string) => {
   return useQuery<Crop[]>({
-    queryKey: search ? ["/api/crops", { search }] : ["/api/crops"],
+    queryKey: search ? ["crops", { search }] : ["crops"],
     queryFn: () => cropApi.getCrops(search),
   });
 };
