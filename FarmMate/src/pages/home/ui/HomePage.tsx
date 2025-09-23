@@ -16,6 +16,8 @@ export default function HomePage() {
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showMonthView, setShowMonthView] = useState(false);
+  const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [, setLocation] = useLocation();
 
   // 중복 제거 함수
@@ -56,6 +58,12 @@ export default function HomePage() {
 
   const handleAddTaskClick = () => {
     setShowAddTaskDialog(true);
+  };
+
+  const handleTaskClick = (task: any) => {
+    console.log("편집할 task 데이터:", task);
+    setSelectedTask(task);
+    setShowEditTaskDialog(true);
   };
 
   const handlePrevious = () => {
@@ -279,7 +287,8 @@ export default function HomePage() {
                 {selectedDateTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleTaskClick(task)}
                   >
                     <div className="flex items-center space-x-3">
                       <div className="text-lg">{getTaskIcon(task.taskType)}</div>
@@ -316,6 +325,14 @@ export default function HomePage() {
       <AddTaskDialog
         open={showAddTaskDialog}
         onOpenChange={setShowAddTaskDialog}
+        selectedDate={selectedDate}
+      />
+
+      {/* Edit Task Dialog */}
+      <AddTaskDialog
+        open={showEditTaskDialog}
+        onOpenChange={setShowEditTaskDialog}
+        task={selectedTask}
         selectedDate={selectedDate}
       />
     </>
