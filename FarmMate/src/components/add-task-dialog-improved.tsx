@@ -142,21 +142,25 @@ export default function AddTaskDialog({
     },
   });
 
-  // 제목 자동 설정
+  // 제목 자동 설정 (편집 모드에서도 작동)
   useEffect(() => {
     const taskType = form.getValues("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      form.setValue("title", `${cropName}_${taskType}`);
+      const newTitle = `${cropName}_${taskType}`;
+      console.log("제목 자동 설정:", { cropName, taskType, newTitle });
+      form.setValue("title", newTitle);
     }
   }, [cropSearchTerm, customCropName, form]);
 
-  // taskType 변경시 제목 갱신
+  // taskType 변경시 제목 갱신 (편집 모드에서도 작동)
   useEffect(() => {
     const taskType = form.watch("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      form.setValue("title", `${cropName}_${taskType}`);
+      const newTitle = `${cropName}_${taskType}`;
+      console.log("taskType 변경으로 인한 제목 갱신:", { cropName, taskType, newTitle });
+      form.setValue("title", newTitle);
     }
   }, [form.watch("taskType"), customCropName, cropSearchTerm, form]);
 
@@ -173,10 +177,18 @@ export default function AddTaskDialog({
 
   // 수정 모드 초기화
   useEffect(() => {
-    if (task && open) {
-      const crop = crops?.find((c) => c.id === task.cropId);
-      const farm = farms?.find((f) => f.id === task.farmId);
-
+    console.log("편집 모드 초기화 조건 체크:", { 
+      task: !!task, 
+      open, 
+      cropsLength: crops?.length, 
+      farmsLength: farms?.length,
+      taskData: task
+    });
+    
+    if (task && open) { // 더 유연한 조건 - crops나 farms가 없어도 기본 정보는 설정
+      console.log("편집 모드 초기화 실행");
+      
+      // 기본 폼 데이터 먼저 설정
       form.reset({
         title: task.title || "",
         description: (task as any).description || "",
@@ -185,13 +197,38 @@ export default function AddTaskDialog({
         endDate: (task as any).endDate || "",
         farmId: (task as any).farmId || "",
         cropId: (task as any).cropId || "",
-        environment: farm?.environment || "",
+        environment: "",
         rowNumber: (task as any).rowNumber || undefined,
       });
+      
+      // 제목에서 작물명 추출 (fallback)
+      const titleParts = task.title?.split('_');
+      if (titleParts && titleParts.length >= 2) {
+        const cropNameFromTitle = titleParts[0];
+        console.log("제목에서 작물명 추출:", cropNameFromTitle);
+        setCropSearchTerm(cropNameFromTitle);
+        setCustomCropName(cropNameFromTitle);
+      }
 
-      if (crop) {
-        setCropSearchTerm(crop.name);
-        setSelectedCrop(crop);
+      // crops와 farms가 로드된 경우 추가 설정
+      if (crops && farms) {
+        const crop = crops.find((c) => c.id === task.cropId);
+        const farm = farms.find((f) => f.id === task.farmId);
+
+        console.log("작물/농장 데이터로 세부 설정:", { crop, farm });
+
+        if (crop) {
+          console.log("작물 설정:", crop.name);
+          setCropSearchTerm(crop.name);
+          setSelectedCrop(crop);
+          setCustomCropName(""); // 등록된 작물 사용
+        }
+        
+        if (farm) {
+          console.log("농장 설정:", farm.name);
+          setSelectedFarm(farm);
+          form.setValue("environment", farm.environment || "");
+        }
       }
     } else if (!task && open) {
       form.reset({
@@ -648,6 +685,7 @@ export default function AddTaskDialog({
                   <FormItem>
                     <FormLabel>농장 *</FormLabel>
                     <Select 
+                      value={field.value}
                       onValueChange={(value) => {
                         try {
                           field.onChange(value);
