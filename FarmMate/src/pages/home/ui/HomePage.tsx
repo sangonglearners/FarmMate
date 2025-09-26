@@ -247,7 +247,7 @@ export default function HomePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="max-h-96 overflow-hidden">
+            <div className="max-h-[500px] overflow-auto">
               {showMonthView ? (
                 <MonthCalendar
                   currentDate={currentDate}
