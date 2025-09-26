@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Task, Crop } from "../../../shared/schema";
+import type { Task, Crop } from "@shared/types/schema";
 import { listTasksRange } from "@/shared/api/tasks";
 
 interface CalendarGridProps {
