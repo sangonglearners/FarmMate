@@ -71,9 +71,9 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
                       wordWrap: 'break-word',
                       maxHeight: '2.5rem'
                     }}
-                    title={`${getCropName(crops, task.cropId)} - ${task.taskType}`}
+                    title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
                   >
-                    {getCropName(crops, task.cropId)} {task.taskType}
+                    {task.title || `${getCropName(crops, task.cropId)} ${task.taskType}`}
                   </div>
                 ))}
                 {dayTasks.length > 2 && (

@@ -142,21 +142,25 @@ export default function AddTaskDialog({
     },
   });
 
-  // 제목 자동 설정
+  // 제목 자동 설정 (편집 모드에서도 작동)
   useEffect(() => {
     const taskType = form.getValues("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      form.setValue("title", `${cropName}_${taskType}`);
+      const newTitle = `${cropName}_${taskType}`;
+      console.log("제목 자동 설정:", { cropName, taskType, newTitle });
+      form.setValue("title", newTitle);
     }
   }, [cropSearchTerm, customCropName, form]);
 
-  // taskType 변경시 제목 갱신
+  // taskType 변경시 제목 갱신 (편집 모드에서도 작동)
   useEffect(() => {
     const taskType = form.watch("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      form.setValue("title", `${cropName}_${taskType}`);
+      const newTitle = `${cropName}_${taskType}`;
+      console.log("taskType 변경으로 인한 제목 갱신:", { cropName, taskType, newTitle });
+      form.setValue("title", newTitle);
     }
   }, [form.watch("taskType"), customCropName, cropSearchTerm, form]);
 
@@ -173,10 +177,18 @@ export default function AddTaskDialog({
 
   // 수정 모드 초기화
   useEffect(() => {
+    console.log("편집 모드 초기화 조건 체크:", { 
+      task: !!task, 
+      open, 
+      cropsLength: crops?.length, 
+      farmsLength: farms?.length,
+      taskData: task
+    });
+    
     if (task && open) {
-      const crop = crops?.find((c) => c.id === task.cropId);
-      const farm = farms?.find((f) => f.id === task.farmId);
-
+      console.log("편집 모드 초기화 실행");
+      
+      // 기본 폼 데이터 먼저 설정
       form.reset({
         title: task.title || "",
         description: (task as any).description || "",
@@ -185,14 +197,40 @@ export default function AddTaskDialog({
         endDate: (task as any).endDate || "",
         farmId: (task as any).farmId || "",
         cropId: (task as any).cropId || "",
-        environment: farm?.environment || "",
+        environment: "",
         rowNumber: (task as any).rowNumber || undefined,
       });
-
-      if (crop) {
-        setCropSearchTerm(crop.name);
-        setSelectedCrop(crop);
+      
+      // 제목에서 작물명 추출 (fallback)
+      const titleParts = task.title?.split('_');
+      if (titleParts && titleParts.length >= 2) {
+        const cropNameFromTitle = titleParts[0];
+        console.log("제목에서 작물명 추출:", cropNameFromTitle);
+        setCropSearchTerm(cropNameFromTitle);
+        setCustomCropName(cropNameFromTitle);
       }
+
+      // 농장 정보 먼저 설정 (farms 데이터가 있으면 바로 설정)
+      if (farms && (task as any).farmId) {
+        const farm = farms.find((f) => f.id === (task as any).farmId);
+        if (farm) {
+          console.log("수정 모드에서 농장 설정:", farm.name);
+          setSelectedFarm(farm);
+          form.setValue("environment", farm.environment || "");
+        }
+      }
+
+      // crops 데이터가 있으면 작물 설정
+      if (crops && (task as any).cropId) {
+        const crop = crops.find((c) => c.id === (task as any).cropId);
+        if (crop) {
+          console.log("수정 모드에서 작물 설정:", crop.name);
+          setCropSearchTerm(crop.name);
+          setSelectedCrop(crop);
+          setCustomCropName(""); // 등록된 작물 사용
+        }
+      }
+      
     } else if (!task && open) {
       form.reset({
         title: "",
@@ -648,6 +686,7 @@ export default function AddTaskDialog({
                   <FormItem>
                     <FormLabel>농장 *</FormLabel>
                     <Select 
+                      value={field.value || ""}
                       onValueChange={(value) => {
                         try {
                           field.onChange(value);
@@ -666,8 +705,7 @@ export default function AddTaskDialog({
                             variant: "destructive",
                           });
                         }
-                      }} 
-                      value={field.value || ""}
+                      }}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -724,57 +762,24 @@ export default function AddTaskDialog({
                 )}
               />
 
-              {/* 선택된 농장의 재배환경 표시 */}
-              {selectedFarm && (
+              {/* 선택된 농장의 재배환경 표시 - selectedFarm이 있거나 farmId가 설정된 경우 표시 */}
+              {(selectedFarm || (form.getValues("farmId") && farms?.find(f => f.id === form.getValues("farmId")))) && (
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-sm text-gray-700">
-                    <span className="font-medium">재배환경:</span> {selectedFarm.environment}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    <span className="font-medium">이용 가능 이랑:</span> {selectedFarm.rowCount}개
-                  </p>
+                  {(() => {
+                    const currentFarm = selectedFarm || farms?.find(f => f.id === form.getValues("farmId"));
+                    if (!currentFarm) return null;
+                    return (
+                      <>
+                        <p className="text-sm text-gray-700">
+                          <span className="font-medium">재배환경:</span> {currentFarm.environment}
+                        </p>
+                        <p className="text-sm text-gray-700">
+                          <span className="font-medium">이용 가능 이랑:</span> {currentFarm.rowCount}개
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
-              )}
-
-              {/* 이랑 선택 */}
-              {selectedFarm && (
-                <FormField
-                  control={form.control}
-                  name="rowNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>이랑 번호 (선택사항)</FormLabel>
-                      <Select 
-                        onValueChange={(value) => {
-                          if (value === "all") {
-                            field.onChange(undefined); // 전체 이랑 선택 시 undefined
-                          } else {
-                            field.onChange(value ? parseInt(value) : undefined);
-                          }
-                        }} 
-                        value={field.value?.toString() || "all"}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="이랑 번호를 선택해주세요" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="all">전체 이랑</SelectItem>
-                          {Array.from({ length: selectedFarm.rowCount }, (_, i) => i + 1).map((rowNum) => (
-                            <SelectItem key={rowNum} value={rowNum.toString()}>
-                              {rowNum}번 이랑
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                      <p className="text-xs text-gray-500">
-                        선택하지 않으면 전체 이랑에 작업이 등록됩니다
-                      </p>
-                    </FormItem>
-                  )}
-                />
               )}
 
               {/* 농작업 선택 */}
@@ -832,6 +837,70 @@ export default function AddTaskDialog({
                   )}
                 />
               )}
+
+              {/* 이랑 선택 - selectedFarm이 있거나 farmId가 설정된 경우 표시 */}
+              {(() => {
+                const formFarmId = form.getValues("farmId");
+                const currentFarm = selectedFarm || (formFarmId && farms?.find(f => f.id === formFarmId));
+                
+                // 디버깅용 로그
+                console.log("이랑 선택 조건 체크:", {
+                  task: !!task,
+                  selectedFarm: !!selectedFarm,
+                  formFarmId,
+                  farmsLength: farms?.length,
+                  currentFarm: !!currentFarm,
+                  currentFarmDetails: currentFarm ? {
+                    name: currentFarm.name,
+                    rowCount: currentFarm.rowCount
+                  } : null
+                });
+                
+                if (!currentFarm) {
+                  console.log("이랑 선택 필드를 표시하지 않음: currentFarm이 없음");
+                  return null;
+                }
+                
+                return (
+                  <FormField
+                    control={form.control}
+                    name="rowNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>이랑 번호 (선택사항)</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            if (value === "all") {
+                              field.onChange(undefined); // 전체 이랑 선택 시 undefined
+                            } else {
+                              field.onChange(value ? parseInt(value) : undefined);
+                            }
+                          }} 
+                          value={field.value?.toString() || "all"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="이랑 번호를 선택해주세요" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="all">전체 이랑</SelectItem>
+                            {Array.from({ length: currentFarm.rowCount }, (_, i) => i + 1).map((rowNum) => (
+                              <SelectItem key={rowNum} value={rowNum.toString()}>
+                                {rowNum}번 이랑
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        <p className="text-xs text-gray-500">
+                          선택하지 않으면 전체 이랑에 작업이 등록됩니다
+                        </p>
+                      </FormItem>
+                    )}
+                  />
+                );
+              })()}
 
               {/* 제목 */}
               <FormField
