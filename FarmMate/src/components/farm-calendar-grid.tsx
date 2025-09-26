@@ -130,45 +130,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return crop ? crop.name : "";
   };
 
-  // 반기 뷰용 작물명 추출 (커스텀 작물명도 지원)
-  const getCropNameForSemiAnnual = (task: Task) => {
-    // 먼저 cropId로 등록된 작물 찾기
-    if (task.cropId) {
-      const crop = crops.find(c => c.id === task.cropId);
-      if (crop) return crop.name;
-    }
-    
-    // cropId가 없으면 title에서 작물명 추출
-    if (task.title) {
-      const titleParts = task.title.split('_');
-      if (titleParts.length >= 2) {
-        return titleParts[0]; // "당근_파종" -> "당근"
-      }
-    }
-    
-    return "";
-  };
-
-  // 작물별 간단한 날짜 범위 계산 (월/일 형태)
-  const getSimpleDateRange = (tasks: Task[], cropName: string, targetMonth: number) => {
-    const cropTasks = tasks.filter(task => 
-      getCropNameForSemiAnnual(task) === cropName && 
-      task.scheduledDate && 
-      new Date(task.scheduledDate).getMonth() + 1 === targetMonth
-    );
-    
-    if (cropTasks.length === 0) return null;
-    
-    const dates = cropTasks
-      .map(task => new Date(task.scheduledDate).getDate())
-      .sort((a, b) => a - b);
-    
-    if (dates.length === 1) {
-      return `${targetMonth}/${dates[0]}`;
-    } else {
-      return `${targetMonth}/${dates[0]}-${dates[dates.length - 1]}`;
-    }
-  };
 
 
   // 작업 타입에 따른 색상
@@ -327,7 +288,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               setYearlyDate(new Date(today.getFullYear(), today.getMonth(), 1));
             }}
           >
-            반기
+            연간
           </Button>
         </div>
       </div>
@@ -436,7 +397,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     return (
                       <div
                         key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                        className={`flex-1 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors ${
+                        className={`${viewMode === "yearly" ? "w-32" : "flex-1"} p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors ${
                           isTodayCell ? "bg-green-50 border-green-200" : ""
                         } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                           viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
@@ -486,26 +447,64 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               );
                             })
                           ) : (
-                            // 반기 뷰: 작물명과 날짜 표시
-                            Array.from(new Set(periodTasks.map(task => getCropNameForSemiAnnual(task)).filter(Boolean))).map((cropName) => {
+                            // 반기 뷰: 작물명 표시 (연동 복구)
+                            Array.from(new Set(periodTasks.map(task => {
+                              // cropId가 있으면 등록된 작물명 사용
+                              if (task.cropId) {
+                                const crop = crops.find(c => c.id === task.cropId);
+                                if (crop) return crop.name;
+                              }
+                              // cropId가 없으면 title에서 작물명 추출
+                              if (task.title && task.title.includes('_')) {
+                                return task.title.split('_')[0];
+                              }
+                              return "";
+                            }).filter(Boolean))).map((cropName) => {
+                              // 해당 월의 작물 작업들 찾기
                               const currentMonth = (dayInfo as any).month;
-                              const dateRange = getSimpleDateRange(
-                                tasks.filter(task => task.farmId === selectedFarm?.id), 
-                                cropName, 
-                                currentMonth
-                              );
+                              const monthTasks = tasks.filter(task => {
+                                if (task.farmId !== selectedFarm?.id) return false;
+                                if (!task.scheduledDate) return false;
+                                
+                                const taskDate = new Date(task.scheduledDate);
+                                const taskMonth = taskDate.getMonth() + 1;
+                                
+                                // 작물명 확인
+                                let taskCropName = "";
+                                if (task.cropId) {
+                                  const crop = crops.find(c => c.id === task.cropId);
+                                  if (crop) taskCropName = crop.name;
+                                }
+                                if (!taskCropName && task.title && task.title.includes('_')) {
+                                  taskCropName = task.title.split('_')[0];
+                                }
+                                
+                                return taskCropName === cropName && taskMonth === currentMonth;
+                              });
                               
-                              const displayText = dateRange ? `${cropName} ${dateRange}` : cropName;
+                              // 날짜 범위 계산
+                              let dateRange = null;
+                              if (monthTasks.length > 0) {
+                                const dates = monthTasks
+                                  .map(task => new Date(task.scheduledDate).getDate())
+                                  .sort((a, b) => a - b);
+                                
+                                if (dates.length === 1) {
+                                  dateRange = `${currentMonth}/${dates[0]}`;
+                                } else {
+                                  dateRange = `${currentMonth}/${dates[0]}-${dates[dates.length - 1]}`;
+                                }
+                              }
                               
                               return (
                                 <div 
-                                  key={cropName} 
-                                  className="text-xs font-medium text-gray-800 bg-green-100 px-1 py-0.5 rounded truncate border border-green-200 mb-1"
-                                  title={displayText}
+                                  key={`${cropName}-${currentMonth}`} 
+                                  className="text-[10px] font-medium text-gray-800 bg-green-100 px-1 py-0.5 rounded truncate border border-green-200 mb-0.5"
+                                  title={dateRange ? `${cropName} (${dateRange})` : cropName}
                                 >
-                                  <div className="truncate">{cropName}</div>
+                                  <div className="truncate leading-tight">{cropName}</div>
                                   {dateRange && (
-                                    <div className="text-[10px] text-gray-600 truncate">
+                                    <div className="text-[8px] text-gray-600 truncate leading-tight">
                                       {dateRange}
                                     </div>
                                   )}
