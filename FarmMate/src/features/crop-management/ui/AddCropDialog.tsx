@@ -28,7 +28,7 @@ import {
 import { useToast } from "@shared/hooks/use-toast";
 import { insertCropSchema } from "@shared/types/schema";
 import type { InsertCrop, Crop } from "@shared/types/schema";
-import { useCrops as useMyCrops, useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
+import { useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
 import { useFarms } from "@features/farm-management";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
@@ -68,32 +68,37 @@ interface AddCropDialogProps {
   showFarmSelect?: boolean;
 }
 
-// 대표 작물 선택 소스는 '내 작물 관리'에서 등록된 나의 작물 목록을 사용한다.
+// 사전 정의된 대표 작물 목록을 사용한다.
 
 export type CropOption = {
   id: string;
   majorCategory: string;
-  name: string; // 품목
-  category: string | null | undefined; // 중분류
+  name: string;
+  category: string | null | undefined;
   varieties: string[] | undefined;
 };
 
+
+// 컴포넌트 외부에 상수로 정의
+const TEMP_CROPS = [
+  { id: "cabbage", majorCategory: "배추", name: "양배추", category: "배추", varieties: ["그린", "퍼플", "레드"] },
+  { id: "carrot", majorCategory: "당근", name: "당근", category: "뿌리채소", varieties: ["오렌지", "퍼플", "화이트"] },
+  { id: "bean-snap-pea", majorCategory: "콩_완두", name: "스냅피", category: null, varieties: ["슈가앤", "슈가레이스", "스시나인", "구르메", "슈가스냅"] },
+  { id: "bean-snow-pea", majorCategory: "콩_완두", name: "스노우피", category: null, varieties: ["니무라(그린)", "노를리(그린)", "골든스윗"] },
+  { id: "bean-green-bean", majorCategory: "콩_채두", name: "그린빈", category: null, varieties: ["칼리마", "캐피타노"] },
+  { id: "bean-shell-bean", majorCategory: "콩_채두", name: "쉘빈", category: "드래곤빈", varieties: [] },
+  { id: "bean-broad-bean", majorCategory: "콩_잠두", name: "풋잠두", category: null, varieties: ["소라마메", "브로드빈"] },
+];
+
 export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId, showFarmSelect }: AddCropDialogProps) {
+  console.log('🚀 AddCropDialog 렌더링됨! open:', open, 'crop:', crop);
+  console.log('🌱 사전 정의된 작물 목록:', TEMP_CROPS.length, '개');
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: farms = [] } = showFarmSelect ? useFarms() : { data: [] as any[] } as any;
-  const { data: myCrops = [] } = useMyCrops();
 
-  // 내 작물 목록을 대표 작물 선택 소스로 변환
-  const crops: CropOption[] = useMemo(() => {
-    return (myCrops || []).map((c: any) => ({
-      id: c.id,
-      majorCategory: c.category ?? "",
-      name: c.name ?? "",
-      category: c.category ?? "",
-      varieties: c.variety ? [c.variety] : [],
-    }));
-  }, [myCrops]);
+  const crops: CropOption[] = TEMP_CROPS;
 
   const [selectedCrop, setSelectedCrop] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,10 +115,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
     },
   });
 
-  const selectedCropData = useMemo(
-    () => crops.find((c) => c.id === selectedCrop),
-    [crops, selectedCrop]
-  );
+  const selectedCropData = TEMP_CROPS.find((c) => c.id === selectedCrop);
 
   useEffect(() => {
     if (crop) {
@@ -130,29 +132,35 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
       setSelectedCrop("");
       setSearchTerm("");
     }
-  }, [crop, form, crops]);
+  }, [crop, form]);
 
   // 대표 작물 선택 시 자동 채우기 (신규 등록 상황에서만)
   useEffect(() => {
     if (selectedCropData && !crop) {
-      form.setValue("category", selectedCropData.category ?? "");
+      form.setValue("category", selectedCropData.category);
       form.setValue("name", selectedCropData.name);
-      form.setValue("variety", (selectedCropData.varieties ?? [""])[0] ?? "");
+      form.setValue("variety", selectedCropData.varieties[0] || "");
     }
   }, [selectedCropData, form, crop]);
 
-  // 검색 필터
-  const filteredCrops = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return crops;
-    return crops.filter((c) => {
-      const byName = (c.name ?? "").toLowerCase().includes(term);
-      const byCategory = (c.category ?? "").toLowerCase().includes(term);
-      const byMajor = (c.majorCategory ?? "").toLowerCase().includes(term);
-      const byVariety = (c.varieties ?? []).some((v) => (v ?? "").toLowerCase().includes(term));
-      return byName || byCategory || byMajor || byVariety;
-    });
-  }, [crops, searchTerm]);
+  // 검색 필터 - 단순화
+  const term = searchTerm.trim().toLowerCase();
+  console.log('🔍 검색어:', `"${term}"`);
+  
+  const filteredCrops = !term ? TEMP_CROPS : TEMP_CROPS.filter((c) => {
+    const match = c.name.toLowerCase().includes(term) ||
+                  c.category.toLowerCase().includes(term) ||
+                  c.majorCategory.toLowerCase().includes(term) ||
+                  c.varieties.some((v) => v.toLowerCase().includes(term));
+    
+    if (match) {
+      console.log('🔍 매치된 작물:', c.name);
+    }
+    
+    return match;
+  });
+  
+  console.log('🔍 필터링 결과:', filteredCrops.length, '개 작물');
 
   const createMutation = useCreateCrop();
   const updateMutation = useUpdateCrop();
@@ -181,6 +189,9 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
     if (term) form.setValue("name", term, { shouldDirty: true });
     setShowNewCropModal(true);
   };
+
+  console.log('🎯 렌더링 시점 - filteredCrops 길이:', filteredCrops.length);
+  console.log('🎯 렌더링 시점 - searchTerm:', `"${searchTerm}"`);
 
   return (
     <>
@@ -244,9 +255,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                           <div className="font-medium text-sm">{c.name}</div>
                           {/* 대표 품종 1개만 표시 */}
                           <div className="text-[11px] text-gray-600">
-                            {(c.varieties && c.varieties.length > 0)
-                              ? c.varieties[0]
-                              : "품종 정보 없음"}
+                            {c.varieties.length > 0 ? c.varieties[0] : "품종 정보 없음"}
                           </div>
                         </div>
                         {selectedCrop === c.id && (
@@ -300,7 +309,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {(selectedCropData.varieties ?? []).map((variety) => (
+                        {selectedCropData.varieties.map((variety) => (
                           <SelectItem key={variety} value={variety}>
                             {variety}
                           </SelectItem>
