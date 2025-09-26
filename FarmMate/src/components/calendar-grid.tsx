@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Task, Crop } from "../../../shared/schema";
+import type { Task, Crop } from "@shared/types/schema";
 import { listTasksRange } from "@/shared/api/tasks";
 
 interface CalendarGridProps {
@@ -144,9 +144,9 @@ export default function CalendarGrid({
                     wordWrap: 'break-word',
                     maxHeight: '2.5rem'
                   }}
-                  title={`${getCropName(task.cropId)} - ${(task as any).taskType}`}
+                  title={task.title || `${getCropName(task.cropId)} - ${(task as any).taskType}`}
                 >
-                  {getCropName(task.cropId)} {(task as any).taskType}
+                  {task.title || `${getCropName(task.cropId)} ${(task as any).taskType}`}
                 </div>
               ))}
               {dayTasks.length > 2 && (

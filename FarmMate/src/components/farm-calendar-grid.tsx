@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
-import SimpleEditTaskDialog from "@/components/simple-edit-task-dialog";
 import type { Task, Crop } from "@shared/types/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@shared/api/farm.repository";
@@ -31,7 +30,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 월간과 연간 뷰의 날짜 상태를 분리
   const today = new Date();
   const [monthlyDate, setMonthlyDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [yearlyDate, setYearlyDate] = useState(new Date(today.getFullYear(), 0, 1));
+  const [yearlyDate, setYearlyDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [monthlyOffset, setMonthlyOffset] = useState(() => {
     // 오늘이 포함된 10일 구간으로 초기화
     const todayDate = today.getDate();
@@ -90,9 +89,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return days;
   };
 
-  // 연간 뷰: 1-12월
-  const getYearlyMonths = () => {
-    return Array.from({ length: 12 }, (_, i) => i + 1);
+  // 반기 뷰: 현재 반기의 6개월
+  const getSemiAnnualMonths = () => {
+    const currentMonth = yearlyDate.getMonth(); // 0-11
+    const isFirstHalf = currentMonth < 6;
+    
+    if (isFirstHalf) {
+      return Array.from({ length: 6 }, (_, i) => i + 1); // 1-6월
+    } else {
+      return Array.from({ length: 6 }, (_, i) => i + 7); // 7-12월
+    }
   };
 
   // 특정 날짜/월의 작업 가져오기
@@ -123,6 +129,47 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     const crop = crops.find(c => c.id === cropId);
     return crop ? crop.name : "";
   };
+
+  // 반기 뷰용 작물명 추출 (커스텀 작물명도 지원)
+  const getCropNameForSemiAnnual = (task: Task) => {
+    // 먼저 cropId로 등록된 작물 찾기
+    if (task.cropId) {
+      const crop = crops.find(c => c.id === task.cropId);
+      if (crop) return crop.name;
+    }
+    
+    // cropId가 없으면 title에서 작물명 추출
+    if (task.title) {
+      const titleParts = task.title.split('_');
+      if (titleParts.length >= 2) {
+        return titleParts[0]; // "당근_파종" -> "당근"
+      }
+    }
+    
+    return "";
+  };
+
+  // 작물별 간단한 날짜 범위 계산 (월/일 형태)
+  const getSimpleDateRange = (tasks: Task[], cropName: string, targetMonth: number) => {
+    const cropTasks = tasks.filter(task => 
+      getCropNameForSemiAnnual(task) === cropName && 
+      task.scheduledDate && 
+      new Date(task.scheduledDate).getMonth() + 1 === targetMonth
+    );
+    
+    if (cropTasks.length === 0) return null;
+    
+    const dates = cropTasks
+      .map(task => new Date(task.scheduledDate).getDate())
+      .sort((a, b) => a - b);
+    
+    if (dates.length === 1) {
+      return `${targetMonth}/${dates[0]}`;
+    } else {
+      return `${targetMonth}/${dates[0]}-${dates[dates.length - 1]}`;
+    }
+  };
+
 
   // 작업 타입에 따른 색상
   const getTaskColor = (taskType: string) => {
@@ -174,16 +221,30 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   };
 
-  // 연간 뷰 네비게이션
+  // 반기 뷰 네비게이션
   const handleYearlyPrevious = () => {
-    setYearlyDate(new Date(yearlyDate.getFullYear() - 1, 0, 1));
+    const currentMonth = yearlyDate.getMonth();
+    if (currentMonth < 6) {
+      // 상반기에서 이전 버튼 클릭 시 → 작년 하반기
+      setYearlyDate(new Date(yearlyDate.getFullYear() - 1, 6, 1));
+    } else {
+      // 하반기에서 이전 버튼 클릭 시 → 올해 상반기
+      setYearlyDate(new Date(yearlyDate.getFullYear(), 0, 1));
+    }
   };
 
   const handleYearlyNext = () => {
-    setYearlyDate(new Date(yearlyDate.getFullYear() + 1, 0, 1));
+    const currentMonth = yearlyDate.getMonth();
+    if (currentMonth < 6) {
+      // 상반기에서 다음 버튼 클릭 시 → 올해 하반기
+      setYearlyDate(new Date(yearlyDate.getFullYear(), 6, 1));
+    } else {
+      // 하반기에서 다음 버튼 클릭 시 → 내년 상반기
+      setYearlyDate(new Date(yearlyDate.getFullYear() + 1, 0, 1));
+    }
   };
 
-  const currentPeriods = viewMode === "monthly" ? getMonthlyDays() : getYearlyMonths().map(month => ({ month }));
+  const currentPeriods = viewMode === "monthly" ? getMonthlyDays() : getSemiAnnualMonths().map(month => ({ month }));
   const headerLabel = viewMode === "monthly" ? "이랑\\일" : "이랑\\월";
   
   // 오늘 날짜인지 확인하는 함수
@@ -262,11 +323,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             size="sm"
             onClick={() => {
               setViewMode("yearly");
-              // 연간 뷰로 전환 시 오늘 년도로 리셋
-              setYearlyDate(new Date(today.getFullYear(), 0, 1));
+              // 반기 뷰로 전환 시 현재 월로 리셋
+              setYearlyDate(new Date(today.getFullYear(), today.getMonth(), 1));
             }}
           >
-            연간
+            반기
           </Button>
         </div>
       </div>
@@ -295,7 +356,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                   return `${firstDay.year}년 ${firstDay.month + 1}월 ${firstDay.day}일 - ${lastDay.year}년 ${lastDay.month + 1}월 ${lastDay.day}일`;
                 }
               })()
-            : `${currentDate.getFullYear()}년`
+            : (() => {
+                const currentMonth = yearlyDate.getMonth();
+                const year = yearlyDate.getFullYear();
+                const isFirstHalf = currentMonth < 6;
+                return `${year}년 ${isFirstHalf ? '상반기' : '하반기'}`;
+              })()
           }
         </h2>
 
@@ -420,12 +486,32 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               );
                             })
                           ) : (
-                            // 연간 뷰: 작물명만 표시
-                            Array.from(new Set(periodTasks.map(task => getCropName(task.cropId)).filter(Boolean))).map((cropName) => (
-                              <div key={cropName} className="text-xs font-medium text-gray-800 bg-green-100 px-1 py-0.5 rounded truncate border border-green-200">
-                                {cropName}
-                              </div>
-                            ))
+                            // 반기 뷰: 작물명과 날짜 표시
+                            Array.from(new Set(periodTasks.map(task => getCropNameForSemiAnnual(task)).filter(Boolean))).map((cropName) => {
+                              const currentMonth = (dayInfo as any).month;
+                              const dateRange = getSimpleDateRange(
+                                tasks.filter(task => task.farmId === selectedFarm?.id), 
+                                cropName, 
+                                currentMonth
+                              );
+                              
+                              const displayText = dateRange ? `${cropName} ${dateRange}` : cropName;
+                              
+                              return (
+                                <div 
+                                  key={cropName} 
+                                  className="text-xs font-medium text-gray-800 bg-green-100 px-1 py-0.5 rounded truncate border border-green-200 mb-1"
+                                  title={displayText}
+                                >
+                                  <div className="truncate">{cropName}</div>
+                                  {dateRange && (
+                                    <div className="text-[10px] text-gray-600 truncate">
+                                      {dateRange}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       </div>
@@ -473,7 +559,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     >
                       <div>
                         <h4 className="font-medium text-gray-900">
-                          {crop?.name || '작물 정보 없음'} - {task.taskType}
+                          {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
                         </h4>
                         {task.description && (
                           <p className="text-sm text-gray-600 mt-1">{task.description}</p>
@@ -493,7 +579,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           )}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTask(task);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
                         수정
                       </Button>
                     </div>
@@ -517,10 +611,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
       {/* Edit Task Dialog */}
       {selectedTask && (
-        <SimpleEditTaskDialog
+        <AddTaskDialog
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
           task={selectedTask}
+          selectedDate={selectedTask.scheduledDate}
         />
       )}
     </div>
