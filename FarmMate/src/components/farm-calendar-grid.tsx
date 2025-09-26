@@ -123,6 +123,51 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return crop ? crop.name : "";
   };
 
+  // 연간 뷰용 작물명 추출 (cropId 또는 title에서)
+  const getCropNameForYearly = (task: Task) => {
+    // 먼저 cropId로 등록된 작물 찾기
+    if (task.cropId) {
+      const crop = crops.find(c => c.id === task.cropId);
+      if (crop) return crop.name;
+    }
+    
+    // cropId가 없으면 title에서 작물명 추출
+    if (task.title) {
+      const titleParts = task.title.split('_');
+      if (titleParts.length >= 2) {
+        return titleParts[0]; // "당근_파종" -> "당근"
+      }
+    }
+    
+    return "";
+  };
+
+  // 작물별 재배 기간 계산
+  const getCropDateRange = (tasks: Task[], cropName: string) => {
+    const cropTasks = tasks.filter(task => getCropNameForYearly(task) === cropName);
+    if (cropTasks.length === 0) return null;
+    
+    const dates = cropTasks
+      .map(task => new Date(task.scheduledDate))
+      .filter(date => !isNaN(date.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+    
+    if (dates.length === 0) return null;
+    
+    const startDate = dates[0];
+    const endDate = dates[dates.length - 1];
+    
+    const formatDate = (date: Date) => {
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    };
+    
+    if (startDate.getTime() === endDate.getTime()) {
+      return formatDate(startDate);
+    } else {
+      return `${formatDate(startDate)}-${formatDate(endDate)}`;
+    }
+  };
+
   // 작업 타입에 따른 색상
   const getTaskColor = (taskType: string) => {
     switch (taskType) {
@@ -419,12 +464,24 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               );
                             })
                           ) : (
-                            // 연간 뷰: 작물명만 표시
-                            Array.from(new Set(periodTasks.map(task => getCropName(task.cropId)).filter(Boolean))).map((cropName) => (
-                              <div key={cropName} className="text-xs font-medium text-gray-800 bg-green-100 px-1 py-0.5 rounded truncate border border-green-200">
-                                {cropName}
-                              </div>
-                            ))
+                            // 연간 뷰: 작물명과 재배기간 표시 
+                            Array.from(new Set(periodTasks.map(task => getCropNameForYearly(task)).filter(Boolean))).map((cropName) => {
+                              const dateRange = getCropDateRange(tasks.filter(task => 
+                                task.farmId === selectedFarm?.id && getCropNameForYearly(task) === cropName
+                              ), cropName);
+                              
+                              const displayText = dateRange ? `${cropName} (${dateRange})` : cropName;
+                              
+                              return (
+                                <div 
+                                  key={cropName} 
+                                  className="text-xs font-medium text-gray-800 bg-green-100 px-1 py-0.5 rounded truncate border border-green-200"
+                                  title={displayText}
+                                >
+                                  {displayText}
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       </div>
