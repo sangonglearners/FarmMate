@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
-import SimpleEditTaskDialog from "@/components/simple-edit-task-dialog";
 import type { Task, Crop } from "@shared/types/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@shared/api/farm.repository";
@@ -493,7 +492,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           )}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTask(task);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
                         수정
                       </Button>
                     </div>
@@ -517,10 +524,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
       {/* Edit Task Dialog */}
       {selectedTask && (
-        <SimpleEditTaskDialog
+        <AddTaskDialog
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
           task={selectedTask}
+          selectedDate={selectedTask.scheduledDate}
         />
       )}
     </div>
