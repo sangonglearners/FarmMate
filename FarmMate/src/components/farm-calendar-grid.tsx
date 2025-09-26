@@ -473,7 +473,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     >
                       <div>
                         <h4 className="font-medium text-gray-900">
-                          {crop?.name || '작물 정보 없음'} - {task.taskType}
+                          {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
                         </h4>
                         {task.description && (
                           <p className="text-sm text-gray-600 mt-1">{task.description}</p>

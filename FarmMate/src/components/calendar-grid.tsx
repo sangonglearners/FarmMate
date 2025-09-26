@@ -144,9 +144,9 @@ export default function CalendarGrid({
                     wordWrap: 'break-word',
                     maxHeight: '2.5rem'
                   }}
-                  title={`${getCropName(task.cropId)} - ${(task as any).taskType}`}
+                  title={task.title || `${getCropName(task.cropId)} - ${(task as any).taskType}`}
                 >
-                  {getCropName(task.cropId)} {(task as any).taskType}
+                  {task.title || `${getCropName(task.cropId)} ${(task as any).taskType}`}
                 </div>
               ))}
               {dayTasks.length > 2 && (
