@@ -54,13 +54,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const currentMonth = today.getMonth() + 1; // 1-12 (9월 = 9)
       const cellWidth = 120; // w-[120px]
       
-      // 9월이 화면 왼쪽에서 약간 떨어진 곳에 오도록 계산
-      // 6월 정도까지 스크롤하여 9월이 보이도록 함
-      const scrollPosition = Math.max(0, (currentMonth - 6) * cellWidth);
+      // 현재 월(9월)이 딱 왼쪽에 붙도록 계산
+      // 9월이 첫 번째로 보이도록 8개월만큼 스크롤 (1월~8월까지 스크롤)
+      const scrollPosition = Math.max(0, (currentMonth - 1) * cellWidth);
       
       scrollContainerRef.current.scrollTo({
         left: scrollPosition,
-        behavior: 'smooth'
+        behavior: 'auto' // smooth 대신 auto로 즉시 이동
       });
     }
   };
