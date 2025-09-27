@@ -173,7 +173,14 @@ export default function MyPage() {
                         <DropdownMenuItem onClick={() => { setEditingFarm(f); setIsAddFarmDialogOpen(true); }}>
                           <Edit className="w-4 h-4 mr-2" /> 수정
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteFarm.mutate(f.id)}>
+                        <DropdownMenuItem 
+                          className="text-destructive" 
+                          onClick={() => {
+                            if (window.confirm(`정말로 "${f.name}" 농장을 삭제하시겠습니까?\n\n이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.`)) {
+                              deleteFarm.mutate(f.id);
+                            }
+                          }}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -220,7 +227,14 @@ export default function MyPage() {
                         <DropdownMenuItem onClick={() => { setEditingCrop(c); setIsAddCropDialogOpen(true); }}>
                           <Edit className="w-4 h-4 mr-2" /> 수정
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteCrop.mutate(c.id)}>
+                        <DropdownMenuItem 
+                          className="text-destructive" 
+                          onClick={() => {
+                            if (window.confirm(`정말로 "${c.name}" 작물을 삭제하시겠습니까?\n\n이 작물에 연결된 모든 작업도 함께 삭제됩니다.`)) {
+                              deleteCrop.mutate(c.id);
+                            }
+                          }}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
                         </DropdownMenuItem>
                       </DropdownMenuContent>

@@ -45,6 +45,7 @@ import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import type { FarmEntity } from "@shared/api/farm.repository";
 import { useLocation } from "wouter";
+import { useDeleteTask } from "@features/task-management";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@shared/api/client";
 
@@ -112,6 +113,9 @@ export default function AddTaskDialog({
   const queryClient = useQueryClient();
   const [registrationMode, setRegistrationMode] =
     useState<"batch" | "individual">("individual");
+  
+  // 작업 삭제 hook
+  const deleteMutation = useDeleteTask();
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
   const [customCropName, setCustomCropName] = useState("");
@@ -538,6 +542,20 @@ export default function AddTaskDialog({
       return;
     }
     setShowWorkCalculator(true);
+  };
+
+  // 작업 삭제 함수
+  const handleDeleteTask = async () => {
+    if (!task?.id) return;
+    
+    if (window.confirm('정말로 이 작업을 삭제하시겠습니까?')) {
+      try {
+        await deleteMutation.mutateAsync(task.id.toString());
+        onOpenChange(false);
+      } catch (error) {
+        // 에러는 hook에서 toast로 처리됨
+      }
+    }
   };
 
   return (
@@ -1053,6 +1071,19 @@ export default function AddTaskDialog({
                   </Button>
                 )}
 
+                {/* 수정 모드일 때 삭제 버튼 */}
+                {task && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleDeleteTask}
+                    className="flex-1"
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? "삭제 중..." : "삭제"}
+                  </Button>
+                )}
+
                 {/* 저장 */}
                 <Button
                   type="submit"
@@ -1061,6 +1092,7 @@ export default function AddTaskDialog({
                     createMutation.isPending ||
                     updateMutation.isPending ||
                     bulkCreateMutation.isPending ||
+                    deleteMutation.isPending ||
                     (!task &&
                       registrationMode === "batch" &&
                       selectedWorks.length === 0)
