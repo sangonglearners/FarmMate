@@ -286,9 +286,32 @@ export default function AddTaskDialog({
 
   const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
     const displayName = `${keyCrop.name} > ${keyCrop.variety}`;
-    setCropSearchTerm(displayName);
-    setCustomCropName(displayName);
-    form.setValue("cropId", ""); // 커스텀 작물
+    
+    // 먼저 '내 작물'에서 동일한 작물이 있는지 확인
+    const existingCrop = crops?.find(crop => 
+      crop.name === keyCrop.name && 
+      crop.variety === keyCrop.variety
+    );
+    
+    if (existingCrop) {
+      // 기존 작물이 있으면 연결
+      form.setValue("cropId", existingCrop.id);
+      form.setValue("farmId", (existingCrop as any).farmId || "");
+      setCropSearchTerm(existingCrop.name);
+      setSelectedCrop(existingCrop);
+      
+      const farm = farms?.find((f) => f.id === (existingCrop as any).farmId);
+      if (farm) {
+        form.setValue("environment", farm.environment || "");
+        setSelectedFarm(farm);
+      }
+    } else {
+      // 기존 작물이 없으면 커스텀 작물로 처리
+      setCropSearchTerm(displayName);
+      setCustomCropName(displayName);
+      form.setValue("cropId", ""); // 커스텀 작물
+    }
+    
     setShowKeyCrops(false);
   };
 
