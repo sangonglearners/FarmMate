@@ -82,11 +82,11 @@ export const BATCH_TASK_SCHEDULES = {
     description: "씨앗을 뿌리는 작업"
   },
   "육묘": {
-    duration: 20,
+    duration: 10,
     description: "모종을 기르는 작업"
   },
   "수확": {
-    duration: 20,
+    duration: 30,
     description: "수확과 선별 작업"
   }
 };

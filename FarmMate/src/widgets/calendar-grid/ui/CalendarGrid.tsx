@@ -40,16 +40,16 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
           today.getMonth() === date.getMonth() &&
           today.getFullYear() === date.getFullYear();
           
-        const isSelected = selectedDate === date.toISOString().split('T')[0];
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const isSelected = selectedDate === dateStr;
 
         return (
           <div
             key={index}
-            className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+            className={`min-h-24 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
               todayCheck ? 'bg-primary/5 border-primary' : ''
             } ${isSelected ? 'bg-blue-50 border-blue-300' : ''} ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
             onClick={() => {
-              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
               onDateClick(dateStr);
             }}
           >
@@ -62,10 +62,18 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
                 {dayTasks.slice(0, 2).map((task: Task) => (
                   <div
                     key={task.id}
-                    className={`text-xs px-1 py-0.5 rounded truncate ${getTaskColor(task.taskType)}`}
-                    title={`${getCropName(crops, task.cropId)} - ${task.taskType}`}
+                    className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(task.taskType)}`}
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      wordWrap: 'break-word',
+                      maxHeight: '2.5rem'
+                    }}
+                    title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
                   >
-                    {getCropName(crops, task.cropId)} {task.taskType}
+                    {task.title || `${getCropName(crops, task.cropId)} ${task.taskType}`}
                   </div>
                 ))}
                 {dayTasks.length > 2 && (

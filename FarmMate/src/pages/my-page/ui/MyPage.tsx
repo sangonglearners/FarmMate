@@ -13,11 +13,17 @@ import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
+<<<<<<< HEAD
 import { Separator } from '@/components/ui/separator';
+=======
+import { clearCurrentUserTaskData, clearAllFrontendData } from '../../../shared/api/clearAllData';
+import { Separator } from '@shared/ui/separator';
+>>>>>>> main
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showClearData, setShowClearData] = useState(false);
   const [userName, setUserName] = useState<string>('사용자');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [, setLocation] = useLocation();
@@ -77,6 +83,19 @@ export default function MyPage() {
     }
   };
 
+  // 데이터 삭제 처리
+  const handleClearData = async () => {
+    try {
+      await clearCurrentUserTaskData();
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setShowClearData(false);
+      alert('모든 작업 데이터가 삭제되었습니다.');
+    } catch (error) {
+      console.error('데이터 삭제 실패:', error);
+      alert('데이터 삭제에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
   return (
     <div className="p-4 space-y-6">
       
@@ -94,7 +113,13 @@ export default function MyPage() {
               <Settings className="w-5 h-5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={() => setShowClearData(true)}>DB 데이터 삭제</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              clearAllFrontendData();
+              queryClient.clear();
+              alert('프론트엔드 데이터가 모두 삭제되었습니다.');
+            }}>프론트 데이터 삭제</DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowLogout(true)}>로그아웃</DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowWithdraw(true)}>회원탈퇴</DropdownMenuItem>
           </DropdownMenuContent>
@@ -152,7 +177,14 @@ export default function MyPage() {
                         <DropdownMenuItem onClick={() => { setEditingFarm(f); setIsAddFarmDialogOpen(true); }}>
                           <Edit className="w-4 h-4 mr-2" /> 수정
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteFarm.mutate(f.id)}>
+                        <DropdownMenuItem 
+                          className="text-destructive" 
+                          onClick={() => {
+                            if (window.confirm(`정말로 "${f.name}" 농장을 삭제하시겠습니까?\n\n이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.`)) {
+                              deleteFarm.mutate(f.id);
+                            }
+                          }}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -199,7 +231,14 @@ export default function MyPage() {
                         <DropdownMenuItem onClick={() => { setEditingCrop(c); setIsAddCropDialogOpen(true); }}>
                           <Edit className="w-4 h-4 mr-2" /> 수정
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteCrop.mutate(c.id)}>
+                        <DropdownMenuItem 
+                          className="text-destructive" 
+                          onClick={() => {
+                            if (window.confirm(`정말로 "${c.name}" 작물을 삭제하시겠습니까?\n\n이 작물에 연결된 모든 작업도 함께 삭제됩니다.`)) {
+                              deleteCrop.mutate(c.id);
+                            }
+                          }}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -268,6 +307,23 @@ export default function MyPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowWithdraw(false)}>취소</Button>
             <Button onClick={() => setShowWithdraw(false)}>확인</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showClearData} onOpenChange={setShowClearData}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>데이터 삭제</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-gray-600">
+            내 모든 작업 데이터를 삭제하시겠습니까?
+            <br />
+            <span className="text-xs text-red-500 font-medium">이 작업은 되돌릴 수 없습니다.</span>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowClearData(false)}>취소</Button>
+            <Button onClick={handleClearData} className="bg-red-600 hover:bg-red-700">삭제</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
