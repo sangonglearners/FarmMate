@@ -27,11 +27,13 @@ export default function TaskCard({ task }: TaskCardProps) {
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <h5 className="font-medium text-gray-900 text-lg">
-            {crop?.name || "알 수 없는 작물"}
+            {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || "작업")}
           </h5>
-          <p className="text-gray-600">
-            작업: {task.taskType}
-          </p>
+          {task.title && task.taskType && (
+            <p className="text-gray-600">
+              작업: {task.taskType}
+            </p>
+          )}
         </div>
         {task.completedAt ? (
           <CheckCircle2 className="w-6 h-6 text-green-500" />

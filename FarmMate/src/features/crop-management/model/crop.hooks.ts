@@ -6,7 +6,7 @@ import type { Crop, InsertCrop } from "@shared/schema";
 
 export const useCrops = (search?: string) => {
   return useQuery<Crop[]>({
-    queryKey: search ? ["/api/crops", { search }] : ["/api/crops"],
+    queryKey: search ? ["crops", { search }] : ["crops"],
     queryFn: () => cropApi.getCrops(search),
   });
 };
@@ -18,7 +18,7 @@ export const useCreateCrop = () => {
   return useMutation({
     mutationFn: cropApi.createCrop,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
+      queryClient.invalidateQueries({ queryKey: ["crops"] });
       toast({
         title: "작물 생성 완료",
         description: "새 작물이 성공적으로 생성되었습니다.",
@@ -43,7 +43,7 @@ export const useUpdateCrop = () => {
     mutationFn: ({ id, data }: { id: string; data: Partial<InsertCrop> }) =>
       cropApi.updateCrop(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
+      queryClient.invalidateQueries({ queryKey: ["crops"] });
       toast({
         title: "작물 수정 완료",
         description: "작물 정보가 성공적으로 수정되었습니다.",
@@ -67,7 +67,7 @@ export const useDeleteCrop = () => {
   return useMutation({
     mutationFn: cropApi.deleteCrop,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
+      queryClient.invalidateQueries({ queryKey: ["crops"] });
       toast({
         title: "작물 삭제 완료",
         description: "작물이 성공적으로 삭제되었습니다.",

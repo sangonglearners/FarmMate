@@ -80,20 +80,17 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
   });
 
   const { data: tasks } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
+    queryKey: ["tasks"],
+    queryFn: () => import("@shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
   });
 
-  // 재배환경별 이랑 개수
-  const getRowCount = (environment: string) => {
-    switch (environment) {
-      case '노지': return 40;
-      case '시설1': return 20;
-      case '시설2': return 10;
-      default: return 0;
-    }
-  };
-
-  const rowOptions = selectedEnvironment ? Array.from({ length: getRowCount(selectedEnvironment) }, (_, i) => i + 1) : [];
+  // 선택된 농장의 실제 이랑 개수 사용
+  const selectedFarmData = farms?.find(farm => 
+    farm.environment === selectedEnvironment || 
+    (selectedEnvironment === '노지' && farm.name.includes('노지'))
+  );
+  
+  const rowOptions = selectedFarmData ? Array.from({ length: selectedFarmData.rowCount }, (_, i) => i + 1) : [];
 
   const form = useForm<InsertTask & { environment: string }>({
     resolver: zodResolver(formSchema),
@@ -110,16 +107,13 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: InsertTask[]) => {
+      const { taskApi } = await import("@shared/api/tasks");
       for (const task of data) {
-        await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(task),
-        });
+        await taskApi.createTask(task);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
         title: "작업이 등록되었습니다",
         description: "새로운 농작업 일정이 추가되었습니다.",

@@ -26,9 +26,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+<<<<<<< HEAD
 import { insertCropSchema } from "@shared/schema";
 import type { InsertCrop, Crop } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+=======
+
+/** 기존 스키마/타입은 그대로 사용 */
+import { insertCropSchema } from "../../../shared/schema";
+import type { InsertCrop, Crop } from "../../../shared/schema";
+
+/** ⬇️ 여기부터 Supabase 유틸 임포트 */
+import { saveCrop, updateCrop } from "@/shared/api/saveCrop";
+import { supabase } from "@/shared/api/supabase";
+import { mustOk } from "@/shared/api/mustOk";
+
+>>>>>>> main
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
 
@@ -76,12 +89,12 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
   useEffect(() => {
     if (crop) {
       form.reset({
-        category: crop.category,
-        name: crop.name,
-        variety: crop.variety,
-        status: crop.status || "growing",
+        category: (crop as any).category,
+        name: (crop as any).name,
+        variety: (crop as any).variety,
+        status: (crop as any).status || "growing",
       });
-      const foundCrop = representativeCrops.find(c => c.name === crop.name);
+      const foundCrop = representativeCrops.find(c => c.name === (crop as any).name);
       if (foundCrop) {
         setSelectedCrop(foundCrop.id);
       }
@@ -112,12 +125,18 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
     crop.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  /** ⬇️ 생성: /api 호출 → Supabase insert */
   const createMutation = useMutation({
-    mutationFn: async (data: InsertCrop) => {
-      const response = await apiRequest("POST", "/api/crops", data);
-      return response.json();
-    },
+    mutationFn: async (data: InsertCrop) =>
+      saveCrop({
+        name: data.name,
+        category: (data as any).category,
+        variety: (data as any).variety,
+        // farmId / sowingDate가 있으면 추가하세요.
+      }),
     onSuccess: () => {
+      // 리스트 키가 /api/crops 로 되어 있을 수도 있으니 둘 다 무효화
+      queryClient.invalidateQueries({ queryKey: ["crops"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
       toast({
         title: "작물 추가 완료",
@@ -125,21 +144,27 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
       });
       onOpenChange(false);
     },
-    onError: () => {
+    onError: (e: any) => {
       toast({
         title: "추가 실패",
-        description: "작물 추가 중 오류가 발생했습니다.",
+        description: e?.message ?? "작물 추가 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     },
   });
 
+  /** ⬇️ 수정: 사용자별 로컬 스토리지에 저장 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertCrop) => {
-      const response = await apiRequest("PUT", `/api/crops/${crop!.id}`, data);
-      return response.json();
+      return updateCrop((crop as any)!.id, {
+        name: data.name,
+        category: (data as any).category,
+        variety: (data as any).variety,
+        status: (data as any).status,
+      });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crops"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
       toast({
         title: "작물 수정 완료",
@@ -147,10 +172,10 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
       });
       onOpenChange(false);
     },
-    onError: () => {
+    onError: (e: any) => {
       toast({
         title: "수정 실패",
-        description: "작물 수정 중 오류가 발생했습니다.",
+        description: e?.message ?? "작물 수정 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     },
@@ -166,7 +191,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {crop ? "작물 수정하기" : "작물을 선택해 주세요"}
@@ -200,8 +225,8 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
                     onClick={() => setSelectedCrop(crop.id)}
                     className={`p-3 text-left border rounded-lg transition-colors ${
                       selectedCrop === crop.id
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? "border-green-500 bg-green-50 text-green-700"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -270,8 +295,8 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
             />
 
             <div className="sticky bottom-0 bg-white pt-4 border-t">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full"
                 disabled={createMutation.isPending || updateMutation.isPending || !selectedCrop}
               >
