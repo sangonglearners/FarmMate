@@ -38,7 +38,7 @@ export default function HomePage() {
     queryKey: ["tasks"],
     queryFn: async () => {
       try {
-        const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("@/shared/api/tasks");
         return await taskApi.getTasks();
       } catch (error) {
         console.error("작업 목록 로딩 실패:", error);

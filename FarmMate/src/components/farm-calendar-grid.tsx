@@ -3,13 +3,9 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
-<<<<<<< HEAD
-import type { Task, Crop } from "@shared/schema";
-=======
 import type { Task, Crop } from "@shared/types/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@shared/api/farm.repository";
->>>>>>> main
 
 interface FarmCalendarGridProps {
   tasks: Task[];

@@ -13,12 +13,8 @@ import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-<<<<<<< HEAD
-import { Separator } from '@/components/ui/separator';
-=======
 import { clearCurrentUserTaskData, clearAllFrontendData } from '../../../shared/api/clearAllData';
-import { Separator } from '@shared/ui/separator';
->>>>>>> main
+import { Separator } from '@/components/ui/separator';
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);
