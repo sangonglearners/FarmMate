@@ -284,36 +284,7 @@ export default function AddTaskDialog({
     }
   };
 
-  const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
-    const displayName = `${keyCrop.name} > ${keyCrop.variety}`;
-    
-    // 먼저 '내 작물'에서 동일한 작물이 있는지 확인
-    const existingCrop = crops?.find(crop => 
-      crop.name === keyCrop.name && 
-      crop.variety === keyCrop.variety
-    );
-    
-    if (existingCrop) {
-      // 기존 작물이 있으면 연결
-      form.setValue("cropId", existingCrop.id);
-      form.setValue("farmId", (existingCrop as any).farmId || "");
-      setCropSearchTerm(existingCrop.name);
-      setSelectedCrop(existingCrop);
-      
-      const farm = farms?.find((f) => f.id === (existingCrop as any).farmId);
-      if (farm) {
-        form.setValue("environment", farm.environment || "");
-        setSelectedFarm(farm);
-      }
-    } else {
-      // 기존 작물이 없으면 커스텀 작물로 처리
-      setCropSearchTerm(displayName);
-      setCustomCropName(displayName);
-      form.setValue("cropId", ""); // 커스텀 작물
-    }
-    
-    setShowKeyCrops(false);
-  };
+  // handleKeyCropSelect 함수는 더 이상 필요하지 않음 (내 작물 직접 선택으로 변경)
 
   const handleCustomCropInput = (cropName: string) => {
     setCustomCropName(cropName);
@@ -642,7 +613,7 @@ export default function AddTaskDialog({
                   />
                 </div>
 
-                {/* 핵심 작물 */}
+                {/* 내 작물 선택 */}
                 <Collapsible open={showKeyCrops} onOpenChange={setShowKeyCrops}>
                   <CollapsibleTrigger asChild>
                     <Button
@@ -650,7 +621,7 @@ export default function AddTaskDialog({
                       variant="outline"
                       className="w-full justify-between"
                     >
-                      핵심 작물 선택
+                      내 작물 선택
                       <ChevronDown
                         className={`h-4 w-4 transition-transform ${
                           showKeyCrops ? "rotate-180" : ""
@@ -660,21 +631,32 @@ export default function AddTaskDialog({
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-2">
                     <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                      {KEY_CROPS.map((keyCrop, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => handleKeyCropSelect(keyCrop)}
-                          className="text-left p-2 hover:bg-gray-50 rounded text-sm"
-                        >
-                          <div className="font-medium">
-                            {keyCrop.category} {'>'} {keyCrop.name} {'>'} {keyCrop.variety}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {keyCrop.description}
-                          </div>
-                        </button>
-                      ))}
+                      {crops && crops.length > 0 ? (
+                        crops.map((crop) => {
+                          const farm = farms?.find((f) => f.id === (crop as any).farmId);
+                          return (
+                            <button
+                              key={crop.id}
+                              type="button"
+                              onClick={() => handleCropSelect(crop.id)}
+                              className="text-left p-2 hover:bg-gray-50 rounded text-sm"
+                            >
+                              <div className="font-medium">
+                                {crop.category} {'>'} {crop.name} {'>'} {crop.variety}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {farm?.name} · {farm?.environment}
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center text-sm text-gray-500 py-4">
+                          등록된 작물이 없습니다.
+                          <br />
+                          먼저 작물을 등록해주세요.
+                        </div>
+                      )}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
