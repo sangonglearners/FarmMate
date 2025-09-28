@@ -54,6 +54,7 @@ import { saveTask } from "@/shared/api/saveTask";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
 import { useFarms } from "@features/farm-management";
+import { useCrops } from "@features/crop-management";
 
 import { z } from "zod";
 import { Calendar } from "@shared/ui/calendar";
@@ -127,9 +128,7 @@ export default function AddTaskDialog({
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
-  const { data: crops } = useQuery<Crop[]>({
-    queryKey: ["/api/crops"],
-  });
+  const { data: crops } = useCrops();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
