@@ -13,7 +13,7 @@ export const useTasks = () => {
 export const useTasksByDate = (date: string) => {
   return useQuery<Task[]>({
     queryKey: ["tasks", { date }],
-    queryFn: () => import("@shared/api/tasks").then(m => m.listTasksByDate(date)),
+    queryFn: () => taskApi.getTasksByDate(date),
     enabled: !!date,
   });
 };
