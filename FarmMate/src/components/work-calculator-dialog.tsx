@@ -14,12 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-<<<<<<< HEAD
-import { apiRequest } from "@shared/api";
-=======
->>>>>>> main
 import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
-import type { Crop, InsertTask } from "@shared/types";
+import type { Crop, InsertTask } from "../shared/types/schema";
 
 interface WorkCalculatorDialogProps {
   open: boolean;
@@ -125,11 +121,8 @@ export default function WorkCalculatorDialog({
         endDate: schedule.endDate,
         farmId: selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
-<<<<<<< HEAD
-=======
         rowNumber: undefined, // 이랑 번호는 작업 등록 시 선택
         userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
->>>>>>> main
       };
       console.log("Created work calculator task:", task);
       return task;

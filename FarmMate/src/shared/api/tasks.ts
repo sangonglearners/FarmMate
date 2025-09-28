@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-import type { Task, InsertTask } from "@shared/schema";
-import { apiRequest } from "./client";
-=======
 // client/src/shared/api/tasks.ts
 import { supabase } from "./supabase";
 import type { Task } from "@shared/types/schema";
->>>>>>> main
 
 interface SupabaseTask {
   id: string;

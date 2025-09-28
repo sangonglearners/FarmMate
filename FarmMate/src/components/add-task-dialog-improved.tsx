@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@shared/ui/button";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
-import { Textarea } from "@shared/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,25 +22,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/select";
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@shared/ui/popover";
+} from "@/components/ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@shared/ui/collapsible";
-import { useToast } from "@shared/hooks/use-toast";
+} from "@/components/ui/collapsible";
+import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import type { FarmEntity } from "@shared/api/farm.repository";
@@ -57,7 +57,7 @@ import { useFarms } from "@features/farm-management";
 import { useCrops } from "@features/crop-management";
 
 import { z } from "zod";
-import { Calendar } from "@shared/ui/calendar";
+import { Calendar } from "@/components/ui/calendar";
 import WorkCalculatorDialog from "./work-calculator-dialog";
 
 const formSchema = insertTaskSchema.extend({
@@ -325,7 +325,7 @@ export default function AddTaskDialog({
   /** 수정 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-      const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("@/shared/api/tasks");
       return await taskApi.updateTask((task as any)!.id, {
         title: data.title!,
         description: (data as any).description || "",
@@ -359,7 +359,7 @@ export default function AddTaskDialog({
   /** 대량 저장 (일괄/개별) */
   const bulkCreateMutation = useMutation({
     mutationFn: async (tasks: InsertTask[]) => {
-      const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("@/shared/api/tasks");
       const results = [];
       
       for (const task of tasks) {
