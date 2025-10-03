@@ -109,6 +109,7 @@ export default function AddTaskDialog({
   selectedDate,
   task,
 }: AddTaskDialogProps) {
+  console.log("AddTaskDialog 렌더링, 받은 task props:", task);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [registrationMode, setRegistrationMode] =
@@ -192,18 +193,41 @@ export default function AddTaskDialog({
     if (task && open) {
       console.log("편집 모드 초기화 실행");
       
+      // 이랑 번호 추출 (task.rowNumber 우선, 없으면 description에서 파싱)
+      let taskRowNumber = (task as any).rowNumber;
+      console.log("원본 task.rowNumber:", (task as any).rowNumber);
+      console.log("원본 task.description:", (task as any).description);
+      
+      if (!taskRowNumber && (task as any).description && (task as any).description.includes("이랑:")) {
+        const match = (task as any).description.match(/이랑:\s*(\d+)번/);
+        if (match) {
+          taskRowNumber = parseInt(match[1]);
+          console.log("description에서 파싱한 이랑 번호:", taskRowNumber);
+        }
+      }
+      
+      console.log("최종 taskRowNumber:", taskRowNumber);
+
       // 기본 폼 데이터 먼저 설정
       form.reset({
         title: task.title || "",
         description: (task as any).description || "",
         taskType: (task as any).taskType || "",
         scheduledDate: (task as any).scheduledDate || "",
-        endDate: (task as any).endDate || "",
+        endDate: (task as any).endDate || (task as any).scheduledDate || "", // 종료날짜가 없으면 시작날짜와 동일하게 설정
         farmId: (task as any).farmId || "",
         cropId: (task as any).cropId || "",
         environment: "",
-        rowNumber: (task as any).rowNumber || undefined,
+        rowNumber: taskRowNumber || undefined,
       });
+      
+      // 약간의 지연 후 이랑 번호를 확실히 설정 (form.reset 후 값이 덮어씌워질 수 있음)
+      setTimeout(() => {
+        if (taskRowNumber) {
+          console.log("지연 후 이랑 번호를 setValue로 설정:", taskRowNumber);
+          form.setValue("rowNumber", taskRowNumber);
+        }
+      }, 100);
       
       // 제목에서 작물명 추출 (fallback)
       const titleParts = task.title?.split('_');
@@ -220,8 +244,16 @@ export default function AddTaskDialog({
         if (farm) {
           console.log("수정 모드에서 농장 설정:", farm.name);
           setSelectedFarm(farm);
+          form.setValue("farmId", farm.id);
           form.setValue("environment", farm.environment || "");
         }
+      } else if (farms && farms.length > 0) {
+        // farmId가 없으면 첫 번째 농장으로 설정
+        const firstFarm = farms[0];
+        console.log("farmId가 없어서 첫 번째 농장으로 설정:", firstFarm.name);
+        setSelectedFarm(firstFarm);
+        form.setValue("farmId", firstFarm.id);
+        form.setValue("environment", firstFarm.environment || "");
       }
 
       // crops 데이터가 있으면 작물 설정
@@ -254,6 +286,58 @@ export default function AddTaskDialog({
       // selectedFarm은 첫 번째 농장으로 자동 설정되므로 null로 초기화하지 않음
     }
   }, [task, open, selectedDate, crops, farms, form]);
+
+  // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
+  useEffect(() => {
+    if (task && open) {
+      // 이랑 번호 추출
+      let taskRowNumber = (task as any).rowNumber;
+      console.log("별도 useEffect - 원본 task.rowNumber:", (task as any).rowNumber);
+      console.log("별도 useEffect - 원본 task.description:", (task as any).description);
+      
+      if (!taskRowNumber && (task as any).description && (task as any).description.includes("이랑:")) {
+        const match = (task as any).description.match(/이랑:\s*(\d+)번/);
+        if (match) {
+          taskRowNumber = parseInt(match[1]);
+          console.log("별도 useEffect - description에서 파싱한 이랑 번호:", taskRowNumber);
+        }
+      }
+      
+      if (taskRowNumber) {
+        console.log("별도 useEffect에서 이랑 번호 설정:", taskRowNumber);
+        // 여러 번 시도해서 확실히 설정
+        form.setValue("rowNumber", taskRowNumber);
+        setTimeout(() => {
+          form.setValue("rowNumber", taskRowNumber);
+          console.log("지연 후 이랑 번호 재설정:", taskRowNumber);
+        }, 200);
+        setTimeout(() => {
+          form.setValue("rowNumber", taskRowNumber);
+          console.log("두 번째 지연 후 이랑 번호 재설정:", taskRowNumber);
+        }, 500);
+      }
+    }
+  }, [task, open, form]);
+
+  // 이랑 번호 실시간 감시 및 설정
+  const watchedRowNumber = form.watch("rowNumber");
+  useEffect(() => {
+    if (task && open && watchedRowNumber === undefined) {
+      // 이랑 번호가 설정되지 않은 경우 다시 시도
+      let taskRowNumber = (task as any).rowNumber;
+      if (!taskRowNumber && (task as any).description && (task as any).description.includes("이랑:")) {
+        const match = (task as any).description.match(/이랑:\s*(\d+)번/);
+        if (match) {
+          taskRowNumber = parseInt(match[1]);
+        }
+      }
+      
+      if (taskRowNumber) {
+        console.log("watch useEffect에서 이랑 번호 설정:", taskRowNumber);
+        form.setValue("rowNumber", taskRowNumber);
+      }
+    }
+  }, [task, open, watchedRowNumber, form]);
 
   // 작물 필터
   const searchFilteredCrops =
@@ -333,15 +417,20 @@ export default function AddTaskDialog({
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
       const { taskApi } = await import("@shared/api/tasks");
+      const rowNumber = (data as any).rowNumber;
+      const description = rowNumber 
+        ? `이랑: ${rowNumber}번`
+        : (data as any).description || "";
+        
       return await taskApi.updateTask((task as any)!.id, {
         title: data.title!,
-        description: (data as any).description || "",
+        description: description,
         taskType: (data as any).taskType || "기타",
         scheduledDate: (data as any).scheduledDate,
-        endDate: (data as any).endDate || null,
+        endDate: (data as any).endDate || (data as any).scheduledDate || null, // 종료날짜가 없으면 시작날짜와 동일하게 설정
         farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
         cropId: (data as any).cropId ? (data as any).cropId.toString() : "",
-        rowNumber: (data as any).rowNumber || null,
+        rowNumber: rowNumber || null,
         completed: (data as any).completed || 0,
       });
     },
@@ -421,16 +510,18 @@ export default function AddTaskDialog({
         toast({ title: "농장을 선택해주세요", variant: "destructive" });
         return;
       }
+      const rowNumber = form.getValues("rowNumber");
       const tasks: InsertTask[] = selectedWorks.map((work) => ({
         title: form.getValues("title") || `${cropName} ${work}`,
-        description:
-          form.getValues("description") ||
-          `일괄 등록으로 생성된 ${work} 작업`,
+        description: rowNumber 
+          ? `이랑: ${rowNumber}번`
+          : (form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`),
         taskType: work,
         scheduledDate: startDate,
+        endDate: startDate, // 일괄등록 시 종료날짜를 시작날짜와 동일하게 설정
         farmId: form.getValues("farmId") || "",
         cropId: form.getValues("cropId") || "",
-        rowNumber: form.getValues("rowNumber") || undefined,
+        rowNumber: rowNumber || undefined,
       }));
       bulkCreateMutation.mutate(tasks);
     } else {
@@ -450,19 +541,20 @@ export default function AddTaskDialog({
       const work = form.getValues("taskType") || "";
       const start = new Date(startDate);
       const end = new Date(endDate);
+      const rowNumber = form.getValues("rowNumber");
       const tasks: InsertTask[] = [];
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         tasks.push({
           title: form.getValues("title") || `${cropName} ${work}`,
-          description:
-            form.getValues("description") ||
-            `개별 등록으로 생성된 ${work} 작업`,
+          description: rowNumber 
+            ? `이랑: ${rowNumber}번`
+            : (form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`),
           taskType: work,
           scheduledDate: format(d, "yyyy-MM-dd"),
           farmId: form.getValues("farmId") || "",
           cropId: form.getValues("cropId") || "",
-          rowNumber: form.getValues("rowNumber") || undefined,
+          rowNumber: rowNumber || undefined,
         });
       }
       bulkCreateMutation.mutate(tasks);
@@ -883,19 +975,32 @@ export default function AddTaskDialog({
                   <FormField
                     control={form.control}
                     name="rowNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>이랑 번호 (선택사항)</FormLabel>
-                        <Select 
-                          onValueChange={(value) => {
-                            if (value === "all") {
-                              field.onChange(undefined); // 전체 이랑 선택 시 undefined
-                            } else {
-                              field.onChange(value ? parseInt(value) : undefined);
-                            }
-                          }} 
-                          value={field.value?.toString() || "all"}
-                        >
+                    render={({ field }) => {
+                      console.log("이랑 번호 Select field.value:", field.value);
+                      console.log("이랑 번호 Select 표시값:", field.value?.toString() || "all");
+                      
+                      // 폼에서 현재 값을 다시 확인
+                      const currentRowNumber = form.getValues("rowNumber");
+                      console.log("form.getValues('rowNumber'):", currentRowNumber);
+                      
+                      // field.value가 없으면 form.getValues로 다시 시도
+                      const displayValue = field.value?.toString() || currentRowNumber?.toString() || "all";
+                      console.log("최종 displayValue:", displayValue);
+                      
+                      return (
+                        <FormItem>
+                          <FormLabel>이랑 번호 (선택사항)</FormLabel>
+                          <Select 
+                            onValueChange={(value) => {
+                              console.log("이랑 번호 변경:", value);
+                              if (value === "all") {
+                                field.onChange(undefined); // 전체 이랑 선택 시 undefined
+                              } else {
+                                field.onChange(value ? parseInt(value) : undefined);
+                              }
+                            }} 
+                            value={displayValue}
+                          >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="이랑 번호를 선택해주세요" />
@@ -915,7 +1020,8 @@ export default function AddTaskDialog({
                           선택하지 않으면 전체 이랑에 작업이 등록됩니다
                         </p>
                       </FormItem>
-                    )}
+                    );
+                    }}
                   />
                 );
               })()}
@@ -981,14 +1087,14 @@ export default function AddTaskDialog({
                 )}
               />
 
-              {/* 종료 날짜(개별등록에서만) */}
-              {!task && registrationMode === "individual" && (
+              {/* 종료 날짜(개별등록 또는 수정 모드에서) */}
+              {((!task && registrationMode === "individual") || task) && (
                 <FormField
                   control={form.control}
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>종료 날짜 *</FormLabel>
+                      <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
