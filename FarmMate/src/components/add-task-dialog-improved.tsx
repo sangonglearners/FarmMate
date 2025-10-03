@@ -239,13 +239,29 @@ export default function AddTaskDialog({
       }
 
       // 농장 정보 먼저 설정 (farms 데이터가 있으면 바로 설정)
+      console.log("수정 모드 농장 설정 시도:", {
+        farmsLength: farms?.length,
+        taskFarmId: (task as any).farmId,
+        taskFarmIdType: typeof (task as any).farmId
+      });
+      
       if (farms && (task as any).farmId) {
         const farm = farms.find((f) => f.id === (task as any).farmId);
+        console.log("농장 찾기 결과:", farm);
+        
         if (farm) {
-          console.log("수정 모드에서 농장 설정:", farm.name);
+          console.log("수정 모드에서 농장 설정:", farm.name, "ID:", farm.id);
           setSelectedFarm(farm);
           form.setValue("farmId", farm.id);
           form.setValue("environment", farm.environment || "");
+          
+          // 농장 설정 후 확인
+          setTimeout(() => {
+            console.log("농장 설정 후 form.getValues('farmId'):", form.getValues("farmId"));
+          }, 100);
+        } else {
+          console.log("농장을 찾을 수 없음. taskFarmId:", (task as any).farmId);
+          console.log("사용 가능한 농장들:", farms.map(f => ({ id: f.id, name: f.name })));
         }
       } else if (farms && farms.length > 0) {
         // farmId가 없으면 첫 번째 농장으로 설정
@@ -390,8 +406,8 @@ export default function AddTaskDialog({
         title: data.title!,
         memo: (data as any).description || undefined,
         scheduledAt: (data as any).scheduledDate,
-        farmId: (data as any).farmId ? Number((data as any).farmId) : undefined,
-        cropId: (data as any).cropId ? Number((data as any).cropId) : undefined,
+        farmId: (data as any).farmId ? (data as any).farmId : undefined,
+        cropId: (data as any).cropId ? (data as any).cropId : undefined,
         rowNumber: (data as any).rowNumber || undefined,
         taskType: (data as any).taskType || undefined,
       }),
@@ -563,16 +579,24 @@ export default function AddTaskDialog({
 
   const handleWorkCalculatorSave = async (tasks: InsertTask[]) => {
     console.log("WorkCalculator 작업 저장:", tasks);
+    console.log("WorkCalculator - 전달받은 tasks의 rowNumber:", tasks.map(t => t.rowNumber));
     
     // 각 작업을 saveTask 함수를 사용하여 사용자별로 저장
     try {
       for (const task of tasks) {
+        console.log("WorkCalculator - 개별 task 저장:", {
+          title: task.title,
+          rowNumber: task.rowNumber,
+          description: task.description,
+          farmId: task.farmId
+        });
+        
         await saveTask({
           title: task.title,
           memo: task.description || undefined,
           scheduledAt: task.scheduledDate,
-          farmId: task.farmId ? Number(task.farmId) : undefined,
-          cropId: task.cropId ? Number(task.cropId) : undefined,
+          farmId: task.farmId ? task.farmId : undefined,
+          cropId: task.cropId ? task.cropId : undefined,
           taskType: task.taskType,
           rowNumber: task.rowNumber || undefined,
         });
@@ -1219,16 +1243,18 @@ export default function AddTaskDialog({
       </Dialog>
 
       {/* Work Calculator Dialog */}
-      <WorkCalculatorDialog
-        open={showWorkCalculator}
-        onOpenChange={setShowWorkCalculator}
-        selectedCrop={selectedCrop}
-        baseDate={
-          form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")
-        }
-        onSave={handleWorkCalculatorSave}
-        selectedTasks={selectedWorks}
-      />
+       <WorkCalculatorDialog
+         open={showWorkCalculator}
+         onOpenChange={setShowWorkCalculator}
+         selectedCrop={selectedCrop}
+         baseDate={
+           form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")
+         }
+         onSave={handleWorkCalculatorSave}
+         selectedTasks={selectedWorks}
+         selectedFarm={selectedFarm}
+         selectedRowNumber={form.getValues("rowNumber")}
+       />
     </>
   );
 }

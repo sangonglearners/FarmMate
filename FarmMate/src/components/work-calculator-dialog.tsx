@@ -24,6 +24,8 @@ interface WorkCalculatorDialogProps {
   baseDate: string;
   onSave: (tasks: InsertTask[]) => void;
   selectedTasks?: string[];
+  selectedFarm?: any;
+  selectedRowNumber?: number;
 }
 
 interface TaskSchedule {
@@ -40,7 +42,9 @@ export default function WorkCalculatorDialog({
   selectedCrop,
   baseDate,
   onSave,
-  selectedTasks: propSelectedTasks
+  selectedTasks: propSelectedTasks,
+  selectedFarm,
+  selectedRowNumber
 }: WorkCalculatorDialogProps) {
   const { toast } = useToast();
   
@@ -113,18 +117,26 @@ export default function WorkCalculatorDialog({
     }
 
     const tasks: InsertTask[] = taskSchedules.map(schedule => {
+      // 이랑 번호와 설명 설정
+      const rowNumber = selectedRowNumber;
+      const description = rowNumber 
+        ? `이랑: ${rowNumber}번 - ${schedule.description}`
+        : schedule.description;
+      
       const task = {
         title: `${selectedCrop?.name || "작물"}_${schedule.taskType}`,
-        description: schedule.description,
+        description: description,
         taskType: schedule.taskType,
         scheduledDate: schedule.startDate,
         endDate: schedule.endDate,
-        farmId: selectedCrop?.farmId || "",
+        farmId: selectedFarm?.id || selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
-        rowNumber: undefined, // 이랑 번호는 작업 등록 시 선택
+        rowNumber: rowNumber || undefined,
         userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
       };
       console.log("Created work calculator task:", task);
+      console.log("Work calculator - selectedRowNumber:", selectedRowNumber);
+      console.log("Work calculator - selectedFarm:", selectedFarm);
       return task;
     });
 
