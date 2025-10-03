@@ -151,12 +151,41 @@ export default function AddTaskDialog({
   useEffect(() => {
     const taskType = form.getValues("taskType");
     const cropName = customCropName || cropSearchTerm;
+    
+    console.log("제목 자동 설정 useEffect 실행:", {
+      customCropName,
+      cropSearchTerm,
+      cropName,
+      taskType,
+      현재제목: form.getValues("title")
+    });
+    
     if (cropName && taskType) {
       const newTitle = `${cropName}_${taskType}`;
       console.log("제목 자동 설정:", { cropName, taskType, newTitle });
       form.setValue("title", newTitle);
     }
   }, [cropSearchTerm, customCropName, form]);
+
+  // 작물 정보가 변경될 때 제목 업데이트
+  useEffect(() => {
+    const taskType = form.getValues("taskType");
+    const currentTitle = form.getValues("title");
+    const cropName = customCropName || cropSearchTerm;
+    
+    if (cropName && taskType) {
+      const expectedTitle = `${cropName}_${taskType}`;
+      if (currentTitle !== expectedTitle) {
+        console.log("작물 정보 변경으로 제목 업데이트:", {
+          currentTitle,
+          expectedTitle,
+          cropName,
+          taskType
+        });
+        form.setValue("title", expectedTitle);
+      }
+    }
+  }, [customCropName, cropSearchTerm, form]);
 
   // taskType 변경시 제목 갱신 (편집 모드에서도 작동)
   useEffect(() => {
@@ -279,8 +308,12 @@ export default function AddTaskDialog({
           console.log("수정 모드에서 작물 설정:", crop.name);
           setCropSearchTerm(crop.name);
           setSelectedCrop(crop);
-          setCustomCropName(""); // 등록된 작물 사용
+          setCustomCropName(crop.name); // 작물명을 customCropName에도 설정
         }
+      } else if ((task as any).cropId) {
+        // cropId는 있지만 crops 데이터에서 찾을 수 없는 경우
+        console.log("crops 데이터에서 작물을 찾을 수 없음. cropId:", (task as any).cropId);
+        console.log("사용 가능한 crops:", crops?.map(c => ({ id: c.id, name: c.name })));
       }
       
     } else if (!task && open) {
@@ -387,30 +420,72 @@ export default function AddTaskDialog({
 
   const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
     const displayName = `${keyCrop.name} > ${keyCrop.variety}`;
+    console.log("핵심 작물 선택:", {
+      keyCrop,
+      displayName,
+      이전CustomCropName: customCropName,
+      이전CropSearchTerm: cropSearchTerm
+    });
+    
     setCropSearchTerm(displayName);
     setCustomCropName(displayName);
     form.setValue("cropId", ""); // 커스텀 작물
     setShowKeyCrops(false);
+    
+    console.log("핵심 작물 선택 완료:", {
+      새로운CustomCropName: displayName,
+      새로운CropSearchTerm: displayName,
+      cropId: form.getValues("cropId")
+    });
   };
 
   const handleCustomCropInput = (cropName: string) => {
+    console.log("작물 입력 변경:", {
+      cropName,
+      이전CustomCropName: customCropName,
+      이전CropSearchTerm: cropSearchTerm
+    });
+    
     setCustomCropName(cropName);
     setCropSearchTerm(cropName);
     form.setValue("cropId", "");
+    
+    console.log("작물 입력 처리 완료:", {
+      새로운CustomCropName: cropName,
+      새로운CropSearchTerm: cropName,
+      cropId: form.getValues("cropId")
+    });
   };
 
   /** 단건 저장 */
   const createMutation = useMutation({
-    mutationFn: async (data: InsertTask) =>
-      saveTask({
+    mutationFn: async (data: InsertTask) => {
+      // 작물 ID 결정 로직 개선
+      let finalCropId = (data as any).cropId;
+      if (!finalCropId && selectedCrop?.id) {
+        finalCropId = selectedCrop.id;
+        console.log("개별등록에서 selectedCrop.id 사용:", finalCropId);
+      }
+      
+      console.log("개별등록 작물 정보 확인:", {
+        formCropId: (data as any).cropId,
+        selectedCrop: selectedCrop?.name,
+        selectedCropId: selectedCrop?.id,
+        finalCropId,
+        customCropName,
+        cropSearchTerm
+      });
+      
+      return saveTask({
         title: data.title!,
         memo: (data as any).description || undefined,
         scheduledAt: (data as any).scheduledDate,
         farmId: (data as any).farmId ? (data as any).farmId : undefined,
-        cropId: (data as any).cropId ? (data as any).cropId : undefined,
+        cropId: finalCropId || undefined,
         rowNumber: (data as any).rowNumber || undefined,
         taskType: (data as any).taskType || undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
@@ -437,6 +512,22 @@ export default function AddTaskDialog({
       const description = rowNumber 
         ? `이랑: ${rowNumber}번`
         : (data as any).description || "";
+      
+      // 작물 ID 결정 로직 개선
+      let finalCropId = (data as any).cropId;
+      if (!finalCropId && selectedCrop?.id) {
+        finalCropId = selectedCrop.id;
+        console.log("수정 모드에서 selectedCrop.id 사용:", finalCropId);
+      }
+      
+      console.log("수정 모드 작물 정보 확인:", {
+        formCropId: (data as any).cropId,
+        selectedCrop: selectedCrop?.name,
+        selectedCropId: selectedCrop?.id,
+        finalCropId,
+        customCropName,
+        cropSearchTerm
+      });
         
       return await taskApi.updateTask((task as any)!.id, {
         title: data.title!,
@@ -445,7 +536,7 @@ export default function AddTaskDialog({
         scheduledDate: (data as any).scheduledDate,
         endDate: (data as any).endDate || (data as any).scheduledDate || null, // 종료날짜가 없으면 시작날짜와 동일하게 설정
         farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
-        cropId: (data as any).cropId ? (data as any).cropId.toString() : "",
+        cropId: finalCropId ? finalCropId.toString() : "",
         rowNumber: rowNumber || null,
         completed: (data as any).completed || 0,
       });
@@ -526,9 +617,29 @@ export default function AddTaskDialog({
         toast({ title: "농장을 선택해주세요", variant: "destructive" });
         return;
       }
+      
       const rowNumber = form.getValues("rowNumber");
+      
+      // 작물 ID 결정 로직 개선 (개별등록과 동일하게)
+      let finalCropId = form.getValues("cropId");
+      if (!finalCropId && selectedCrop?.id) {
+        // cropId가 없지만 selectedCrop이 있으면 selectedCrop.id 사용
+        finalCropId = selectedCrop.id;
+        console.log("일괄등록에서 selectedCrop.id 사용:", finalCropId);
+      }
+      
+      console.log("일괄등록 작물 정보 확인:", {
+        customCropName,
+        cropSearchTerm,
+        formCropId: form.getValues("cropId"),
+        selectedCrop: selectedCrop?.name,
+        selectedCropId: selectedCrop?.id,
+        finalCropId,
+        cropName
+      });
+      
       const tasks: InsertTask[] = selectedWorks.map((work) => ({
-        title: form.getValues("title") || `${cropName} ${work}`,
+        title: form.getValues("title") || `${cropName}_${work}`,
         description: rowNumber 
           ? `이랑: ${rowNumber}번`
           : (form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`),
@@ -536,9 +647,11 @@ export default function AddTaskDialog({
         scheduledDate: startDate,
         endDate: startDate, // 일괄등록 시 종료날짜를 시작날짜와 동일하게 설정
         farmId: form.getValues("farmId") || "",
-        cropId: form.getValues("cropId") || "",
+        cropId: finalCropId || "", // 개선된 cropId 사용
         rowNumber: rowNumber || undefined,
       }));
+      
+      console.log("일괄등록으로 생성될 작업들:", tasks);
       bulkCreateMutation.mutate(tasks);
     } else {
       // individual: 한 작업을 날짜 범위로
@@ -657,7 +770,30 @@ export default function AddTaskDialog({
       toast({ title: "농장을 선택해주세요", variant: "destructive" });
       return;
     }
+    
+    // 농작업 계산기 열기 전에 현재 작물 정보 백업
+    console.log("농작업 계산기 열기 전 작물 정보 백업:", {
+      selectedCrop: selectedCrop?.name,
+      customCropName,
+      cropSearchTerm
+    });
+    
     setShowWorkCalculator(true);
+  };
+
+  // 농작업 계산기가 닫힐 때 작물 정보 복원
+  const handleWorkCalculatorClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      console.log("농작업 계산기 닫힘 - 작물 정보 복원 시도");
+      
+      // 작물 정보가 초기화되었다면 복원
+      if (!customCropName && !cropSearchTerm && selectedCrop) {
+        console.log("작물 정보 복원:", selectedCrop.name);
+        setCustomCropName(selectedCrop.name);
+        setCropSearchTerm(selectedCrop.name);
+      }
+    }
+    setShowWorkCalculator(isOpen);
   };
 
   // 작업 삭제 함수
@@ -729,6 +865,12 @@ export default function AddTaskDialog({
                     placeholder="작물명을 입력하세요"
                     value={cropSearchTerm}
                     onChange={(e) => {
+                      console.log("작물 입력 필드 변경:", {
+                        이전값: cropSearchTerm,
+                        새로운값: e.target.value,
+                        이전CustomCropName: customCropName
+                      });
+                      
                       setCropSearchTerm(e.target.value);
                       handleCustomCropInput(e.target.value);
                     }}
@@ -1245,8 +1387,10 @@ export default function AddTaskDialog({
       {/* Work Calculator Dialog */}
        <WorkCalculatorDialog
          open={showWorkCalculator}
-         onOpenChange={setShowWorkCalculator}
+         onOpenChange={handleWorkCalculatorClose}
          selectedCrop={selectedCrop}
+         customCropName={customCropName}
+         cropSearchTerm={cropSearchTerm}
          baseDate={
            form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")
          }
