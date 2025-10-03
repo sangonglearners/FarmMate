@@ -21,6 +21,8 @@ interface WorkCalculatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedCrop: Crop | null;
+  customCropName?: string;
+  cropSearchTerm?: string;
   baseDate: string;
   onSave: (tasks: InsertTask[]) => void;
   selectedTasks?: string[];
@@ -40,6 +42,8 @@ export default function WorkCalculatorDialog({
   open, 
   onOpenChange, 
   selectedCrop,
+  customCropName,
+  cropSearchTerm,
   baseDate,
   onSave,
   selectedTasks: propSelectedTasks,
@@ -123,8 +127,18 @@ export default function WorkCalculatorDialog({
         ? `이랑: ${rowNumber}번 - ${schedule.description}`
         : schedule.description;
       
+      // 작물명 결정 로직 개선 (selectedCrop, customCropName, cropSearchTerm 순으로 시도)
+      const cropName = selectedCrop?.name || customCropName || cropSearchTerm || "작물";
+      
+      console.log("농작업 계산기 작물명 결정:", {
+        selectedCrop: selectedCrop?.name,
+        customCropName,
+        cropSearchTerm,
+        최종작물명: cropName
+      });
+      
       const task = {
-        title: `${selectedCrop?.name || "작물"}_${schedule.taskType}`,
+        title: `${cropName}_${schedule.taskType}`,
         description: description,
         taskType: schedule.taskType,
         scheduledDate: schedule.startDate,
