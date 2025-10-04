@@ -40,7 +40,8 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
           today.getMonth() === date.getMonth() &&
           today.getFullYear() === date.getFullYear();
           
-        const isSelected = selectedDate === date.toISOString().split('T')[0];
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const isSelected = selectedDate === dateStr;
 
         return (
           <div
@@ -49,7 +50,6 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
               todayCheck ? 'bg-primary/5 border-primary' : ''
             } ${isSelected ? 'bg-blue-50 border-blue-300' : ''} ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
             onClick={() => {
-              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
               onDateClick(dateStr);
             }}
           >
