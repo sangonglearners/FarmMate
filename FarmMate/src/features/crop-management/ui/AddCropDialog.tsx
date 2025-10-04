@@ -84,20 +84,47 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
   const { data: farms = [] } = showFarmSelect ? useFarms() : { data: [] as any[] } as any;
   const { data: myCrops = [] } = useMyCrops();
 
-  // 내 작물 목록을 대표 작물 선택 소스로 변환
+  // 샘플 작물 데이터와 내 작물 목록을 합쳐서 대표 작물 선택 소스로 변환
+  const sampleCrops: CropOption[] = [
+    { id: "sample-1", majorCategory: "엽채류", name: "양배추", category: "엽채류", varieties: ["보라색 양배추", "흰 양배추", "적양배추"] },
+    { id: "sample-2", majorCategory: "엽채류", name: "상추", category: "엽채류", varieties: ["적상추", "청상추", "로메인"] },
+    { id: "sample-3", majorCategory: "근채류", name: "당근", category: "근채류", varieties: ["홍당무", "흰당근", "보라당근"] },
+    { id: "sample-4", majorCategory: "근채류", name: "무", category: "근채류", varieties: ["백무", "청무", "적무"] },
+    { id: "sample-5", majorCategory: "과채류", name: "토마토", category: "과채류", varieties: ["대과토마토", "방울토마토", "체리토마토"] },
+    { id: "sample-6", majorCategory: "과채류", name: "오이", category: "과채류", varieties: ["다다기오이", "백다다기", "가시계통"] },
+    { id: "sample-7", majorCategory: "과채류", name: "고추", category: "과채류", varieties: ["청양고추", "홍고추", "풋고추"] },
+    { id: "sample-8", majorCategory: "과채류", name: "가지", category: "과채류", varieties: ["흑장", "자주가지", "백가지"] },
+    { id: "sample-9", majorCategory: "엽채류", name: "시금치", category: "엽채류", varieties: ["적시금치", "청시금치", "둥근시금치"] },
+    { id: "sample-10", majorCategory: "엽채류", name: "배추", category: "엽채류", varieties: ["가을배추", "봄배추", "여름배추"] },
+    { id: "sample-11", majorCategory: "근채류", name: "감자", category: "근채류", varieties: ["수미", "대서", "조생감자"] },
+    { id: "sample-12", majorCategory: "근채류", name: "고구마", category: "근채류", varieties: ["호박고구마", "밤고구마", "자색고구마"] },
+    { id: "sample-13", majorCategory: "과채류", name: "호박", category: "과채류", varieties: ["단호박", "애호박", "맷돌호박"] },
+    { id: "sample-14", majorCategory: "엽채류", name: "케일", category: "엽채류", varieties: ["적케일", "청케일", "컬리케일"] },
+    { id: "sample-15", majorCategory: "과채류", name: "파프리카", category: "과채류", varieties: ["빨간파프리카", "노란파프리카", "주황파프리카"] },
+  ];
+
   const crops: CropOption[] = useMemo(() => {
-    return (myCrops || []).map((c: any) => ({
+    const myCropOptions = (myCrops || []).map((c: any) => ({
       id: c.id,
       majorCategory: c.category ?? "",
       name: c.name ?? "",
       category: c.category ?? "",
       varieties: c.variety ? [c.variety] : [],
     }));
+    
+    // 샘플 데이터와 내 작물을 합치되, 중복 제거
+    const allCrops = [...sampleCrops, ...myCropOptions];
+    const uniqueCrops = allCrops.filter((crop, index, self) => 
+      index === self.findIndex(c => c.name === crop.name && c.majorCategory === crop.majorCategory)
+    );
+    
+    return uniqueCrops;
   }, [myCrops]);
 
   const [selectedCrop, setSelectedCrop] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewCropModal, setShowNewCropModal] = useState(false);
+  const [showDirectRegister, setShowDirectRegister] = useState(false);
 
   const form = useForm<InsertCrop>({
     resolver: zodResolver(formSchema),
@@ -125,10 +152,12 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
         farmId: crop.farmId || undefined,
       });
       setSelectedCrop(crop.id);
+      setShowDirectRegister(false);
     } else {
       form.reset({ category: "", name: "", variety: "", status: "growing", farmId: defaultFarmId || undefined });
       setSelectedCrop("");
       setSearchTerm("");
+      setShowDirectRegister(false);
     }
   }, [crop, form, crops]);
 
@@ -216,9 +245,23 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
               {searchTerm.trim() !== "" && filteredCrops.length === 0 ? (
                 <div className="rounded-md border border-dashed p-4 text-center text-sm text-gray-600">
                   <p className="mb-3">"{searchTerm}"에 대한 검색 결과가 없습니다.</p>
-                  <Button type="button" onClick={openNewCropModal}>
-                    작물 등록 요청하기
-                  </Button>
+                  <div className="space-y-2">
+                    <Button 
+                      type="button" 
+                      onClick={() => setShowDirectRegister(true)}
+                      className="w-full"
+                    >
+                      새 작물 직접 등록하기
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={openNewCropModal}
+                      className="w-full"
+                    >
+                      작물 등록 요청하기
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 // 결과 리스트
@@ -285,46 +328,103 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
               />
             )}
 
-            {/* 품종 선택 (대표 작물 선택 시 노출) */}
-            {selectedCropData && (
-              <FormField
-                control={form.control}
-                name="variety"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>품종 *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+            {/* 직접 등록 모드 또는 대표 작물 선택 시 노출 */}
+            {(showDirectRegister || selectedCropData) && (
+              <>
+                {/* 작물 분류 */}
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>작물 분류 *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="작물 분류를 선택해주세요" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="엽채류">엽채류</SelectItem>
+                          <SelectItem value="근채류">근채류</SelectItem>
+                          <SelectItem value="과채류">과채류</SelectItem>
+                          <SelectItem value="기타">기타</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* 작물 이름 */}
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>작물 이름 *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="품종을 선택해주세요" />
-                        </SelectTrigger>
+                        <Input 
+                          placeholder="작물 이름을 입력해주세요" 
+                          {...field} 
+                          value={showDirectRegister ? searchTerm || field.value : field.value}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            if (showDirectRegister) {
+                              setSearchTerm(e.target.value);
+                            }
+                          }}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {(selectedCropData.varieties ?? []).map((variety) => (
-                          <SelectItem key={variety} value={variety}>
-                            {variety}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* 품종 */}
+                <FormField
+                  control={form.control}
+                  name="variety"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>품종 *</FormLabel>
+                      {showDirectRegister ? (
+                        <FormControl>
+                          <Input 
+                            placeholder="품종을 입력해주세요" 
+                            {...field} 
+                          />
+                        </FormControl>
+                      ) : (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="품종을 선택해주세요" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {(selectedCropData?.varieties ?? []).map((variety) => (
+                              <SelectItem key={variety} value={variety}>
+                                {variety}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
             
             <Button
               type="submit"
-              className={`w-full ${
-                (searchTerm.trim() !== "" && filteredCrops.length === 0) 
-                  ? "bg-gray-200 text-gray-500 hover:bg-gray-200" // 연한 회색
-                  : ""
-              }`}
+              className="w-full"
               disabled={
                 createMutation.isPending || 
                 updateMutation.isPending || 
-                (searchTerm.trim() !== "" && filteredCrops.length === 0) ||
-                (!crop && !selectedCrop)
+                (!crop && !selectedCrop && !showDirectRegister)
               }
             >
               {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
