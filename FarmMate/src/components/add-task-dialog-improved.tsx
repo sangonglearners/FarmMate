@@ -472,18 +472,48 @@ export default function AddTaskDialog({
         selectedCropId: selectedCrop?.id,
         finalCropId,
         customCropName,
-        cropSearchTerm
+        cropSearchTerm,
+        endDate: (data as any).endDate,
+        scheduledDate: (data as any).scheduledDate,
+        전체데이터: data
       });
       
-      return saveTask({
-        title: data.title!,
-        memo: (data as any).description || undefined,
-        scheduledAt: (data as any).scheduledDate,
-        farmId: (data as any).farmId ? (data as any).farmId : undefined,
-        cropId: finalCropId || undefined,
-        rowNumber: (data as any).rowNumber || undefined,
-        taskType: (data as any).taskType || undefined,
-      });
+      // endDate가 있는 경우 taskApi.createTask를 직접 사용
+      if ((data as any).endDate) {
+        console.log("endDate가 있어서 taskApi.createTask 사용:", {
+          endDate: (data as any).endDate,
+          scheduledDate: (data as any).scheduledDate
+        });
+        const { taskApi } = await import("@shared/api/tasks");
+        const taskToCreate = {
+          title: data.title!,
+          description: (data as any).description || "",
+          taskType: (data as any).taskType || "기타",
+          scheduledDate: (data as any).scheduledDate,
+          endDate: (data as any).endDate, // endDate 포함
+          farmId: (data as any).farmId || "",
+          cropId: finalCropId || "",
+          rowNumber: (data as any).rowNumber || null,
+          completed: 0,
+        };
+        console.log("taskApi.createTask에 전달할 데이터:", taskToCreate);
+        return await taskApi.createTask(taskToCreate);
+      } else {
+        // endDate가 없는 경우 기존 saveTask 사용
+        console.log("endDate가 없어서 saveTask 사용:", {
+          endDate: (data as any).endDate,
+          scheduledDate: (data as any).scheduledDate
+        });
+        return saveTask({
+          title: data.title!,
+          memo: (data as any).description || undefined,
+          scheduledAt: (data as any).scheduledDate,
+          farmId: (data as any).farmId ? (data as any).farmId : undefined,
+          cropId: finalCropId || undefined,
+          rowNumber: (data as any).rowNumber || undefined,
+          taskType: (data as any).taskType || undefined,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -653,7 +683,7 @@ export default function AddTaskDialog({
       console.log("일괄등록으로 생성될 작업들:", tasks);
       bulkCreateMutation.mutate(tasks);
     } else {
-      // individual: 한 작업을 날짜 범위로
+      // individual: 한 작업을 날짜 범위로 (하나의 작업으로 시작일과 종료일만 저장)
       const endDate = (form.getValues("endDate") as string) || "";
       if (!startDate || !endDate) {
         toast({
@@ -667,25 +697,24 @@ export default function AddTaskDialog({
         return;
       }
       const work = form.getValues("taskType") || "";
-      const start = new Date(startDate);
-      const end = new Date(endDate);
       const rowNumber = form.getValues("rowNumber");
-      const tasks: InsertTask[] = [];
-
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        tasks.push({
-          title: form.getValues("title") || `${cropName} ${work}`,
-          description: rowNumber 
-            ? `이랑: ${rowNumber}번`
-            : (form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`),
-          taskType: work,
-          scheduledDate: format(d, "yyyy-MM-dd"),
-          farmId: form.getValues("farmId") || "",
-          cropId: form.getValues("cropId") || "",
-          rowNumber: rowNumber || undefined,
-        });
-      }
-      bulkCreateMutation.mutate(tasks);
+      
+      // 하나의 작업만 생성 (날짜 범위)
+      const task: InsertTask = {
+        title: form.getValues("title") || `${cropName}_${work}`,
+        description: rowNumber 
+          ? `이랑: ${rowNumber}번`
+          : (form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`),
+        taskType: work,
+        scheduledDate: startDate,
+        endDate: endDate, // 종료일도 함께 저장
+        farmId: form.getValues("farmId") || "",
+        cropId: form.getValues("cropId") || "",
+        rowNumber: rowNumber || undefined,
+      };
+      
+      console.log("개별등록으로 생성될 작업 (날짜 범위):", task);
+      createMutation.mutate(task);
     }
   };
 
@@ -703,15 +732,31 @@ export default function AddTaskDialog({
           farmId: task.farmId
         });
         
-        await saveTask({
-          title: task.title,
-          memo: task.description || undefined,
-          scheduledAt: task.scheduledDate,
-          farmId: task.farmId ? task.farmId : undefined,
-          cropId: task.cropId ? task.cropId : undefined,
-          taskType: task.taskType,
-          rowNumber: task.rowNumber || undefined,
-        });
+        // endDate가 있는 경우 taskApi.createTask를 직접 사용
+        if ((task as any).endDate) {
+          const { taskApi } = await import("@shared/api/tasks");
+          await taskApi.createTask({
+            title: task.title,
+            description: task.description || "",
+            taskType: task.taskType || "기타",
+            scheduledDate: task.scheduledDate,
+            endDate: (task as any).endDate,
+            farmId: task.farmId || "",
+            cropId: task.cropId || "",
+            rowNumber: task.rowNumber || null,
+            completed: 0,
+          });
+        } else {
+          await saveTask({
+            title: task.title,
+            memo: task.description || undefined,
+            scheduledAt: task.scheduledDate,
+            farmId: task.farmId ? task.farmId : undefined,
+            cropId: task.cropId ? task.cropId : undefined,
+            taskType: task.taskType,
+            rowNumber: task.rowNumber || undefined,
+          });
+        }
       }
 
       // 쿼리 무효화로 UI 업데이트
