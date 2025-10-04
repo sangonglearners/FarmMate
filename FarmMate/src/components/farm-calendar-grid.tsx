@@ -178,7 +178,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
 
   // 작업 타입에 따른 색상
-  const getTaskColor = (taskType: string) => {
+  const getTaskColor = (task: Task) => {
+    // 제목에서 작업타입 추출 (작물명_작업타입 형태)
+    let taskType = task.taskType;
+    if (task.title && task.title.includes('_')) {
+      const parts = task.title.split('_');
+      if (parts.length >= 2) {
+        taskType = parts[parts.length - 1]; // 마지막 부분을 작업타입으로 사용
+      }
+    }
+    
     switch (taskType) {
       case "파종": return "bg-blue-100 text-blue-800 border-blue-200";
       case "육묘": return "bg-green-100 text-green-800 border-green-200";
@@ -463,7 +472,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                     </div>
                                   )}
                                   <div 
-                                    className={`text-xs px-1 py-0.5 rounded border break-words leading-tight ${getTaskColor(task.taskType)}`}
+                                    className={`text-xs px-1 py-0.5 rounded border break-words leading-tight ${getTaskColor(task)}`}
                                     style={{
                                       display: '-webkit-box',
                                       WebkitLineClamp: 2,
@@ -473,7 +482,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       maxHeight: '2.5rem'
                                     }}
                                   >
-                                    {task.taskType}
+                                    {task.title || task.taskType}
                                   </div>
                                 </div>
                               );
