@@ -1321,15 +1321,6 @@ export default function AddTaskDialog({
               />
 
               <div className="flex space-x-2 sticky bottom-0 bg-white pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  className="flex-1"
-                >
-                  취소
-                </Button>
-
                 {/* 일괄등록에서 계산기 */}
                 {registrationMode === "batch" && !task && (
                   <Button
@@ -1356,7 +1347,7 @@ export default function AddTaskDialog({
                   </Button>
                 )}
 
-                {/* 저장 */}
+                {/* 저장/수정 완료 */}
                 <Button
                   type="submit"
                   className="flex-1"
