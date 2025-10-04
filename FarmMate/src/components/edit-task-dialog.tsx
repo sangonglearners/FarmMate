@@ -40,15 +40,19 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
   const { data: farms } = useFarms();
   const { data: crops } = useCrops();
 
-  // 이랑 번호 추출
+  // 이랑 번호 추출 - task.rowNumber를 우선 사용하고, 없으면 description에서 파싱
   useEffect(() => {
-    if (task.description && task.description.includes("이랑:")) {
+    if (task.rowNumber) {
+      // task.rowNumber가 있으면 직접 사용
+      setSelectedRows([task.rowNumber]);
+    } else if (task.description && task.description.includes("이랑:")) {
+      // description에서 파싱
       const match = task.description.match(/이랑:\s*(\d+)번/);
       if (match) {
         setSelectedRows([parseInt(match[1])]);
       }
     }
-  }, [task.description]);
+  }, [task.rowNumber, task.description]);
 
   const selectedFarm = farms?.find((farm: any) => farm.id === selectedFarmId);
   const selectedCrop = crops?.find((crop: any) => crop.id === selectedCropId);
@@ -101,6 +105,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
         scheduledDate: startDate?.toLocaleDateString('sv-SE'),
         endDate: endDate?.toLocaleDateString('sv-SE'),
         description: selectedRows.length > 0 ? `이랑: ${selectedRows.join(", ")}번` : description,
+        rowNumber: selectedRows.length > 0 ? selectedRows[0] : null, // 첫 번째 이랑 번호 저장
       };
 
       const { taskApi } = await import("@shared/api/tasks");

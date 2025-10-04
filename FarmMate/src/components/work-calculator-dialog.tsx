@@ -21,9 +21,13 @@ interface WorkCalculatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedCrop: Crop | null;
+  customCropName?: string;
+  cropSearchTerm?: string;
   baseDate: string;
   onSave: (tasks: InsertTask[]) => void;
   selectedTasks?: string[];
+  selectedFarm?: any;
+  selectedRowNumber?: number;
 }
 
 interface TaskSchedule {
@@ -38,9 +42,13 @@ export default function WorkCalculatorDialog({
   open, 
   onOpenChange, 
   selectedCrop,
+  customCropName,
+  cropSearchTerm,
   baseDate,
   onSave,
-  selectedTasks: propSelectedTasks
+  selectedTasks: propSelectedTasks,
+  selectedFarm,
+  selectedRowNumber
 }: WorkCalculatorDialogProps) {
   const { toast } = useToast();
   
@@ -113,18 +121,36 @@ export default function WorkCalculatorDialog({
     }
 
     const tasks: InsertTask[] = taskSchedules.map(schedule => {
+      // 이랑 번호와 설명 설정
+      const rowNumber = selectedRowNumber;
+      const description = rowNumber 
+        ? `이랑: ${rowNumber}번 - ${schedule.description}`
+        : schedule.description;
+      
+      // 작물명 결정 로직 개선 (selectedCrop, customCropName, cropSearchTerm 순으로 시도)
+      const cropName = selectedCrop?.name || customCropName || cropSearchTerm || "작물";
+      
+      console.log("농작업 계산기 작물명 결정:", {
+        selectedCrop: selectedCrop?.name,
+        customCropName,
+        cropSearchTerm,
+        최종작물명: cropName
+      });
+      
       const task = {
-        title: `${selectedCrop?.name || "작물"}_${schedule.taskType}`,
-        description: schedule.description,
+        title: `${cropName}_${schedule.taskType}`,
+        description: description,
         taskType: schedule.taskType,
         scheduledDate: schedule.startDate,
         endDate: schedule.endDate,
-        farmId: selectedCrop?.farmId || "",
+        farmId: selectedFarm?.id || selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
-        rowNumber: undefined, // 이랑 번호는 작업 등록 시 선택
+        rowNumber: rowNumber || undefined,
         userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
       };
       console.log("Created work calculator task:", task);
+      console.log("Work calculator - selectedRowNumber:", selectedRowNumber);
+      console.log("Work calculator - selectedFarm:", selectedFarm);
       return task;
     });
 
