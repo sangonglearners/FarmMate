@@ -35,6 +35,9 @@ export default function HomePage() {
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [, setLocation] = useLocation();
+  
+  // 투두 리스트용 날짜별 완료 상태 (로컬 상태)
+  const [todoCompletions, setTodoCompletions] = useState<Record<string, boolean>>({});
 
   // 중복 제거 함수
   const removeDuplicateTasks = (tasks: any[]) => {
@@ -76,6 +79,36 @@ export default function HomePage() {
     } else {
       await uncompleteTaskMutation.mutateAsync(taskId);
     }
+  };
+
+  // 투두 리스트용 날짜별 완료 처리 (로컬 상태만 변경)
+  const handleTodoComplete = (taskId: string, date: string, completed: boolean) => {
+    const key = `${taskId}-${date}`;
+    setTodoCompletions(prev => ({
+      ...prev,
+      [key]: completed
+    }));
+  };
+
+  // 투두 리스트에서 특정 날짜의 작업 완료 상태 확인
+  const isTodoCompleted = (taskId: string, date: string) => {
+    const key = `${taskId}-${date}`;
+    return todoCompletions[key] || false;
+  };
+
+  // 작업의 날짜 범위 생성 함수
+  const getTaskDateRange = (task: any) => {
+    const startDate = new Date(task.scheduledDate);
+    const endDate = task.endDate ? new Date(task.endDate) : startDate;
+    const dates = [];
+    
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      dates.push(currentDate.toISOString().split('T')[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return dates;
   };
 
   const handleFullViewClick = () => {
@@ -315,17 +348,27 @@ export default function HomePage() {
           <CardContent className="p-4 pt-0">
             {selectedDateTasks.length > 0 ? (
               <div className="space-y-3">
-                {/* 미완료 작업들 */}
-                {selectedDateTasks
-                  .filter(task => task.completed === 0)
-                  .map((task) => (
+                {selectedDateTasks.map((task) => {
+                  const taskDates = getTaskDateRange(task);
+                  const selectedDateInRange = taskDates.includes(selectedDate);
+                  
+                  if (!selectedDateInRange) return null;
+
+                  // 투두 리스트용 완료 상태 (날짜별 개별)
+                  const isTodoCompletedForDate = isTodoCompleted(task.id, selectedDate);
+                  
+                  return (
                     <div
-                      key={task.id}
-                      className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      key={`${task.id}-${selectedDate}`}
+                      className={`flex items-center space-x-3 p-3 border border-gray-200 rounded-lg transition-colors ${
+                        isTodoCompletedForDate 
+                          ? 'bg-gray-50 opacity-75' 
+                          : 'hover:bg-gray-50'
+                      }`}
                     >
                       <Checkbox
-                        checked={task.completed === 1}
-                        onCheckedChange={(checked) => handleTaskComplete(task.id, checked as boolean)}
+                        checked={isTodoCompletedForDate}
+                        onCheckedChange={(checked) => handleTodoComplete(task.id, selectedDate, checked as boolean)}
                         className="flex-shrink-0"
                       />
                       <div 
@@ -333,12 +376,14 @@ export default function HomePage() {
                         onClick={() => handleTaskClick(task)}
                       >
                         <div className="flex items-center space-x-3">
-                          <div className="text-lg">{getTaskIcon(task.taskType)}</div>
+                          <div className={`text-lg ${isTodoCompletedForDate ? 'text-gray-400' : ''}`}>
+                            {getTaskIcon(task.taskType)}
+                          </div>
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">
+                            <h4 className={`font-medium ${isTodoCompletedForDate ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                               {task.title}
                             </h4>
-                            <p className="text-sm text-gray-600">
+                            <p className={`text-sm ${isTodoCompletedForDate ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                               {task.endDate && task.endDate !== task.scheduledDate 
                                 ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate(task.endDate)}`
                                 : formatDisplayDate(task.scheduledDate)
@@ -347,49 +392,16 @@ export default function HomePage() {
                           </div>
                         </div>
                       </div>
-                      <div className={`text-xs px-2 py-1 rounded-full ${getTaskColor(task.taskType)} flex-shrink-0`}>
-                        {formatDisplayDate(task.scheduledDate)}
+                      <div className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
+                        isTodoCompletedForDate 
+                          ? 'bg-green-100 text-green-800' 
+                          : getTaskColor(task.taskType)
+                      }`}>
+                        {isTodoCompletedForDate ? '완료' : formatDisplayDate(task.scheduledDate)}
                       </div>
                     </div>
-                  ))}
-                
-                {/* 완료된 작업들 */}
-                {selectedDateTasks
-                  .filter(task => task.completed === 1)
-                  .map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg bg-gray-50 opacity-75"
-                    >
-                      <Checkbox
-                        checked={task.completed === 1}
-                        onCheckedChange={(checked) => handleTaskComplete(task.id, checked as boolean)}
-                        className="flex-shrink-0"
-                      />
-                      <div 
-                        className="flex-1 cursor-pointer"
-                        onClick={() => handleTaskClick(task)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="text-lg text-gray-400">{getTaskIcon(task.taskType)}</div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-500 line-through">
-                              {task.title}
-                            </h4>
-                            <p className="text-sm text-gray-400 line-through">
-                              {task.endDate && task.endDate !== task.scheduledDate 
-                                ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate(task.endDate)}`
-                                : formatDisplayDate(task.scheduledDate)
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 flex-shrink-0`}>
-                        완료
-                      </div>
-                    </div>
-                  ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
