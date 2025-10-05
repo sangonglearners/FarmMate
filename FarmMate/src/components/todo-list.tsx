@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Checkbox } from "@shared/ui/checkbox";
-import { Button } from "@shared/ui/button";
+import { Checkbox } from "../shared/ui/checkbox";
+import { Button } from "../shared/ui/button";
 import { CheckCircle2, Circle, Clock } from "lucide-react";
-import { getTaskIcon, getTaskColor } from "@entities/task/model/utils";
-import { taskApi } from "@shared/api/tasks";
+import { getTaskIcon, getTaskColor } from "../entities/task/model/utils";
+import { taskApi } from "../shared/api/tasks";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface TodoItem {

@@ -1,25 +1,19 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@shared/ui/dialog";
-import { Button } from "@shared/ui/button";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
-import { Calendar } from "@shared/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
-import { Checkbox } from "@shared/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../shared/ui/dialog";
+import { Button } from "../shared/ui/button";
+import { Input } from "../shared/ui/input";
+import { Label } from "../shared/ui/label";
+import { Calendar } from "../shared/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../shared/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../shared/ui/select";
+import { Checkbox } from "../shared/ui/checkbox";
 import { CalendarIcon, Edit2 } from "lucide-react";
 import { format } from "date-fns";
-<<<<<<< HEAD
-import { cn } from "@/lib/utils";
-import { queryClient } from "@shared/api";
-import type { Task, Farm, Crop } from "@shared/types";
-=======
 import { cn } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFarms } from "@features/farm-management";
 import { useCrops } from "@features/crop-management";
-import type { Task } from "@shared/types/schema";
->>>>>>> main
+import type { Task } from "../shared/types/schema";
 
 interface EditTaskDialogProps {
   task: Task;
@@ -114,7 +108,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
         rowNumber: selectedRows.length > 0 ? selectedRows[0] : null, // 첫 번째 이랑 번호 저장
       };
 
-      const { taskApi } = await import("@shared/api/tasks");
+      const { taskApi } = await import("../shared/api/tasks");
       await taskApi.updateTask(task.id, updateData);
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
