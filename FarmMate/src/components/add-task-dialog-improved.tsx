@@ -609,7 +609,10 @@ export default function AddTaskDialog({
       }
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 등록되었습니다.",
@@ -663,7 +666,10 @@ export default function AddTaskDialog({
       });
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 수정되었습니다.",
@@ -704,7 +710,10 @@ export default function AddTaskDialog({
       return results;
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 등록되었습니다.",
