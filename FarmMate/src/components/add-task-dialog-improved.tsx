@@ -43,19 +43,19 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-import type { FarmEntity } from "@shared/api/farm.repository";
+import type { FarmEntity } from "../shared/api/farm.repository";
 import { useLocation } from "wouter";
 import { useDeleteTask } from "@features/task-management";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@shared/api/client";
 
 // ⬇ Supabase 유틸 추가
-import { saveTask } from "@/shared/api/saveTask";
-import { supabase } from "@/shared/api/supabase";
-import { mustOk } from "@/shared/api/mustOk";
+import { saveTask } from "../shared/api/saveTask";
+import { supabase } from "../shared/api/supabase";
+import { mustOk } from "../shared/api/mustOk";
 import { useFarms } from "@features/farm-management";
 import { useCrops } from "@features/crop-management";
-import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
+import { serverRegistrationRepository, type CropSearchResult } from "../shared/api/server-registration.repository";
 
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
@@ -577,7 +577,7 @@ export default function AddTaskDialog({
           endDate: (data as any).endDate,
           scheduledDate: (data as any).scheduledDate
         });
-        const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("../shared/api/tasks");
         const taskToCreate = {
           title: data.title!,
           description: (data as any).description || "",
@@ -632,7 +632,7 @@ export default function AddTaskDialog({
   /** 수정 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-        const { taskApi } = await import("../shared/api");
+        const { taskApi } = await import("../shared/api/tasks");
       const rowNumber = (data as any).rowNumber;
       const description = rowNumber 
         ? `이랑: ${rowNumber}번`
@@ -689,7 +689,7 @@ export default function AddTaskDialog({
   /** 대량 저장 (일괄/개별) */
   const bulkCreateMutation = useMutation({
     mutationFn: async (tasks: InsertTask[]) => {
-        const { taskApi } = await import("@/shared/api/tasks");
+          const { taskApi } = await import("../shared/api/tasks");
       const results = [];
       
       for (const task of tasks) {
@@ -835,7 +835,7 @@ export default function AddTaskDialog({
         
         // endDate가 있는 경우 taskApi.createTask를 직접 사용
         if ((task as any).endDate) {
-          const { taskApi } = await import("@shared/api/tasks");
+          const { taskApi } = await import("../shared/api/tasks");
           await taskApi.createTask({
             title: task.title,
             description: task.description || "",
@@ -1057,14 +1057,14 @@ export default function AddTaskDialog({
                 )}
 
                 {/* 검색 중 표시 */}
-                {isSearching && (
+                {cropSearchTerm && cropSearchResults.length === 0 && (
                   <div className="p-2 text-center text-sm text-gray-500">
                     작물을 검색 중입니다...
                   </div>
                 )}
 
                 {/* 검색 결과가 없을 때 */}
-                {cropSearchTerm && !isSearching && cropSearchResults.length === 0 && (
+                {cropSearchTerm && cropSearchResults.length === 0 && (
                   <div className="p-2 text-center text-sm text-gray-500">
                     "{cropSearchTerm}"에 대한 검색 결과가 없습니다.
                   </div>

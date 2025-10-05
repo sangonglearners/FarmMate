@@ -81,7 +81,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
 
   const { data: tasks } = useQuery<Task[]>({
     queryKey: ["tasks"],
-    queryFn: () => import("@shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
+    queryFn: () => import("../shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
   });
 
   // 선택된 농장의 실제 이랑 개수 사용
@@ -107,7 +107,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: InsertTask[]) => {
-      const { taskApi } = await import("@shared/api/tasks");
+      const { taskApi } = await import("../shared/api/tasks");
       for (const task of data) {
         await taskApi.createTask(task);
       }
