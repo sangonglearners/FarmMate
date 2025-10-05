@@ -94,8 +94,24 @@ export default function HomePage() {
     }
   };
 
-  // Get selected date's tasks (기본값은 오늘)
-  const selectedDateTasks = tasks.filter(task => task.scheduledDate === selectedDate);
+  // Get selected date's tasks (기본값은 오늘) - 날짜 범위 고려
+  const selectedDateTasks = tasks.filter(task => {
+    // 정확한 날짜 매칭
+    if (task.scheduledDate === selectedDate) {
+      return true;
+    }
+    
+    // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
+    if ((task as any).endDate) {
+      const taskStartDate = new Date(task.scheduledDate);
+      const taskEndDate = new Date((task as any).endDate);
+      const currentDate = new Date(selectedDate);
+      
+      return currentDate >= taskStartDate && currentDate <= taskEndDate;
+    }
+    
+    return false;
+  });
   
   // Get upcoming tasks (next 7 days)
   const upcomingTasks = tasks
@@ -297,7 +313,10 @@ export default function HomePage() {
                           {task.title}
                         </h4>
                         <p className="text-sm text-gray-600">
-                          {formatDisplayDate(task.scheduledDate)}
+                          {(task as any).endDate && (task as any).endDate !== task.scheduledDate 
+                            ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate((task as any).endDate)}`
+                            : formatDisplayDate(task.scheduledDate)
+                          }
                         </p>
                       </div>
                     </div>
