@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "./ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,30 +22,30 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "./ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "./ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "./ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { useToast } from "@/hooks/use-toast";
+} from "./ui/collapsible";
+import { useToast } from "../hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import type { FarmEntity } from "../shared/api/farm.repository";
 import { useLocation } from "wouter";
-import { useDeleteTask } from "@features/task-management";
+import { useDeleteTask } from "../features/task-management";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@shared/api/client";
 
@@ -53,12 +53,12 @@ import { useDeleteTask } from "@features/task-management";
 import { saveTask } from "../shared/api/saveTask";
 import { supabase } from "../shared/api/supabase";
 import { mustOk } from "../shared/api/mustOk";
-import { useFarms } from "@features/farm-management";
-import { useCrops } from "@features/crop-management";
+import { useFarms } from "../features/farm-management";
+import { useCrops } from "../features/crop-management";
 import { serverRegistrationRepository, type CropSearchResult } from "../shared/api/server-registration.repository";
 
 import { z } from "zod";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "./ui/calendar";
 import WorkCalculatorDialog from "./work-calculator-dialog";
 
 const formSchema = insertTaskSchema.extend({
@@ -121,6 +121,7 @@ export default function AddTaskDialog({
   const deleteMutation = useDeleteTask();
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
+  const [cropSearchResults, setCropSearchResults] = useState<CropSearchResult[]>([]);
   const [customCropName, setCustomCropName] = useState("");
   const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
