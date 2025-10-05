@@ -88,6 +88,29 @@ export const useCompleteTask = () => {
   });
 };
 
+export const useUncompleteTask = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: taskApi.uncompleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({
+        title: "작업 완료 취소",
+        description: "작업 완료가 취소되었습니다.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "작업 완료 취소 실패",
+        description: "작업 완료 취소 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();

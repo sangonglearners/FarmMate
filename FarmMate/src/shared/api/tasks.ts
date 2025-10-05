@@ -186,6 +186,35 @@ export const taskApi = {
     return toTask(data);
   },
 
+  uncompleteTask: async (id: string): Promise<Task> => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    const { data, error } = await supabase
+      .from('tasks_v1')
+      .update({
+        completed: 0,
+        completed_at: null,
+      })
+      .eq('id', id)
+      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 완료 취소 가능
+      .select()
+      .single();
+
+    if (error) {
+      console.error('작업 완료 취소 오류:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("작업을 찾을 수 없습니다.");
+    }
+
+    return toTask(data);
+  },
+
   deleteTask: async (id: string): Promise<void> => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) {
