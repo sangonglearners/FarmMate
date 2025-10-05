@@ -138,7 +138,7 @@ export const taskApi = {
         farm_id: taskData.farmId || null,
         crop_id: taskData.cropId || null,
         row_number: taskData.rowNumber || null,
-        completed: taskData.completed,
+        completed: taskData.completed || 0,
       })
       .eq('id', id)
       .eq('user_id', auth.user.id) // 보안: 자신의 작업만 수정 가능

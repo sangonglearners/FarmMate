@@ -6,8 +6,8 @@ export async function saveTask(input: {
   title: string; 
   memo?: string; 
   scheduledAt?: string; 
-  farmId?: number; 
-  cropId?: number; 
+  farmId?: string; 
+  cropId?: string; 
   taskType?: string;
   rowNumber?: number;
 }) {
@@ -17,8 +17,8 @@ export async function saveTask(input: {
     description: input.memo || "",
     taskType: input.taskType || "기타",
     scheduledDate: input.scheduledAt || new Date().toISOString().split('T')[0],
-    farmId: input.farmId?.toString() || "",
-    cropId: input.cropId?.toString() || "",
+    farmId: input.farmId || "",
+    cropId: input.cropId || "",
     rowNumber: input.rowNumber || null,
     completed: 0,
   };
