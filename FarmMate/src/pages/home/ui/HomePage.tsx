@@ -1,15 +1,31 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft, Check } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/ui/card";
+import { Checkbox } from "@shared/ui/checkbox";
 import { CalendarGrid } from "@widgets/calendar-grid";
 import MonthCalendar from "@widgets/calendar-grid/ui/MonthCalendar";
 
 import { useCrops } from "@features/crop-management";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "@entities/task/model/utils";
+import { useCompleteTask, useUncompleteTask } from "@features/task-management";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
+
+// 날짜 표시 유틸리티 함수
+const formatDisplayDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  
+  if (dateStr === today.toISOString().split('T')[0]) return "오늘";
+  if (dateStr === tomorrow.toISOString().split('T')[0]) return "내일";
+  
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+};
+
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -47,9 +63,19 @@ export default function HomePage() {
     },
   });
   const { data: crops = [] } = useCrops();
+  const completeTaskMutation = useCompleteTask();
+  const uncompleteTaskMutation = useUncompleteTask();
 
   const handleDateClick = (dateStr: string) => {
     setSelectedDate(dateStr);
+  };
+
+  const handleTaskComplete = async (taskId: string, completed: boolean) => {
+    if (completed) {
+      await completeTaskMutation.mutateAsync(taskId);
+    } else {
+      await uncompleteTaskMutation.mutateAsync(taskId);
+    }
   };
 
   const handleFullViewClick = () => {
@@ -136,17 +162,6 @@ export default function HomePage() {
     return crop ? `${crop.category} > ${crop.name}` : "작물 정보 없음";
   };
 
-  const formatDisplayDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    
-    if (dateStr === today.toISOString().split('T')[0]) return "오늘";
-    if (dateStr === tomorrow.toISOString().split('T')[0]) return "내일";
-    
-    return `${date.getMonth() + 1}월 ${date.getDate()}일`;
-  };
 
   const formatSelectedDate = () => {
     const date = new Date(selectedDate);
@@ -300,31 +315,81 @@ export default function HomePage() {
           <CardContent className="p-4 pt-0">
             {selectedDateTasks.length > 0 ? (
               <div className="space-y-3">
-                {selectedDateTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleTaskClick(task)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="text-lg">{getTaskIcon(task.taskType)}</div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          {task.title}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {(task as any).endDate && (task as any).endDate !== task.scheduledDate 
-                            ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate((task as any).endDate)}`
-                            : formatDisplayDate(task.scheduledDate)
-                          }
-                        </p>
+                {/* 미완료 작업들 */}
+                {selectedDateTasks
+                  .filter(task => task.completed === 0)
+                  .map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <Checkbox
+                        checked={task.completed === 1}
+                        onCheckedChange={(checked) => handleTaskComplete(task.id, checked as boolean)}
+                        className="flex-shrink-0"
+                      />
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-lg">{getTaskIcon(task.taskType)}</div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">
+                              {task.title}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              {task.endDate && task.endDate !== task.scheduledDate 
+                                ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate(task.endDate)}`
+                                : formatDisplayDate(task.scheduledDate)
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`text-xs px-2 py-1 rounded-full ${getTaskColor(task.taskType)} flex-shrink-0`}>
+                        {formatDisplayDate(task.scheduledDate)}
                       </div>
                     </div>
-                    <div className={`text-xs px-2 py-1 rounded-full ${getTaskColor(task.taskType)}`}>
-                      {formatDisplayDate(task.scheduledDate)}
+                  ))}
+                
+                {/* 완료된 작업들 */}
+                {selectedDateTasks
+                  .filter(task => task.completed === 1)
+                  .map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg bg-gray-50 opacity-75"
+                    >
+                      <Checkbox
+                        checked={task.completed === 1}
+                        onCheckedChange={(checked) => handleTaskComplete(task.id, checked as boolean)}
+                        className="flex-shrink-0"
+                      />
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-lg text-gray-400">{getTaskIcon(task.taskType)}</div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-500 line-through">
+                              {task.title}
+                            </h4>
+                            <p className="text-sm text-gray-400 line-through">
+                              {task.endDate && task.endDate !== task.scheduledDate 
+                                ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate(task.endDate)}`
+                                : formatDisplayDate(task.scheduledDate)
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 flex-shrink-0`}>
+                        완료
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
