@@ -187,26 +187,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                  taskStartDate.getMonth() + 1 === dayInfo.month;
         
         let isEndMonthMatch = false;
-        if (task.endDate) {
-          const taskEndDate = new Date(task.endDate);
+        if ((task as any).endDate) {
+          const taskEndDate = new Date((task as any).endDate);
           isEndMonthMatch = taskEndDate.getFullYear() === year && 
                            taskEndDate.getMonth() + 1 === dayInfo.month;
         }
         
         // 시작일 또는 종료일이 해당 월에 포함되면 표시
-        // 또는 작업 기간이 해당 월을 포함하는 경우도 표시
-        let isMonthMatch = isStartMonthMatch || isEndMonthMatch;
-        
-        // 작업 기간이 해당 월을 포함하는 경우도 확인
-        if (!isMonthMatch && task.endDate) {
-          const taskStartDate = new Date(task.scheduledDate);
-          const taskEndDate = new Date(task.endDate);
-          const monthStartDate = new Date(year, dayInfo.month - 1, 1); // dayInfo.month는 1-12
-          const monthEndDate = new Date(year, dayInfo.month, 0); // 해당 월의 마지막 날
-          
-          // 작업 기간이 해당 월과 겹치는지 확인
-          isMonthMatch = taskStartDate <= monthEndDate && taskEndDate >= monthStartDate;
-        }
+        const isMonthMatch = isStartMonthMatch || isEndMonthMatch;
         
         return isMonthMatch && 
                (taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1));
@@ -556,8 +544,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                 if (task.farmId !== selectedFarm?.id) return false;
                                 if (!task.scheduledDate) return false;
                                 
-                                const taskStartDate = new Date(task.scheduledDate);
-                                const taskStartMonth = taskStartDate.getMonth() + 1;
+                                const taskDate = new Date(task.scheduledDate);
+                                const taskMonth = taskDate.getMonth() + 1;
                                 
                                 // 작물명 확인
                                 let taskCropName = "";
@@ -569,59 +557,20 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   taskCropName = task.title.split('_')[0];
                                 }
                                 
-                                if (taskCropName !== cropName) return false;
-                                
-                                // 작업이 해당 월에 포함되는지 확인 (날짜 범위 고려)
-                                let isMonthMatch = taskStartMonth === currentMonth;
-                                
-                                if (!isMonthMatch && task.endDate) {
-                                  const taskEndDate = new Date(task.endDate);
-                                  const taskEndMonth = taskEndDate.getMonth() + 1;
-                                  
-                                  // 시작일 또는 종료일이 해당 월에 포함되면 표시
-                                  isMonthMatch = taskEndMonth === currentMonth;
-                                  
-                                  // 또는 작업 기간이 해당 월을 포함하는 경우도 표시
-                                  if (!isMonthMatch) {
-                                    const monthStartDate = new Date(taskStartDate.getFullYear(), currentMonth - 1, 1);
-                                    const monthEndDate = new Date(taskStartDate.getFullYear(), currentMonth, 0);
-                                    
-                                    isMonthMatch = taskStartDate <= monthEndDate && taskEndDate >= monthStartDate;
-                                  }
-                                }
-                                
-                                return isMonthMatch;
+                                return taskCropName === cropName && taskMonth === currentMonth;
                               });
                               
-                              // 날짜 범위 계산 (endDate 고려)
+                              // 날짜 범위 계산
                               let dateRange = null;
                               if (monthTasks.length > 0) {
-                                const allDates = monthTasks.flatMap(task => {
-                                  const startDate = new Date(task.scheduledDate);
-                                  const dates = [startDate.getDate()];
-                                  
-                                  // endDate가 있으면 범위 내 모든 날짜 추가
-                                  if (task.endDate) {
-                                    const endDate = new Date(task.endDate);
-                                    const currentDate = new Date(startDate);
-                                    
-                                    while (currentDate < endDate) {
-                                      currentDate.setDate(currentDate.getDate() + 1);
-                                      if (currentDate.getMonth() + 1 === currentMonth) {
-                                        dates.push(currentDate.getDate());
-                                      }
-                                    }
-                                  }
-                                  
-                                  return dates;
-                                }).sort((a, b) => a - b);
+                                const dates = monthTasks
+                                  .map(task => new Date(task.scheduledDate).getDate())
+                                  .sort((a, b) => a - b);
                                 
-                                const uniqueDates = Array.from(new Set(allDates));
-                                
-                                if (uniqueDates.length === 1) {
-                                  dateRange = `${currentMonth}/${uniqueDates[0]}`;
+                                if (dates.length === 1) {
+                                  dateRange = `${currentMonth}/${dates[0]}`;
                                 } else {
-                                  dateRange = `${currentMonth}/${uniqueDates[0]}-${uniqueDates[uniqueDates.length - 1]}`;
+                                  dateRange = `${currentMonth}/${dates[0]}-${dates[dates.length - 1]}`;
                                 }
                               }
                               
