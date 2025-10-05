@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Checkbox } from "@shared/ui/checkbox";
 import { Button } from "@shared/ui/button";
 import { CheckCircle2, Circle, Clock } from "lucide-react";
@@ -24,23 +24,67 @@ interface TodoListProps {
 export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListProps) {
   const queryClient = useQueryClient();
   const [completingTasks, setCompletingTasks] = useState<Set<string>>(new Set());
+  const [localCompletions, setLocalCompletions] = useState<Map<string, boolean>>(new Map());
+
+  console.log("TodoList 렌더링됨:", { tasks, selectedDate });
+
+  // 로컬 스토리지에서 날짜별 완료 상태 로드
+  useEffect(() => {
+    const loadLocalCompletions = () => {
+      try {
+        const storageKey = `task_completions_${selectedDate}`;
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const completions = JSON.parse(stored);
+          const completionMap = new Map<string, boolean>();
+          Object.entries(completions).forEach(([taskId, completed]) => {
+            completionMap.set(taskId, completed as boolean);
+          });
+          setLocalCompletions(completionMap);
+        } else {
+          setLocalCompletions(new Map());
+        }
+      } catch (error) {
+        console.error("로컬 완료 상태 로드 실패:", error);
+        setLocalCompletions(new Map());
+      }
+    };
+
+    loadLocalCompletions();
+  }, [selectedDate]);
+
+  // 로컬 스토리지에 완료 상태 저장
+  const saveLocalCompletions = (completions: Map<string, boolean>) => {
+    try {
+      const storageKey = `task_completions_${selectedDate}`;
+      const completionsObj = Object.fromEntries(completions);
+      localStorage.setItem(storageKey, JSON.stringify(completionsObj));
+    } catch (error) {
+      console.error("로컬 완료 상태 저장 실패:", error);
+    }
+  };
 
   const handleTaskToggle = async (task: TodoItem, event: React.MouseEvent) => {
     event.stopPropagation(); // 부모 클릭 이벤트 방지
+    
+    console.log("체크박스 클릭됨:", task);
     
     if (completingTasks.has(task.id)) return; // 이미 처리 중인 경우 무시
     
     setCompletingTasks(prev => new Set(prev).add(task.id));
     
     try {
-      if (task.completed === 1) {
-        await taskApi.uncompleteTask(task.id);
-      } else {
-        await taskApi.completeTask(task.id);
-      }
+      const isCurrentlyCompleted = localCompletions.get(task.id) || false;
+      const newCompletedState = !isCurrentlyCompleted;
       
-      // 작업 목록 새로고침
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // 로컬 상태 업데이트
+      const newCompletions = new Map(localCompletions);
+      newCompletions.set(task.id, newCompletedState);
+      setLocalCompletions(newCompletions);
+      
+      // 로컬 스토리지에 저장
+      saveLocalCompletions(newCompletions);
+      
     } catch (error) {
       console.error("작업 상태 변경 실패:", error);
     } finally {
@@ -69,61 +113,65 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
 
   return (
     <div className="space-y-2">
-      {tasks.map((task) => (
-        <div
-          key={task.id}
-          className={`flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-all duration-200 ${
-            task.completed === 1 ? 'bg-gray-50 opacity-75' : ''
-          }`}
-          onClick={() => onTaskClick?.(task)}
-        >
-          {/* 체크박스 */}
-          <div 
-            className="flex-shrink-0 cursor-pointer p-1 hover:bg-gray-100 rounded"
-            onClick={(e) => handleTaskToggle(task, e)}
+      {tasks.map((task) => {
+        const isCompleted = localCompletions.get(task.id) || false;
+        
+        return (
+          <div
+            key={task.id}
+            className={`flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-all duration-200 ${
+              isCompleted ? 'bg-gray-50 opacity-75' : ''
+            }`}
+            onClick={() => onTaskClick?.(task)}
           >
-            {task.completed === 1 ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : (
-              <Circle className="w-5 h-5 text-gray-400 hover:text-green-500 transition-colors" />
-            )}
-          </div>
-
-          {/* 작업 정보 */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2">
-              <div className="text-lg">{getTaskIcon(task.taskType)}</div>
-              <h4 className={`font-medium text-gray-900 transition-all duration-200 ${
-                task.completed === 1 ? 'line-through text-gray-500' : ''
-              }`}>
-                {task.title}
-              </h4>
+            {/* 체크박스 */}
+            <div 
+              className="flex-shrink-0 cursor-pointer p-1 hover:bg-gray-100 rounded"
+              onClick={(e) => handleTaskToggle(task, e)}
+            >
+              {isCompleted ? (
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+              ) : (
+                <Circle className="w-5 h-5 text-gray-400 hover:text-green-500 transition-colors" />
+              )}
             </div>
-            <div className="flex items-center space-x-2 mt-1">
-              <p className={`text-sm transition-all duration-200 ${
-                task.completed === 1 ? 'line-through text-gray-400' : 'text-gray-600'
-              }`}>
-                {formatDisplayDate(task.scheduledDate)}
-              </p>
-              <div className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                task.completed === 1 ? 'bg-gray-200 text-gray-500' : getTaskColor(task.taskType)
-              }`}>
-                {task.taskType}
+
+            {/* 작업 정보 */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
+                <div className="text-lg">{getTaskIcon(task.taskType)}</div>
+                <h4 className={`font-medium text-gray-900 transition-all duration-200 ${
+                  isCompleted ? 'line-through text-gray-500' : ''
+                }`}>
+                  {task.title}
+                </h4>
+              </div>
+              <div className="flex items-center space-x-2 mt-1">
+                <p className={`text-sm transition-all duration-200 ${
+                  isCompleted ? 'line-through text-gray-400' : 'text-gray-600'
+                }`}>
+                  {formatDisplayDate(task.scheduledDate)}
+                </p>
+                <div className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
+                  isCompleted ? 'bg-gray-200 text-gray-500' : getTaskColor(task.taskType)
+                }`}>
+                  {task.taskType}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 완료 시간 표시 */}
-          {task.completed === 1 && task.completedAt && (
-            <div className="text-xs text-gray-400">
-              {new Date(task.completedAt).toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </div>
-          )}
-        </div>
-      ))}
+            {/* 완료 시간 표시 */}
+            {isCompleted && (
+              <div className="text-xs text-gray-400">
+                {new Date().toLocaleTimeString('ko-KR', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
