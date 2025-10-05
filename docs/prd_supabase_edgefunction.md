@@ -8,9 +8,10 @@
 
 ## Phase 1: 함수 배포 및 테스트
 - [x] 함수 생성 완료 (`supabase functions new recommend`)
-- [ ] 기존 작물 추천 로직을 `index.ts`에 적용
-- [ ] `supabase functions deploy recommend` 명령어로 배포
-- [ ] curl로 배포된 함수 테스트
+- [x] 기존 작물 추천 로직을 `index.ts`에 적용
+- [x] docker desktop 설치 및 로컬 테스트
+- [X] `supabase functions deploy recommend` 명령어로 배포
+- [X] Supabase>edge function>test에서 배포된 함수 테스트
 
 ## Phase 2: 프론트엔드 API 연동
 - [ ] `@shared/api/recommendation.ts` 파일 생성
