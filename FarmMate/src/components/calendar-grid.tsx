@@ -46,6 +46,8 @@ export default function CalendarGrid({
     queryFn: () => listTasksRange(startDateStr, endDateStr),
     // 부모가 tasks를 이미 내려주면 리스크 줄이기 위해 거기 걸맞게 stale 하게 둠
     enabled: !tasksProp || tasksProp.length === 0,
+    staleTime: 0, // 항상 최신 데이터를 가져오도록 설정
+    refetchOnWindowFocus: true, // 창 포커스 시 자동 새로고침
   });
 
   // 실제로 사용할 작업 배열: prop 우선, 없으면 쿼리 결과

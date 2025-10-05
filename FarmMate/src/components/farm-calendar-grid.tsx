@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,8 @@ interface FarmCalendarGridProps {
 type ViewMode = "monthly" | "yearly";
 
 export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCalendarGridProps) {
+  // tasks가 변경될 때마다 컴포넌트가 리렌더링되도록 의존성 추가
+  const memoizedTasks = useMemo(() => tasks, [tasks]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
@@ -127,7 +129,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
       
       
-      const filteredTasks = tasks.filter(task => {
+      const filteredTasks = memoizedTasks.filter(task => {
         // 날짜 매칭 로직: 정확한 날짜 매칭 또는 날짜 범위 내 포함
         let isDateMatch = false;
         
@@ -168,7 +170,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     } else {
       // 연간 뷰: 해당 월의 모든 작업 (날짜 범위 고려)
       const year = currentDate.getFullYear();
-      return tasks.filter(task => {
+      return memoizedTasks.filter(task => {
         if (!task.scheduledDate) return false;
         if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
         
@@ -187,25 +189,24 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                  taskStartDate.getMonth() + 1 === dayInfo.month;
         
         let isEndMonthMatch = false;
-        if (task.endDate) {
-          const taskEndDate = new Date(task.endDate);
+        if ((task as any).endDate) {
+          const taskEndDate = new Date((task as any).endDate);
           isEndMonthMatch = taskEndDate.getFullYear() === year && 
                            taskEndDate.getMonth() + 1 === dayInfo.month;
         }
         
         // 시작일 또는 종료일이 해당 월에 포함되면 표시
-        // 또는 작업 기간이 해당 월을 포함하는 경우도 표시
         let isMonthMatch = isStartMonthMatch || isEndMonthMatch;
         
-        // 작업 기간이 해당 월을 포함하는 경우도 확인
-        if (!isMonthMatch && task.endDate) {
-          const taskStartDate = new Date(task.scheduledDate);
-          const taskEndDate = new Date(task.endDate);
-          const monthStartDate = new Date(year, dayInfo.month - 1, 1); // dayInfo.month는 1-12
-          const monthEndDate = new Date(year, dayInfo.month, 0); // 해당 월의 마지막 날
-          
-          // 작업 기간이 해당 월과 겹치는지 확인
-          isMonthMatch = taskStartDate <= monthEndDate && taskEndDate >= monthStartDate;
+        // 같은 월 내에서 날짜 범위가 있는 경우, 해당 월의 모든 날짜에 표시
+        if (isStartMonthMatch && (task as any).endDate) {
+          const taskEndDate = new Date((task as any).endDate);
+          const isEndInSameMonth = taskEndDate.getFullYear() === year && 
+                                 taskEndDate.getMonth() + 1 === dayInfo.month;
+          if (isEndInSameMonth) {
+            // 같은 월 내에서 시작일과 종료일이 모두 있는 경우, 해당 월의 모든 날짜에 표시
+            isMonthMatch = true;
+          }
         }
         
         return isMonthMatch && 
@@ -552,12 +553,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             }).filter(Boolean))).map((cropName) => {
                               // 해당 월의 작물 작업들 찾기
                               const currentMonth = (dayInfo as any).month;
-                              const monthTasks = tasks.filter(task => {
+                              const monthTasks = memoizedTasks.filter(task => {
                                 if (task.farmId !== selectedFarm?.id) return false;
                                 if (!task.scheduledDate) return false;
                                 
-                                const taskStartDate = new Date(task.scheduledDate);
-                                const taskStartMonth = taskStartDate.getMonth() + 1;
+                                const taskDate = new Date(task.scheduledDate);
+                                const taskMonth = taskDate.getMonth() + 1;
                                 
                                 // 작물명 확인
                                 let taskCropName = "";
@@ -569,54 +570,49 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   taskCropName = task.title.split('_')[0];
                                 }
                                 
+                                // 작물명이 일치하는지 확인
                                 if (taskCropName !== cropName) return false;
                                 
-                                // 작업이 해당 월에 포함되는지 확인 (날짜 범위 고려)
-                                let isMonthMatch = taskStartMonth === currentMonth;
+                                // 월 매칭: 시작일이 해당 월이거나, 날짜 범위가 해당 월에 포함되는지 확인
+                                let isMonthMatch = taskMonth === currentMonth;
                                 
-                                if (!isMonthMatch && task.endDate) {
-                                  const taskEndDate = new Date(task.endDate);
+                                if (!isMonthMatch && (task as any).endDate) {
+                                  const taskEndDate = new Date((task as any).endDate);
                                   const taskEndMonth = taskEndDate.getMonth() + 1;
                                   
-                                  // 시작일 또는 종료일이 해당 월에 포함되면 표시
-                                  isMonthMatch = taskEndMonth === currentMonth;
-                                  
-                                  // 또는 작업 기간이 해당 월을 포함하는 경우도 표시
-                                  if (!isMonthMatch) {
-                                    const monthStartDate = new Date(taskStartDate.getFullYear(), currentMonth - 1, 1);
-                                    const monthEndDate = new Date(taskStartDate.getFullYear(), currentMonth, 0);
-                                    
-                                    isMonthMatch = taskStartDate <= monthEndDate && taskEndDate >= monthStartDate;
+                                  // 시작일과 종료일이 모두 같은 월이면 해당 월에 표시
+                                  if (taskMonth === currentMonth && taskEndMonth === currentMonth) {
+                                    isMonthMatch = true;
+                                  }
+                                  // 시작일이 이전 월이고 종료일이 해당 월이면 표시
+                                  else if (taskEndMonth === currentMonth) {
+                                    isMonthMatch = true;
                                   }
                                 }
                                 
                                 return isMonthMatch;
                               });
                               
-                              // 날짜 범위 계산 (endDate 고려)
+                              // 날짜 범위 계산
                               let dateRange = null;
                               if (monthTasks.length > 0) {
-                                const allDates = monthTasks.flatMap(task => {
+                                const allDates: number[] = [];
+                                
+                                monthTasks.forEach(task => {
                                   const startDate = new Date(task.scheduledDate);
-                                  const dates = [startDate.getDate()];
+                                  allDates.push(startDate.getDate());
                                   
-                                  // endDate가 있으면 범위 내 모든 날짜 추가
-                                  if (task.endDate) {
-                                    const endDate = new Date(task.endDate);
-                                    const currentDate = new Date(startDate);
-                                    
-                                    while (currentDate < endDate) {
-                                      currentDate.setDate(currentDate.getDate() + 1);
-                                      if (currentDate.getMonth() + 1 === currentMonth) {
-                                        dates.push(currentDate.getDate());
-                                      }
+                                  // 날짜 범위가 있는 경우 종료일도 포함
+                                  if ((task as any).endDate) {
+                                    const endDate = new Date((task as any).endDate);
+                                    // 같은 월 내에서만 종료일 추가
+                                    if (endDate.getMonth() + 1 === currentMonth) {
+                                      allDates.push(endDate.getDate());
                                     }
                                   }
-                                  
-                                  return dates;
-                                }).sort((a, b) => a - b);
+                                });
                                 
-                                const uniqueDates = Array.from(new Set(allDates));
+                                const uniqueDates = Array.from(new Set(allDates)).sort((a, b) => a - b);
                                 
                                 if (uniqueDates.length === 1) {
                                   dateRange = `${currentMonth}/${uniqueDates[0]}`;
@@ -673,7 +669,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           </div>
           
           <div className="space-y-3">
-            {tasks
+            {memoizedTasks
               .filter(task => {
                 // 정확한 날짜 매칭 또는 날짜 범위 내 포함
                 let isDateMatch = task.scheduledDate === selectedCellDate;
@@ -690,7 +686,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 return isDateMatch && task.farmId === selectedFarm?.id;
               })
               .length > 0 ? (
-              tasks
+              memoizedTasks
                 .filter(task => {
                   // 정확한 날짜 매칭 또는 날짜 범위 내 포함
                   let isDateMatch = task.scheduledDate === selectedCellDate;

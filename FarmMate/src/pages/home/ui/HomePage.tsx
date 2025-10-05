@@ -45,6 +45,8 @@ export default function HomePage() {
         return [];
       }
     },
+    staleTime: 0, // 항상 최신 데이터를 가져오도록 설정
+    refetchOnWindowFocus: true, // 창 포커스 시 자동 새로고침
   });
   const { data: crops = [] } = useCrops();
 
@@ -94,7 +96,7 @@ export default function HomePage() {
     }
   };
 
-  // Get selected date's tasks (기본값은 오늘) - 날짜 범위 고려
+  // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
   const selectedDateTasks = tasks.filter(task => {
     // 정확한 날짜 매칭
     if (task.scheduledDate === selectedDate) {
@@ -313,10 +315,7 @@ export default function HomePage() {
                           {task.title}
                         </h4>
                         <p className="text-sm text-gray-600">
-                          {(task as any).endDate && (task as any).endDate !== task.scheduledDate 
-                            ? `${formatDisplayDate(task.scheduledDate)} ~ ${formatDisplayDate((task as any).endDate)}`
-                            : formatDisplayDate(task.scheduledDate)
-                          }
+                          {formatDisplayDate(task.scheduledDate)}
                         </p>
                       </div>
                     </div>
@@ -343,14 +342,26 @@ export default function HomePage() {
       {/* Add Task Dialog */}
       <AddTaskDialog
         open={showAddTaskDialog}
-        onOpenChange={setShowAddTaskDialog}
+        onOpenChange={(open) => {
+          setShowAddTaskDialog(open);
+          if (!open) {
+            // 다이얼로그가 닫힐 때 작업 목록 새로고침
+            refetchTasks();
+          }
+        }}
         selectedDate={selectedDate}
       />
 
       {/* Edit Task Dialog */}
       <AddTaskDialog
         open={showEditTaskDialog}
-        onOpenChange={setShowEditTaskDialog}
+        onOpenChange={(open) => {
+          setShowEditTaskDialog(open);
+          if (!open) {
+            // 다이얼로그가 닫힐 때 작업 목록 새로고침
+            refetchTasks();
+          }
+        }}
         task={selectedTask}
         selectedDate={selectedDate}
       />
