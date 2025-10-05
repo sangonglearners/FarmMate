@@ -124,20 +124,46 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const getTasksForPeriod = (rowNumber: number, dayInfo: any) => {
     if (viewMode === "monthly") {
       const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-      return tasks.filter(task => 
-        task.scheduledDate === dateStr && 
-        task.farmId === selectedFarm?.id && // 선택된 농장의 작업만 표시
-        (task.rowNumber === rowNumber || (!task.rowNumber && rowNumber === 1))
-      );
+      return tasks.filter(task => {
+        if (task.scheduledDate !== dateStr) return false;
+        if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
+        
+        // 이랑 번호 매칭 로직 개선
+        if (task.rowNumber) {
+          // rowNumber가 있으면 정확히 매칭
+          return task.rowNumber === rowNumber;
+        } else {
+          // rowNumber가 없으면 description에서 파싱하여 매칭
+          if (task.description && task.description.includes("이랑:")) {
+            const match = task.description.match(/이랑:\s*(\d+)번/);
+            if (match) {
+              return parseInt(match[1]) === rowNumber;
+            }
+          }
+          // 둘 다 없으면 첫 번째 이랑(rowNumber === 1)에 표시
+          return rowNumber === 1;
+        }
+      });
     } else {
       // 연간 뷰: 해당 월의 모든 작업
       const year = currentDate.getFullYear();
       return tasks.filter(task => {
         if (!task.scheduledDate) return false;
         if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
-        if (task.rowNumber !== rowNumber && !(task.rowNumber === null && rowNumber === 1)) return false;
+        
+        // 이랑 번호 매칭 로직 개선
+        let taskRowNumber = task.rowNumber;
+        if (!taskRowNumber && task.description && task.description.includes("이랑:")) {
+          const match = task.description.match(/이랑:\s*(\d+)번/);
+          if (match) {
+            taskRowNumber = parseInt(match[1]);
+          }
+        }
+        
         const taskDate = new Date(task.scheduledDate);
-        return taskDate.getFullYear() === year && taskDate.getMonth() + 1 === dayInfo.month;
+        return taskDate.getFullYear() === year && 
+               taskDate.getMonth() + 1 === dayInfo.month &&
+               (taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1));
       });
     }
   };
@@ -426,6 +452,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   className="space-y-0.5 cursor-pointer hover:opacity-80"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    console.log("캘린더에서 작업 클릭, task 데이터:", task);
                                     setSelectedTask(task);
                                     setIsEditDialogOpen(true);
                                   }}
@@ -576,9 +603,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }`}>
                             {task.completed === 1 ? '완료' : '예정'}
                           </span>
-                          {task.rowNumber && (
+                          {(task.rowNumber || (task.description && task.description.includes("이랑:"))) && (
                             <span className="text-xs text-gray-500">
-                              이랑 {task.rowNumber}
+                              이랑 {task.rowNumber || (() => {
+                                const match = task.description?.match(/이랑:\s*(\d+)번/);
+                                return match ? match[1] : "";
+                              })()}
                             </span>
                           )}
                         </div>
@@ -588,6 +618,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          console.log("수정 버튼 클릭, task 데이터:", task);
                           setSelectedTask(task);
                           setIsEditDialogOpen(true);
                         }}
