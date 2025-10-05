@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarGrid } from "@widgets/calendar-grid";
-import MonthCalendar from "@widgets/calendar-grid/ui/MonthCalendar";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { CalendarGrid } from "../../../widgets/calendar-grid";
+import MonthCalendar from "../../../widgets/calendar-grid/ui/MonthCalendar";
 
-import { useCrops } from "@features/crop-management";
-import { getTaskPriority, getTaskColor, getTaskIcon } from "@entities/task/model/utils";
+import { useCrops } from "../../../features/crop-management";
+import { getTaskPriority, getTaskColor, getTaskIcon } from "../../../entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import TodoList from "../../../components/todo-list";
