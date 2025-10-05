@@ -55,6 +55,7 @@ import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
 import { useFarms } from "@features/farm-management";
 import { useCrops } from "@features/crop-management";
+import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
 
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
@@ -387,6 +388,74 @@ export default function AddTaskDialog({
     }
   }, [task, open, watchedRowNumber, form]);
 
+  // 작물 검색 함수 (서버용)
+  const searchCrops = async (searchTerm: string) => {
+    console.log('🔍 searchCrops 함수 호출:', searchTerm);
+    
+    if (!searchTerm.trim()) {
+      console.log('❌ 검색어가 비어있음');
+      setCropSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    console.log('⏳ 서버 검색 시작...');
+    
+    try {
+      console.log('📡 serverRegistrationRepository.searchCrops 호출');
+      
+      // 임시 하드코딩 테스트
+      if (searchTerm.includes('결구배추')) {
+        console.log('🧪 하드코딩 테스트 실행');
+        const hardcodedResults = [
+          { id: '1', 대분류: '배추류', 품목: '결구배추', 품종: '개성', 파종육묘구분: '육묘' },
+          { id: '2', 대분류: '배추류', 품목: '결구배추', 품종: '빨강', 파종육묘구분: '육묘' },
+          { id: '3', 대분류: '배추류', 품목: '결구배추', 품종: '속노랑', 파종육묘구분: '육묘' },
+        ];
+        console.log('🧪 하드코딩 결과:', hardcodedResults);
+        setCropSearchResults(hardcodedResults);
+        return;
+      }
+      
+      const results = await serverRegistrationRepository.searchCrops(searchTerm);
+      console.log('✅ 서버 검색 결과 받음:', results);
+      console.log('📊 검색 결과 개수:', results.length);
+      console.log('📊 cropSearchResults 상태 업데이트 전:', cropSearchResults);
+      setCropSearchResults(results);
+      console.log('📊 cropSearchResults 상태 업데이트 후:', results);
+    } catch (error) {
+      console.error('❌ 서버 작물 검색 실패:', error);
+      console.error('❌ 오류 상세:', error.message);
+      toast({
+        title: "작물 검색 실패",
+        description: `오류: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+      console.log('🏁 서버 검색 완료');
+    }
+  };
+
+  // 작물 검색 디바운스 처리 (즉시 실행으로 변경)
+  useEffect(() => {
+    console.log('⏰ 디바운스 useEffect 실행:', cropSearchTerm);
+    const timeoutId = setTimeout(() => {
+      if (cropSearchTerm.trim()) {
+        console.log('🚀 디바운스 후 서버 검색 실행:', cropSearchTerm);
+        searchCrops(cropSearchTerm);
+      } else {
+        console.log('🧹 검색어 비어있어서 결과 초기화');
+        setCropSearchResults([]);
+      }
+    }, 100); // 300ms → 100ms로 단축
+
+    return () => {
+      console.log('🧹 디바운스 타이머 정리');
+      clearTimeout(timeoutId);
+    };
+  }, [cropSearchTerm]);
+
   // 작물 필터
   const searchFilteredCrops =
     crops?.filter(
@@ -448,10 +517,34 @@ export default function AddTaskDialog({
     setCustomCropName(cropName);
     setCropSearchTerm(cropName);
     form.setValue("cropId", "");
+    setSelectedSearchCrop(null); // 검색 작물 선택 해제
     
     console.log("작물 입력 처리 완료:", {
       새로운CustomCropName: cropName,
       새로운CropSearchTerm: cropName,
+      cropId: form.getValues("cropId")
+    });
+  };
+
+  // 검색된 작물 선택 핸들러
+  const handleSearchCropSelect = (searchCrop: CropSearchResult) => {
+    const displayName = `${searchCrop.품목} > ${searchCrop.품종}`;
+    console.log("검색 작물 선택:", {
+      searchCrop,
+      displayName,
+      이전CustomCropName: customCropName,
+      이전CropSearchTerm: cropSearchTerm
+    });
+    
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
+    setSelectedSearchCrop(searchCrop);
+    form.setValue("cropId", ""); // 커스텀 작물
+    setCropSearchResults([]); // 검색 결과 숨기기
+    
+    console.log("검색 작물 선택 완료:", {
+      새로운CustomCropName: displayName,
+      새로운CropSearchTerm: displayName,
       cropId: form.getValues("cropId")
     });
   };
@@ -506,7 +599,7 @@ export default function AddTaskDialog({
   /** 수정 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-      const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("../shared/api");
       const rowNumber = (data as any).rowNumber;
       const description = rowNumber 
         ? `이랑: ${rowNumber}번`
@@ -870,11 +963,58 @@ export default function AddTaskDialog({
                       });
                       
                       setCropSearchTerm(e.target.value);
-                      handleCustomCropInput(e.target.value);
+                      // handleCustomCropInput 호출하지 않음 - 검색 결과 초기화 방지
                     }}
                     className="pl-10"
                   />
                 </div>
+
+                {/* 서버 검색 결과 표시 */}
+                {cropSearchTerm && cropSearchResults.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto border rounded-md">
+                    <div className="p-2 text-xs text-gray-500 bg-blue-50 border-b">
+                      작물 데이터베이스 검색 결과 ({cropSearchResults.length}개)
+                    </div>
+                    {cropSearchResults.map((searchCrop) => (
+                      <button
+                        key={searchCrop.id}
+                        type="button"
+                        onClick={() => handleSearchCropSelect(searchCrop)}
+                        className={`w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 ${
+                          selectedSearchCrop?.id === searchCrop.id
+                            ? "bg-blue-50 border-blue-200"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{searchCrop.품목}</span>
+                            <span className="text-sm text-gray-500 ml-2">
+                              ({searchCrop.품종})
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {searchCrop.대분류}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 검색 중 표시 */}
+                {isSearching && (
+                  <div className="p-2 text-center text-sm text-gray-500">
+                    작물을 검색 중입니다...
+                  </div>
+                )}
+
+                {/* 검색 결과가 없을 때 */}
+                {cropSearchTerm && !isSearching && cropSearchResults.length === 0 && (
+                  <div className="p-2 text-center text-sm text-gray-500">
+                    "{cropSearchTerm}"에 대한 검색 결과가 없습니다.
+                  </div>
+                )}
 
                 {/* 내 작물 선택 */}
                 <Collapsible open={showKeyCrops} onOpenChange={setShowKeyCrops}>
