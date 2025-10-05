@@ -10,6 +10,7 @@ import { useCrops } from "@features/crop-management";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "@entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
+import TodoList from "../../../components/todo-list";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -301,30 +302,11 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             {selectedDateTasks.length > 0 ? (
-              <div className="space-y-3">
-                {selectedDateTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleTaskClick(task)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="text-lg">{getTaskIcon(task.taskType)}</div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          {task.title}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {formatDisplayDate(task.scheduledDate)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`text-xs px-2 py-1 rounded-full ${getTaskColor(task.taskType)}`}>
-                      {formatDisplayDate(task.scheduledDate)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TodoList 
+                tasks={selectedDateTasks}
+                selectedDate={selectedDate}
+                onTaskClick={handleTaskClick}
+              />
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
