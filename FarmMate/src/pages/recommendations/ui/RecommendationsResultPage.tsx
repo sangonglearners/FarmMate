@@ -194,6 +194,10 @@ export default function RecommendationsResultPage() {
     farm_name: string | null;
     farm_environment: string | null;
   } | null>(null);
+  const [inputConditions, setInputConditions] = useState<{
+    rec_range: number;
+    rec_period: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -202,25 +206,29 @@ export default function RecommendationsResultPage() {
     if (storedData) {
       try {
         const parsedData = JSON.parse(storedData);
-        // 새로운 형식 (result + farmInfo)
+        // 새로운 형식 (result + farmInfo + inputConditions)
         if (parsedData.result && parsedData.farmInfo) {
           setResult(parsedData.result);
           setFarmInfo(parsedData.farmInfo);
+          setInputConditions(parsedData.inputConditions || null);
         } else {
           // 이전 형식 (result만 있음)
           setResult(parsedData);
           setFarmInfo(null);
+          setInputConditions(null);
         }
       } catch (error) {
         console.error('결과 파싱 오류:', error);
         // Mock 데이터 사용
         setResult(mockResult.result);
         setFarmInfo(null);
+        setInputConditions(null);
       }
     } else {
       // Mock 데이터 사용
       setResult(mockResult.result);
       setFarmInfo(null);
+      setInputConditions(null);
     }
     setIsLoading(false);
   }, []);
@@ -244,6 +252,8 @@ export default function RecommendationsResultPage() {
         farm_id: farmInfo?.farm_id || undefined,
         farm_name: farmInfo?.farm_name || undefined,
         farm_environment: farmInfo?.farm_environment || undefined,
+        rec_range: inputConditions?.rec_range,
+        rec_period: inputConditions?.rec_period,
         crop_names: card.crops,
         expected_revenue: card.expected_revenue,
         indicators: card.indicators,
