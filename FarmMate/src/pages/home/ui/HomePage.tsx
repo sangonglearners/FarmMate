@@ -205,7 +205,7 @@ export default function HomePage() {
                 <h2 className="text-base font-semibold text-gray-900 leading-snug">
                   무엇을, 언제, 어디에, 얼마나 심지?
                 </h2>
-                <Button size="sm" className="mt-3" onClick={() => setLocation('/calendar')}>
+                <Button size="sm" className="mt-3" onClick={() => setLocation('/recommendations/input')}>
                   작물 추천 받으러가기
                 </Button>
               </div>

@@ -13,20 +13,22 @@
 - [X] `supabase functions deploy recommend` 명령어로 배포
 - [X] Supabase>edge function>test에서 배포된 함수 테스트
 
-## Phase 2: 프론트엔드 API 연동
+## Phase 2: 프론트엔드 API 연동 (Phase 3과 병렬 가능)
 - [ ] `@shared/api/recommendation.ts` 파일 생성
 - [ ] Supabase Edge Function 호출 함수 구현
 - [ ] React Query로 데이터 페칭 설정
 - [ ] 기본 에러 처리 추가
 
-## Phase 3: 작물 추천 UI 개발
+> 💡 **개발 팁**: Phase 3 UI를 먼저 개발하고 mock 데이터로 테스트한 후, Phase 2 API를 연동하는 것을 추천합니다.
+
+## Phase 3: 작물 추천 UI 개발 (Phase 2보다 먼저 시작 가능)
 
 ### 3.1 입력 페이지 (`/recommendations/input`)
-- [ ] 입력 폼 구현
-  - [ ] **재배 위치 선택**: farms 테이블에서 사용자 농장 목록 조회 → `environment` 값 사용
-  - [ ] **재배 범위 입력**: 이랑 수 입력 (숫자, 최소값 1)
-  - [ ] **재배 시기 선택**: 시작/종료 월 토글 버튼 (1~12월)
-- [ ] "작물 추천" 버튼 → API 호출
+- [x] 입력 폼 구현
+  - [x] **재배 위치 선택**: farms 테이블에서 사용자 농장 목록 조회 → `environment` 값 사용
+  - [x] **재배 범위 입력**: 이랑 수 입력 (숫자, 최소값 1)
+  - [x] **재배 시기 선택**: 시작/종료 월 토글 버튼 (1~12월)
+- [x] "작물 추천" 버튼 → API 호출 (임시 alert, 추후 연동)image.png
 
 ### 3.2 로딩 화면
 - [ ] 로딩 스피너 + "작물 조합을 만들고 있습니다" 메시지

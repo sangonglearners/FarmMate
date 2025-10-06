@@ -1,1 +1,1 @@
-export { default as RecommendationsPage } from './ui/RecommendationsPage';
+export { default as RecommendationsInputPage } from './ui/RecommendationsInputPage';
