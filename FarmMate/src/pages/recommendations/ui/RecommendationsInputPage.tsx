@@ -94,6 +94,10 @@ export default function RecommendationsInputPage() {
           farm_id: null,
           farm_name: null,
           farm_environment: selectedFarm // 노지/시설
+        },
+        inputConditions: {
+          rec_range: parseInt(irangCount),
+          rec_period: `${startMonth}월 ~ ${endMonth}월`
         }
       };
       localStorage.setItem('recommendation_result', JSON.stringify(dataToStore));
@@ -113,17 +117,25 @@ export default function RecommendationsInputPage() {
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setLocation("/")}
-          className="mb-4"
-        >
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          홈으로 돌아가기
-        </Button>
-        <h1 className="text-2xl font-bold text-gray-900">작물 추천</h1>
-        <p className="text-gray-600 text-sm mt-1">재배 조건을 입력해주세요</p>
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation("/")}
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            홈으로 돌아가기
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLocation("/recommendations/history")}
+          >
+            추천 기록 보기
+          </Button>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 text-center">작물 추천</h1>
+        <p className="text-gray-600 text-sm mt-1 text-center">재배 조건을 입력해주세요</p>
       </div>
 
       <div className="space-y-4 max-w-2xl">
@@ -209,6 +221,9 @@ export default function RecommendationsInputPage() {
               />
               <span className="text-gray-600">이랑</span>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              💡 3개 품종 기준 9-30개 권장 (품종당 3-10개씩)
+            </p>
           </CardContent>
         </Card>
 
