@@ -80,8 +80,23 @@ export default function RecommendationsInputPage() {
         input_irang: parseInt(irangCount)
       });
 
-      // 결과를 로컬 스토리지에 임시 저장
-      localStorage.setItem('recommendation_result', JSON.stringify(response.result));
+      // 선택한 농장 정보 찾기
+      const selectedFarmInfo = farms.find(f => f.id === selectedFarmId);
+
+      // 결과와 농장 정보를 로컬 스토리지에 임시 저장
+      const dataToStore = {
+        result: response.result,
+        farmInfo: selectedFarmInfo ? {
+          farm_id: selectedFarmInfo.id,
+          farm_name: selectedFarmInfo.name,
+          farm_environment: selectedFarmInfo.environment
+        } : {
+          farm_id: null,
+          farm_name: null,
+          farm_environment: selectedFarm // 노지/시설
+        }
+      };
+      localStorage.setItem('recommendation_result', JSON.stringify(dataToStore));
 
       // 결과 페이지로 이동
       setLocation('/recommendations/result');
