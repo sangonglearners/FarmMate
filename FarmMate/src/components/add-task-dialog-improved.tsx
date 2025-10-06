@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@shared/ui/button";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
-import { Textarea } from "@shared/ui/textarea";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
+} from "./ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,42 +22,43 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
+} from "./ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/select";
+} from "./ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@shared/ui/popover";
+} from "./ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@shared/ui/collapsible";
-import { useToast } from "@shared/hooks/use-toast";
+} from "./ui/collapsible";
+import { useToast } from "../hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-import type { FarmEntity } from "@shared/api/farm.repository";
+import type { FarmEntity } from "../shared/api/farm.repository";
 import { useLocation } from "wouter";
-import { useDeleteTask } from "@features/task-management";
+import { useDeleteTask } from "../features/task-management";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@shared/api/client";
 
 // ⬇ Supabase 유틸 추가
-import { saveTask } from "@/shared/api/saveTask";
-import { supabase } from "@/shared/api/supabase";
-import { mustOk } from "@/shared/api/mustOk";
-import { useFarms } from "@features/farm-management";
-import { useCrops } from "@features/crop-management";
+import { saveTask } from "../shared/api/saveTask";
+import { supabase } from "../shared/api/supabase";
+import { mustOk } from "../shared/api/mustOk";
+import { useFarms } from "../features/farm-management";
+import { useCrops } from "../features/crop-management";
+import { serverRegistrationRepository, type CropSearchResult } from "../shared/api/server-registration.repository";
 
 import { z } from "zod";
-import { Calendar } from "@shared/ui/calendar";
+import { Calendar } from "./ui/calendar";
 import WorkCalculatorDialog from "./work-calculator-dialog";
 
 const formSchema = insertTaskSchema.extend({
@@ -110,6 +111,7 @@ export default function AddTaskDialog({
   selectedDate,
   task,
 }: AddTaskDialogProps) {
+  console.log("AddTaskDialog 렌더링, 받은 task props:", task);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [registrationMode, setRegistrationMode] =
@@ -119,6 +121,7 @@ export default function AddTaskDialog({
   const deleteMutation = useDeleteTask();
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
+  const [cropSearchResults, setCropSearchResults] = useState<CropSearchResult[]>([]);
   const [customCropName, setCustomCropName] = useState("");
   const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
@@ -149,12 +152,41 @@ export default function AddTaskDialog({
   useEffect(() => {
     const taskType = form.getValues("taskType");
     const cropName = customCropName || cropSearchTerm;
+    
+    console.log("제목 자동 설정 useEffect 실행:", {
+      customCropName,
+      cropSearchTerm,
+      cropName,
+      taskType,
+      현재제목: form.getValues("title")
+    });
+    
     if (cropName && taskType) {
       const newTitle = `${cropName}_${taskType}`;
       console.log("제목 자동 설정:", { cropName, taskType, newTitle });
       form.setValue("title", newTitle);
     }
   }, [cropSearchTerm, customCropName, form]);
+
+  // 작물 정보가 변경될 때 제목 업데이트
+  useEffect(() => {
+    const taskType = form.getValues("taskType");
+    const currentTitle = form.getValues("title");
+    const cropName = customCropName || cropSearchTerm;
+    
+    if (cropName && taskType) {
+      const expectedTitle = `${cropName}_${taskType}`;
+      if (currentTitle !== expectedTitle) {
+        console.log("작물 정보 변경으로 제목 업데이트:", {
+          currentTitle,
+          expectedTitle,
+          cropName,
+          taskType
+        });
+        form.setValue("title", expectedTitle);
+      }
+    }
+  }, [customCropName, cropSearchTerm, form]);
 
   // taskType 변경시 제목 갱신 (편집 모드에서도 작동)
   useEffect(() => {
@@ -191,18 +223,41 @@ export default function AddTaskDialog({
     if (task && open) {
       console.log("편집 모드 초기화 실행");
       
+      // 이랑 번호 추출 (task.rowNumber 우선, 없으면 description에서 파싱)
+      let taskRowNumber = (task as any).rowNumber;
+      console.log("원본 task.rowNumber:", (task as any).rowNumber);
+      console.log("원본 task.description:", (task as any).description);
+      
+      if (!taskRowNumber && (task as any).description && (task as any).description.includes("이랑:")) {
+        const match = (task as any).description.match(/이랑:\s*(\d+)번/);
+        if (match) {
+          taskRowNumber = parseInt(match[1]);
+          console.log("description에서 파싱한 이랑 번호:", taskRowNumber);
+        }
+      }
+      
+      console.log("최종 taskRowNumber:", taskRowNumber);
+
       // 기본 폼 데이터 먼저 설정
       form.reset({
         title: task.title || "",
         description: (task as any).description || "",
         taskType: (task as any).taskType || "",
         scheduledDate: (task as any).scheduledDate || "",
-        endDate: (task as any).endDate || "",
+        endDate: (task as any).endDate || (task as any).scheduledDate || "", // 종료날짜가 없으면 시작날짜와 동일하게 설정
         farmId: (task as any).farmId || "",
         cropId: (task as any).cropId || "",
         environment: "",
-        rowNumber: (task as any).rowNumber || undefined,
+        rowNumber: taskRowNumber || undefined,
       });
+      
+      // 약간의 지연 후 이랑 번호를 확실히 설정 (form.reset 후 값이 덮어씌워질 수 있음)
+      setTimeout(() => {
+        if (taskRowNumber) {
+          console.log("지연 후 이랑 번호를 setValue로 설정:", taskRowNumber);
+          form.setValue("rowNumber", taskRowNumber);
+        }
+      }, 100);
       
       // 제목에서 작물명 추출 (fallback)
       const titleParts = task.title?.split('_');
@@ -214,13 +269,37 @@ export default function AddTaskDialog({
       }
 
       // 농장 정보 먼저 설정 (farms 데이터가 있으면 바로 설정)
+      console.log("수정 모드 농장 설정 시도:", {
+        farmsLength: farms?.length,
+        taskFarmId: (task as any).farmId,
+        taskFarmIdType: typeof (task as any).farmId
+      });
+      
       if (farms && (task as any).farmId) {
         const farm = farms.find((f) => f.id === (task as any).farmId);
+        console.log("농장 찾기 결과:", farm);
+        
         if (farm) {
-          console.log("수정 모드에서 농장 설정:", farm.name);
+          console.log("수정 모드에서 농장 설정:", farm.name, "ID:", farm.id);
           setSelectedFarm(farm);
+          form.setValue("farmId", farm.id);
           form.setValue("environment", farm.environment || "");
+          
+          // 농장 설정 후 확인
+          setTimeout(() => {
+            console.log("농장 설정 후 form.getValues('farmId'):", form.getValues("farmId"));
+          }, 100);
+        } else {
+          console.log("농장을 찾을 수 없음. taskFarmId:", (task as any).farmId);
+          console.log("사용 가능한 농장들:", farms.map(f => ({ id: f.id, name: f.name })));
         }
+      } else if (farms && farms.length > 0) {
+        // farmId가 없으면 첫 번째 농장으로 설정
+        const firstFarm = farms[0];
+        console.log("farmId가 없어서 첫 번째 농장으로 설정:", firstFarm.name);
+        setSelectedFarm(firstFarm);
+        form.setValue("farmId", firstFarm.id);
+        form.setValue("environment", firstFarm.environment || "");
       }
 
       // crops 데이터가 있으면 작물 설정
@@ -230,8 +309,12 @@ export default function AddTaskDialog({
           console.log("수정 모드에서 작물 설정:", crop.name);
           setCropSearchTerm(crop.name);
           setSelectedCrop(crop);
-          setCustomCropName(""); // 등록된 작물 사용
+          setCustomCropName(crop.name); // 작물명을 customCropName에도 설정
         }
+      } else if ((task as any).cropId) {
+        // cropId는 있지만 crops 데이터에서 찾을 수 없는 경우
+        console.log("crops 데이터에서 작물을 찾을 수 없음. cropId:", (task as any).cropId);
+        console.log("사용 가능한 crops:", crops?.map(c => ({ id: c.id, name: c.name })));
       }
       
     } else if (!task && open) {
@@ -253,6 +336,126 @@ export default function AddTaskDialog({
       // selectedFarm은 첫 번째 농장으로 자동 설정되므로 null로 초기화하지 않음
     }
   }, [task, open, selectedDate, crops, farms, form]);
+
+  // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
+  useEffect(() => {
+    if (task && open) {
+      // 이랑 번호 추출
+      let taskRowNumber = (task as any).rowNumber;
+      console.log("별도 useEffect - 원본 task.rowNumber:", (task as any).rowNumber);
+      console.log("별도 useEffect - 원본 task.description:", (task as any).description);
+      
+      if (!taskRowNumber && (task as any).description && (task as any).description.includes("이랑:")) {
+        const match = (task as any).description.match(/이랑:\s*(\d+)번/);
+        if (match) {
+          taskRowNumber = parseInt(match[1]);
+          console.log("별도 useEffect - description에서 파싱한 이랑 번호:", taskRowNumber);
+        }
+      }
+      
+      if (taskRowNumber) {
+        console.log("별도 useEffect에서 이랑 번호 설정:", taskRowNumber);
+        // 여러 번 시도해서 확실히 설정
+        form.setValue("rowNumber", taskRowNumber);
+        setTimeout(() => {
+          form.setValue("rowNumber", taskRowNumber);
+          console.log("지연 후 이랑 번호 재설정:", taskRowNumber);
+        }, 200);
+        setTimeout(() => {
+          form.setValue("rowNumber", taskRowNumber);
+          console.log("두 번째 지연 후 이랑 번호 재설정:", taskRowNumber);
+        }, 500);
+      }
+    }
+  }, [task, open, form]);
+
+  // 이랑 번호 실시간 감시 및 설정
+  const watchedRowNumber = form.watch("rowNumber");
+  useEffect(() => {
+    if (task && open && watchedRowNumber === undefined) {
+      // 이랑 번호가 설정되지 않은 경우 다시 시도
+      let taskRowNumber = (task as any).rowNumber;
+      if (!taskRowNumber && (task as any).description && (task as any).description.includes("이랑:")) {
+        const match = (task as any).description.match(/이랑:\s*(\d+)번/);
+        if (match) {
+          taskRowNumber = parseInt(match[1]);
+        }
+      }
+      
+      if (taskRowNumber) {
+        console.log("watch useEffect에서 이랑 번호 설정:", taskRowNumber);
+        form.setValue("rowNumber", taskRowNumber);
+      }
+    }
+  }, [task, open, watchedRowNumber, form]);
+
+  // 작물 검색 함수 (서버용)
+  const searchCrops = async (searchTerm: string) => {
+    console.log('🔍 searchCrops 함수 호출:', searchTerm);
+    
+    if (!searchTerm.trim()) {
+      console.log('❌ 검색어가 비어있음');
+      setCropSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    console.log('⏳ 서버 검색 시작...');
+    
+    try {
+      console.log('📡 serverRegistrationRepository.searchCrops 호출');
+      
+      // 임시 하드코딩 테스트
+      if (searchTerm.includes('결구배추')) {
+        console.log('🧪 하드코딩 테스트 실행');
+        const hardcodedResults = [
+          { id: '1', 대분류: '배추류', 품목: '결구배추', 품종: '개성', 파종육묘구분: '육묘' },
+          { id: '2', 대분류: '배추류', 품목: '결구배추', 품종: '빨강', 파종육묘구분: '육묘' },
+          { id: '3', 대분류: '배추류', 품목: '결구배추', 품종: '속노랑', 파종육묘구분: '육묘' },
+        ];
+        console.log('🧪 하드코딩 결과:', hardcodedResults);
+        setCropSearchResults(hardcodedResults);
+        return;
+      }
+      
+      const results = await serverRegistrationRepository.searchCrops(searchTerm);
+      console.log('✅ 서버 검색 결과 받음:', results);
+      console.log('📊 검색 결과 개수:', results.length);
+      console.log('📊 cropSearchResults 상태 업데이트 전:', cropSearchResults);
+      setCropSearchResults(results);
+      console.log('📊 cropSearchResults 상태 업데이트 후:', results);
+    } catch (error) {
+      console.error('❌ 서버 작물 검색 실패:', error);
+      console.error('❌ 오류 상세:', error.message);
+      toast({
+        title: "작물 검색 실패",
+        description: `오류: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+      console.log('🏁 서버 검색 완료');
+    }
+  };
+
+  // 작물 검색 디바운스 처리 (즉시 실행으로 변경)
+  useEffect(() => {
+    console.log('⏰ 디바운스 useEffect 실행:', cropSearchTerm);
+    const timeoutId = setTimeout(() => {
+      if (cropSearchTerm.trim()) {
+        console.log('🚀 디바운스 후 서버 검색 실행:', cropSearchTerm);
+        searchCrops(cropSearchTerm);
+      } else {
+        console.log('🧹 검색어 비어있어서 결과 초기화');
+        setCropSearchResults([]);
+      }
+    }, 100); // 300ms → 100ms로 단축
+
+    return () => {
+      console.log('🧹 디바운스 타이머 정리');
+      clearTimeout(timeoutId);
+    };
+  }, [cropSearchTerm]);
 
   // 작물 필터
   const searchFilteredCrops =
@@ -284,28 +487,133 @@ export default function AddTaskDialog({
     }
   };
 
-  // handleKeyCropSelect 함수는 더 이상 필요하지 않음 (내 작물 직접 선택으로 변경)
+  const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
+    const displayName = `${keyCrop.name} > ${keyCrop.variety}`;
+    console.log("핵심 작물 선택:", {
+      keyCrop,
+      displayName,
+      이전CustomCropName: customCropName,
+      이전CropSearchTerm: cropSearchTerm
+    });
+    
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
+    form.setValue("cropId", ""); // 커스텀 작물
+    setShowKeyCrops(false);
+    
+    console.log("핵심 작물 선택 완료:", {
+      새로운CustomCropName: displayName,
+      새로운CropSearchTerm: displayName,
+      cropId: form.getValues("cropId")
+    });
+  };
 
   const handleCustomCropInput = (cropName: string) => {
+    console.log("작물 입력 변경:", {
+      cropName,
+      이전CustomCropName: customCropName,
+      이전CropSearchTerm: cropSearchTerm
+    });
+    
     setCustomCropName(cropName);
     setCropSearchTerm(cropName);
     form.setValue("cropId", "");
+    setSelectedSearchCrop(null); // 검색 작물 선택 해제
+    
+    console.log("작물 입력 처리 완료:", {
+      새로운CustomCropName: cropName,
+      새로운CropSearchTerm: cropName,
+      cropId: form.getValues("cropId")
+    });
+  };
+
+  // 검색된 작물 선택 핸들러
+  const handleSearchCropSelect = (searchCrop: CropSearchResult) => {
+    const displayName = `${searchCrop.품목} > ${searchCrop.품종}`;
+    console.log("검색 작물 선택:", {
+      searchCrop,
+      displayName,
+      이전CustomCropName: customCropName,
+      이전CropSearchTerm: cropSearchTerm
+    });
+    
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
+    setSelectedSearchCrop(searchCrop);
+    form.setValue("cropId", ""); // 커스텀 작물
+    setCropSearchResults([]); // 검색 결과 숨기기
+    
+    console.log("검색 작물 선택 완료:", {
+      새로운CustomCropName: displayName,
+      새로운CropSearchTerm: displayName,
+      cropId: form.getValues("cropId")
+    });
   };
 
   /** 단건 저장 */
   const createMutation = useMutation({
-    mutationFn: async (data: InsertTask) =>
-      saveTask({
-        title: data.title!,
-        memo: (data as any).description || undefined,
-        scheduledAt: (data as any).scheduledDate,
-        farmId: (data as any).farmId ? Number((data as any).farmId) : undefined,
-        cropId: (data as any).cropId ? Number((data as any).cropId) : undefined,
-        rowNumber: (data as any).rowNumber || undefined,
-        taskType: (data as any).taskType || undefined,
-      }),
+    mutationFn: async (data: InsertTask) => {
+      // 작물 ID 결정 로직 개선
+      let finalCropId = (data as any).cropId;
+      if (!finalCropId && selectedCrop?.id) {
+        finalCropId = selectedCrop.id;
+        console.log("개별등록에서 selectedCrop.id 사용:", finalCropId);
+      }
+      
+      console.log("개별등록 작물 정보 확인:", {
+        formCropId: (data as any).cropId,
+        selectedCrop: selectedCrop?.name,
+        selectedCropId: selectedCrop?.id,
+        finalCropId,
+        customCropName,
+        cropSearchTerm,
+        endDate: (data as any).endDate,
+        scheduledDate: (data as any).scheduledDate,
+        전체데이터: data
+      });
+      
+      // endDate가 있는 경우 taskApi.createTask를 직접 사용
+      if ((data as any).endDate) {
+        console.log("endDate가 있어서 taskApi.createTask 사용:", {
+          endDate: (data as any).endDate,
+          scheduledDate: (data as any).scheduledDate
+        });
+        const { taskApi } = await import("../shared/api/tasks");
+        const taskToCreate = {
+          title: data.title!,
+          description: (data as any).description || "",
+          taskType: (data as any).taskType || "기타",
+          scheduledDate: (data as any).scheduledDate,
+          endDate: (data as any).endDate, // endDate 포함
+          farmId: (data as any).farmId || "",
+          cropId: finalCropId || "",
+          rowNumber: (data as any).rowNumber || null,
+          completed: 0,
+        };
+        console.log("taskApi.createTask에 전달할 데이터:", taskToCreate);
+        return await taskApi.createTask(taskToCreate);
+      } else {
+        // endDate가 없는 경우 기존 saveTask 사용
+        console.log("endDate가 없어서 saveTask 사용:", {
+          endDate: (data as any).endDate,
+          scheduledDate: (data as any).scheduledDate
+        });
+        return saveTask({
+          title: data.title!,
+          memo: (data as any).description || undefined,
+          scheduledAt: (data as any).scheduledDate,
+          farmId: (data as any).farmId ? (data as any).farmId : undefined,
+          cropId: finalCropId || undefined,
+          rowNumber: (data as any).rowNumber || undefined,
+          taskType: (data as any).taskType || undefined,
+        });
+      }
+    },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 등록되었습니다.",
@@ -325,21 +633,44 @@ export default function AddTaskDialog({
   /** 수정 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-      const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("../shared/api/tasks");
+      const rowNumber = (data as any).rowNumber;
+      const description = rowNumber 
+        ? `이랑: ${rowNumber}번`
+        : (data as any).description || "";
+      
+      // 작물 ID 결정 로직 개선
+      let finalCropId = (data as any).cropId;
+      if (!finalCropId && selectedCrop?.id) {
+        finalCropId = selectedCrop.id;
+        console.log("수정 모드에서 selectedCrop.id 사용:", finalCropId);
+      }
+      
+      console.log("수정 모드 작물 정보 확인:", {
+        formCropId: (data as any).cropId,
+        selectedCrop: selectedCrop?.name,
+        selectedCropId: selectedCrop?.id,
+        finalCropId,
+        customCropName,
+        cropSearchTerm
+      });
       return await taskApi.updateTask((task as any)!.id, {
         title: data.title!,
-        description: (data as any).description || "",
+        description: description,
         taskType: (data as any).taskType || "기타",
         scheduledDate: (data as any).scheduledDate,
-        endDate: (data as any).endDate || null,
+        endDate: (data as any).endDate || (data as any).scheduledDate || null, // 종료날짜가 없으면 시작날짜와 동일하게 설정
         farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
-        cropId: (data as any).cropId ? (data as any).cropId.toString() : "",
-        rowNumber: (data as any).rowNumber || null,
+        cropId: finalCropId ? finalCropId.toString() : "",
+        rowNumber: rowNumber || null,
         completed: (data as any).completed || 0,
       });
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 수정되었습니다.",
@@ -359,7 +690,7 @@ export default function AddTaskDialog({
   /** 대량 저장 (일괄/개별) */
   const bulkCreateMutation = useMutation({
     mutationFn: async (tasks: InsertTask[]) => {
-      const { taskApi } = await import("@shared/api/tasks");
+          const { taskApi } = await import("../shared/api/tasks");
       const results = [];
       
       for (const task of tasks) {
@@ -380,7 +711,10 @@ export default function AddTaskDialog({
       return results;
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 등록되었습니다.",
@@ -414,20 +748,44 @@ export default function AddTaskDialog({
         toast({ title: "농장을 선택해주세요", variant: "destructive" });
         return;
       }
+      
+      const rowNumber = form.getValues("rowNumber");
+      
+      // 작물 ID 결정 로직 개선 (개별등록과 동일하게)
+      let finalCropId = form.getValues("cropId");
+      if (!finalCropId && selectedCrop?.id) {
+        // cropId가 없지만 selectedCrop이 있으면 selectedCrop.id 사용
+        finalCropId = selectedCrop.id;
+        console.log("일괄등록에서 selectedCrop.id 사용:", finalCropId);
+      }
+      
+      console.log("일괄등록 작물 정보 확인:", {
+        customCropName,
+        cropSearchTerm,
+        formCropId: form.getValues("cropId"),
+        selectedCrop: selectedCrop?.name,
+        selectedCropId: selectedCrop?.id,
+        finalCropId,
+        cropName
+      });
+      
       const tasks: InsertTask[] = selectedWorks.map((work) => ({
-        title: form.getValues("title") || `${cropName} ${work}`,
-        description:
-          form.getValues("description") ||
-          `일괄 등록으로 생성된 ${work} 작업`,
+        title: form.getValues("title") || `${cropName}_${work}`,
+        description: rowNumber 
+          ? `이랑: ${rowNumber}번`
+          : (form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`),
         taskType: work,
         scheduledDate: startDate,
+        endDate: startDate, // 일괄등록 시 종료날짜를 시작날짜와 동일하게 설정
         farmId: form.getValues("farmId") || "",
-        cropId: form.getValues("cropId") || "",
-        rowNumber: form.getValues("rowNumber") || undefined,
+        cropId: finalCropId || "", // 개선된 cropId 사용
+        rowNumber: rowNumber || undefined,
       }));
+      
+      console.log("일괄등록으로 생성될 작업들:", tasks);
       bulkCreateMutation.mutate(tasks);
     } else {
-      // individual: 한 작업을 날짜 범위로
+      // individual: 한 작업을 날짜 범위로 (하나의 작업으로 시작일과 종료일만 저장)
       const endDate = (form.getValues("endDate") as string) || "";
       if (!startDate || !endDate) {
         toast({
@@ -441,42 +799,66 @@ export default function AddTaskDialog({
         return;
       }
       const work = form.getValues("taskType") || "";
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const tasks: InsertTask[] = [];
-
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        tasks.push({
-          title: form.getValues("title") || `${cropName} ${work}`,
-          description:
-            form.getValues("description") ||
-            `개별 등록으로 생성된 ${work} 작업`,
-          taskType: work,
-          scheduledDate: format(d, "yyyy-MM-dd"),
-          farmId: form.getValues("farmId") || "",
-          cropId: form.getValues("cropId") || "",
-          rowNumber: form.getValues("rowNumber") || undefined,
-        });
-      }
-      bulkCreateMutation.mutate(tasks);
+      const rowNumber = form.getValues("rowNumber");
+      
+      // 하나의 작업만 생성 (날짜 범위)
+      const task: InsertTask = {
+        title: form.getValues("title") || `${cropName}_${work}`,
+        description: rowNumber 
+          ? `이랑: ${rowNumber}번`
+          : (form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`),
+        taskType: work,
+        scheduledDate: startDate,
+        endDate: endDate, // 종료일도 함께 저장
+        farmId: form.getValues("farmId") || "",
+        cropId: form.getValues("cropId") || "",
+        rowNumber: rowNumber || undefined,
+      };
+      
+      console.log("개별등록으로 생성될 작업 (날짜 범위):", task);
+      createMutation.mutate(task);
     }
   };
 
   const handleWorkCalculatorSave = async (tasks: InsertTask[]) => {
     console.log("WorkCalculator 작업 저장:", tasks);
+    console.log("WorkCalculator - 전달받은 tasks의 rowNumber:", tasks.map(t => t.rowNumber));
     
     // 각 작업을 saveTask 함수를 사용하여 사용자별로 저장
     try {
       for (const task of tasks) {
-        await saveTask({
+        console.log("WorkCalculator - 개별 task 저장:", {
           title: task.title,
-          memo: task.description || undefined,
-          scheduledAt: task.scheduledDate,
-          farmId: task.farmId ? Number(task.farmId) : undefined,
-          cropId: task.cropId ? Number(task.cropId) : undefined,
-          taskType: task.taskType,
-          rowNumber: task.rowNumber || undefined,
+          rowNumber: task.rowNumber,
+          description: task.description,
+          farmId: task.farmId
         });
+        
+        // endDate가 있는 경우 taskApi.createTask를 직접 사용
+        if ((task as any).endDate) {
+          const { taskApi } = await import("../shared/api/tasks");
+          await taskApi.createTask({
+            title: task.title,
+            description: task.description || "",
+            taskType: task.taskType || "기타",
+            scheduledDate: task.scheduledDate,
+            endDate: (task as any).endDate,
+            farmId: task.farmId || "",
+            cropId: task.cropId || "",
+            rowNumber: task.rowNumber || null,
+            completed: 0,
+          });
+        } else {
+          await saveTask({
+            title: task.title,
+            memo: task.description || undefined,
+            scheduledAt: task.scheduledDate,
+            farmId: task.farmId ? task.farmId : undefined,
+            cropId: task.cropId ? task.cropId : undefined,
+            taskType: task.taskType,
+            rowNumber: task.rowNumber || undefined,
+          });
+        }
       }
 
       // 쿼리 무효화로 UI 업데이트
@@ -534,7 +916,30 @@ export default function AddTaskDialog({
       toast({ title: "농장을 선택해주세요", variant: "destructive" });
       return;
     }
+    
+    // 농작업 계산기 열기 전에 현재 작물 정보 백업
+    console.log("농작업 계산기 열기 전 작물 정보 백업:", {
+      selectedCrop: selectedCrop?.name,
+      customCropName,
+      cropSearchTerm
+    });
+    
     setShowWorkCalculator(true);
+  };
+
+  // 농작업 계산기가 닫힐 때 작물 정보 복원
+  const handleWorkCalculatorClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      console.log("농작업 계산기 닫힘 - 작물 정보 복원 시도");
+      
+      // 작물 정보가 초기화되었다면 복원
+      if (!customCropName && !cropSearchTerm && selectedCrop) {
+        console.log("작물 정보 복원:", selectedCrop.name);
+        setCustomCropName(selectedCrop.name);
+        setCropSearchTerm(selectedCrop.name);
+      }
+    }
+    setShowWorkCalculator(isOpen);
   };
 
   // 작업 삭제 함수
@@ -606,12 +1011,65 @@ export default function AddTaskDialog({
                     placeholder="작물명을 입력하세요"
                     value={cropSearchTerm}
                     onChange={(e) => {
+                      console.log("작물 입력 필드 변경:", {
+                        이전값: cropSearchTerm,
+                        새로운값: e.target.value,
+                        이전CustomCropName: customCropName
+                      });
+                      
                       setCropSearchTerm(e.target.value);
-                      handleCustomCropInput(e.target.value);
+                      // handleCustomCropInput 호출하지 않음 - 검색 결과 초기화 방지
                     }}
                     className="pl-10"
                   />
                 </div>
+
+                {/* 서버 검색 결과 표시 */}
+                {cropSearchTerm && cropSearchResults.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto border rounded-md">
+                    <div className="p-2 text-xs text-gray-500 bg-blue-50 border-b">
+                      작물 데이터베이스 검색 결과 ({cropSearchResults.length}개)
+                    </div>
+                    {cropSearchResults.map((searchCrop) => (
+                      <button
+                        key={searchCrop.id}
+                        type="button"
+                        onClick={() => handleSearchCropSelect(searchCrop)}
+                        className={`w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 ${
+                          selectedSearchCrop?.id === searchCrop.id
+                            ? "bg-blue-50 border-blue-200"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{searchCrop.품목}</span>
+                            <span className="text-sm text-gray-500 ml-2">
+                              ({searchCrop.품종})
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {searchCrop.대분류}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 검색 중 표시 */}
+                {cropSearchTerm && cropSearchResults.length === 0 && (
+                  <div className="p-2 text-center text-sm text-gray-500">
+                    작물을 검색 중입니다...
+                  </div>
+                )}
+
+                {/* 검색 결과가 없을 때 */}
+                {cropSearchTerm && cropSearchResults.length === 0 && (
+                  <div className="p-2 text-center text-sm text-gray-500">
+                    "{cropSearchTerm}"에 대한 검색 결과가 없습니다.
+                  </div>
+                )}
 
                 {/* 내 작물 선택 */}
                 <Collapsible open={showKeyCrops} onOpenChange={setShowKeyCrops}>
@@ -887,19 +1345,32 @@ export default function AddTaskDialog({
                   <FormField
                     control={form.control}
                     name="rowNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>이랑 번호 (선택사항)</FormLabel>
-                        <Select 
-                          onValueChange={(value) => {
-                            if (value === "all") {
-                              field.onChange(undefined); // 전체 이랑 선택 시 undefined
-                            } else {
-                              field.onChange(value ? parseInt(value) : undefined);
-                            }
-                          }} 
-                          value={field.value?.toString() || "all"}
-                        >
+                    render={({ field }) => {
+                      console.log("이랑 번호 Select field.value:", field.value);
+                      console.log("이랑 번호 Select 표시값:", field.value?.toString() || "all");
+                      
+                      // 폼에서 현재 값을 다시 확인
+                      const currentRowNumber = form.getValues("rowNumber");
+                      console.log("form.getValues('rowNumber'):", currentRowNumber);
+                      
+                      // field.value가 없으면 form.getValues로 다시 시도
+                      const displayValue = field.value?.toString() || currentRowNumber?.toString() || "all";
+                      console.log("최종 displayValue:", displayValue);
+                      
+                      return (
+                        <FormItem>
+                          <FormLabel>이랑 번호 (선택사항)</FormLabel>
+                          <Select 
+                            onValueChange={(value) => {
+                              console.log("이랑 번호 변경:", value);
+                              if (value === "all") {
+                                field.onChange(undefined); // 전체 이랑 선택 시 undefined
+                              } else {
+                                field.onChange(value ? parseInt(value) : undefined);
+                              }
+                            }} 
+                            value={displayValue}
+                          >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="이랑 번호를 선택해주세요" />
@@ -919,7 +1390,8 @@ export default function AddTaskDialog({
                           선택하지 않으면 전체 이랑에 작업이 등록됩니다
                         </p>
                       </FormItem>
-                    )}
+                    );
+                    }}
                   />
                 );
               })()}
@@ -985,14 +1457,14 @@ export default function AddTaskDialog({
                 )}
               />
 
-              {/* 종료 날짜(개별등록에서만) */}
-              {!task && registrationMode === "individual" && (
+              {/* 종료 날짜(개별등록 또는 수정 모드에서) */}
+              {((!task && registrationMode === "individual") || task) && (
                 <FormField
                   control={form.control}
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>종료 날짜 *</FormLabel>
+                      <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -1053,15 +1525,6 @@ export default function AddTaskDialog({
               />
 
               <div className="flex space-x-2 sticky bottom-0 bg-white pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  className="flex-1"
-                >
-                  취소
-                </Button>
-
                 {/* 일괄등록에서 계산기 */}
                 {registrationMode === "batch" && !task && (
                   <Button
@@ -1088,7 +1551,7 @@ export default function AddTaskDialog({
                   </Button>
                 )}
 
-                {/* 저장 */}
+                {/* 저장/수정 완료 */}
                 <Button
                   type="submit"
                   className="flex-1"
@@ -1117,16 +1580,20 @@ export default function AddTaskDialog({
       </Dialog>
 
       {/* Work Calculator Dialog */}
-      <WorkCalculatorDialog
-        open={showWorkCalculator}
-        onOpenChange={setShowWorkCalculator}
-        selectedCrop={selectedCrop}
-        baseDate={
-          form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")
-        }
-        onSave={handleWorkCalculatorSave}
-        selectedTasks={selectedWorks}
-      />
+       <WorkCalculatorDialog
+         open={showWorkCalculator}
+         onOpenChange={handleWorkCalculatorClose}
+         selectedCrop={selectedCrop}
+         customCropName={customCropName}
+         cropSearchTerm={cropSearchTerm}
+         baseDate={
+           form.getValues("scheduledDate") || format(new Date(), "yyyy-MM-dd")
+         }
+         onSave={handleWorkCalculatorSave}
+         selectedTasks={selectedWorks}
+         selectedFarm={selectedFarm}
+         selectedRowNumber={form.getValues("rowNumber")}
+       />
     </>
   );
 }

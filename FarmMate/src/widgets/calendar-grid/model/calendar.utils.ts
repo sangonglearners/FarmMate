@@ -1,5 +1,5 @@
 // Calendar widget utility functions
-import type { Task, Crop } from "@shared/types/schema";
+import type { Task, Crop } from "@shared/schema";
 
 export interface CalendarDay {
   day: number;
@@ -26,7 +26,22 @@ export const getTasksForDate = (tasks: Task[], date: Date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
   const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return tasks.filter(task => task.scheduledDate === dateStr);
+  
+  return tasks.filter(task => {
+    // 정확한 날짜 매칭 또는 날짜 범위 내 포함
+    let isDateMatch = task.scheduledDate === dateStr;
+    
+    if (!isDateMatch && task.endDate) {
+      // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
+      const taskStartDate = new Date(task.scheduledDate);
+      const taskEndDate = new Date(task.endDate);
+      const currentDate = new Date(dateStr);
+      
+      isDateMatch = currentDate >= taskStartDate && currentDate <= taskEndDate;
+    }
+    
+    return isDateMatch;
+  });
 };
 
 export const getCropName = (crops: Crop[], cropId: string | null | undefined) => {

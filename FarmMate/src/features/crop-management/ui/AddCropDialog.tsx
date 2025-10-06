@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient /*, useQuery*/ } from "@tanstack/react-query";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
-import { Button } from "@shared/ui/button";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -16,18 +17,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
-import { Input } from "@shared/ui/input";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/select";
-import { useToast } from "@shared/hooks/use-toast";
-import { insertCropSchema } from "@shared/types/schema";
-import type { InsertCrop, Crop } from "@shared/types/schema";
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { insertCropSchema } from "@shared/schema";
+import type { InsertCrop, Crop } from "@shared/schema";
 import { useCrops as useMyCrops, useCreateCrop, useUpdateCrop } from "../model/crop.hooks";
 import { useFarms } from "@features/farm-management";
 import { z } from "zod";
@@ -84,25 +85,11 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
   const { data: farms = [] } = showFarmSelect ? useFarms() : { data: [] as any[] } as any;
   const { data: myCrops = [] } = useMyCrops();
 
-  // 샘플 작물 데이터와 내 작물 목록을 합쳐서 대표 작물 선택 소스로 변환
-  const sampleCrops: CropOption[] = [
-    { id: "sample-1", majorCategory: "엽채류", name: "양배추", category: "엽채류", varieties: ["보라색 양배추", "흰 양배추", "적양배추"] },
-    { id: "sample-2", majorCategory: "엽채류", name: "상추", category: "엽채류", varieties: ["적상추", "청상추", "로메인"] },
-    { id: "sample-3", majorCategory: "근채류", name: "당근", category: "근채류", varieties: ["홍당무", "흰당근", "보라당근"] },
-    { id: "sample-4", majorCategory: "근채류", name: "무", category: "근채류", varieties: ["백무", "청무", "적무"] },
-    { id: "sample-5", majorCategory: "과채류", name: "토마토", category: "과채류", varieties: ["대과토마토", "방울토마토", "체리토마토"] },
-    { id: "sample-6", majorCategory: "과채류", name: "오이", category: "과채류", varieties: ["다다기오이", "백다다기", "가시계통"] },
-    { id: "sample-7", majorCategory: "과채류", name: "고추", category: "과채류", varieties: ["청양고추", "홍고추", "풋고추"] },
-    { id: "sample-8", majorCategory: "과채류", name: "가지", category: "과채류", varieties: ["흑장", "자주가지", "백가지"] },
-    { id: "sample-9", majorCategory: "엽채류", name: "시금치", category: "엽채류", varieties: ["적시금치", "청시금치", "둥근시금치"] },
-    { id: "sample-10", majorCategory: "엽채류", name: "배추", category: "엽채류", varieties: ["가을배추", "봄배추", "여름배추"] },
-    { id: "sample-11", majorCategory: "근채류", name: "감자", category: "근채류", varieties: ["수미", "대서", "조생감자"] },
-    { id: "sample-12", majorCategory: "근채류", name: "고구마", category: "근채류", varieties: ["호박고구마", "밤고구마", "자색고구마"] },
-    { id: "sample-13", majorCategory: "과채류", name: "호박", category: "과채류", varieties: ["단호박", "애호박", "맷돌호박"] },
-    { id: "sample-14", majorCategory: "엽채류", name: "케일", category: "엽채류", varieties: ["적케일", "청케일", "컬리케일"] },
-    { id: "sample-15", majorCategory: "과채류", name: "파프리카", category: "과채류", varieties: ["빨간파프리카", "노란파프리카", "주황파프리카"] },
-  ];
+  // 서버 검색 관련 상태
+  const [serverSearchResults, setServerSearchResults] = useState<CropSearchResult[]>([]);
+  const [isServerSearching, setIsServerSearching] = useState(false);
 
+  // 사용자가 등록한 작물 데이터만 사용
   const crops: CropOption[] = useMemo(() => {
     const myCropOptions = (myCrops || []).map((c: any) => ({
       id: c.id,
@@ -112,13 +99,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
       varieties: c.variety ? [c.variety] : [],
     }));
     
-    // 샘플 데이터와 내 작물을 합치되, 중복 제거
-    const allCrops = [...sampleCrops, ...myCropOptions];
-    const uniqueCrops = allCrops.filter((crop, index, self) => 
-      index === self.findIndex(c => c.name === crop.name && c.majorCategory === crop.majorCategory)
-    );
-    
-    return uniqueCrops;
+    return myCropOptions;
   }, [myCrops]);
 
   const [selectedCrop, setSelectedCrop] = useState<string>("");
@@ -141,6 +122,42 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
     () => crops.find((c) => c.id === selectedCrop),
     [crops, selectedCrop]
   );
+
+  // 서버 검색 함수
+  const searchServerCrops = async (searchTerm: string) => {
+    console.log('🔍 AddCropDialog 서버 검색:', searchTerm);
+    
+    if (!searchTerm.trim()) {
+      setServerSearchResults([]);
+      return;
+    }
+
+    setIsServerSearching(true);
+    
+    try {
+      const results = await serverRegistrationRepository.searchCrops(searchTerm);
+      console.log('✅ AddCropDialog 서버 검색 결과:', results);
+      setServerSearchResults(results);
+    } catch (error) {
+      console.error('❌ AddCropDialog 서버 검색 실패:', error);
+      setServerSearchResults([]);
+    } finally {
+      setIsServerSearching(false);
+    }
+  };
+
+  // 서버 검색 디바운스
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim()) {
+        searchServerCrops(searchTerm);
+      } else {
+        setServerSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (crop) {
@@ -241,8 +258,67 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                 {searchTerm.trim() !== "" ? "작물 선택" : "대표 작물 선택"}
               </label>
 
+              {/* 서버 검색 결과 표시 */}
+              {searchTerm.trim() !== "" && serverSearchResults.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                    작물 데이터베이스 검색 결과 ({serverSearchResults.length}개)
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                    {serverSearchResults.map((searchCrop) => (
+                      <button
+                        key={searchCrop.id}
+                        type="button"
+                        onClick={() => {
+                          console.log('서버 검색 작물 선택:', searchCrop);
+                          console.log('폼 값 설정 전:', {
+                            name: form.getValues('name'),
+                            category: form.getValues('category'),
+                            variety: form.getValues('variety')
+                          });
+                          
+                          form.setValue('name', searchCrop.품목);
+                          form.setValue('category', searchCrop.대분류);
+                          form.setValue('variety', searchCrop.품종);
+                          
+                          console.log('폼 값 설정 후:', {
+                            name: form.getValues('name'),
+                            category: form.getValues('category'),
+                            variety: form.getValues('variety')
+                          });
+                          
+                          setSearchTerm(searchCrop.품목);
+                          setServerSearchResults([]);
+                          setShowDirectRegister(true); // 직접 등록 모드로 전환
+                        }}
+                        className="w-full text-left p-3 border rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{searchCrop.품목}</span>
+                            <span className="text-sm text-gray-500 ml-2">
+                              ({searchCrop.품종})
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {searchCrop.대분류}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 검색 중 표시 */}
+              {isServerSearching && (
+                <div className="p-2 text-center text-sm text-gray-500">
+                  작물을 검색 중입니다...
+                </div>
+              )}
+
               {/* 결과 없음 상태 */}
-              {searchTerm.trim() !== "" && filteredCrops.length === 0 ? (
+              {searchTerm.trim() !== "" && filteredCrops.length === 0 && serverSearchResults.length === 0 && !isServerSearching ? (
                 <div className="rounded-md border border-dashed p-4 text-center text-sm text-gray-600">
                   <p className="mb-3">"{searchTerm}"에 대한 검색 결과가 없습니다.</p>
                   <div className="space-y-2">
@@ -264,9 +340,10 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                   </div>
                 </div>
               ) : (
-                // 결과 리스트
-                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                  {filteredCrops.map((c) => (
+                // 결과 리스트 또는 대표 작물 없음 메시지
+                filteredCrops.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                    {filteredCrops.map((c) => (
                     <button
                       key={c.id}
                       type="button"
@@ -299,6 +376,21 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                     </button>
                   ))}
                 </div>
+                ) : (
+                  <div className="rounded-md border border-dashed p-4 text-center text-sm text-gray-600">
+                    <p className="mb-3">등록된 작물이 없습니다.</p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      위에서 작물을 검색하거나 직접 등록해주세요.
+                    </p>
+                    <Button 
+                      type="button" 
+                      onClick={() => setShowDirectRegister(true)}
+                      className="w-full"
+                    >
+                      새 작물 직접 등록하기
+                    </Button>
+                  </div>
+                )
               )}
             </div>
 
@@ -345,10 +437,31 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="콩_완두">콩_완두</SelectItem>
+                          <SelectItem value="콩_채두">콩_채두</SelectItem>
+                          <SelectItem value="콩_잠두">콩_잠두</SelectItem>
+                          <SelectItem value="콩_강두">콩_강두</SelectItem>
+                          <SelectItem value="콩_대두">콩_대두</SelectItem>
+                          <SelectItem value="음식꽃">음식꽃</SelectItem>
+                          <SelectItem value="음식꽃(브라시카 라파)">음식꽃(브라시카 라파)</SelectItem>
+                          <SelectItem value="배추(브라시카 라파)">배추(브라시카 라파)</SelectItem>
+                          <SelectItem value="배추(브라시카올레라케어)=양배추">배추(브라시카올레라케어)=양배추</SelectItem>
+                          <SelectItem value="배추(브라시카 올레라케어)">배추(브라시카 올레라케어)</SelectItem>
+                          <SelectItem value="배추(브라시카 올레라케어)">배추(브라시카 올레라케어)</SelectItem>
+                          <SelectItem value="뿌리쁘띠">뿌리쁘띠</SelectItem>
+                          <SelectItem value="뿌리채소">뿌리채소</SelectItem>
+                          <SelectItem value="미나리과 채소">미나리과 채소</SelectItem>
+                          <SelectItem value="십자화과 잎채소">십자화과 잎채소</SelectItem>
+                          <SelectItem value="십자화과 입채소">십자화과 입채소</SelectItem>
+                          <SelectItem value="미나리과 허브">미나리과 허브</SelectItem>
+                          <SelectItem value="호박(스쿼시_써머)">호박(스쿼시_써머)</SelectItem>
+                          <SelectItem value="호박(스쿼시_윈터)">호박(스쿼시_윈터)</SelectItem>
+                          <SelectItem value="토마토">토마토</SelectItem>
+                          <SelectItem value="페퍼(고추)">페퍼(고추)</SelectItem>
+                          <SelectItem value="오이">오이</SelectItem>
                           <SelectItem value="엽채류">엽채류</SelectItem>
-                          <SelectItem value="근채류">근채류</SelectItem>
-                          <SelectItem value="과채류">과채류</SelectItem>
-                          <SelectItem value="기타">기타</SelectItem>
+                          <SelectItem value="식용꽃">식용꽃</SelectItem>
+                          <SelectItem value="알리움">알리움</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, CheckCircle2 } from "lucide-react";
-import { Button } from "@shared/ui/button";
+import { Button } from "@/components/ui/button";
 import type { Task } from "../model/types";
-import type { Crop, Farm } from "@shared/types/schema";
+import type { Crop, Farm } from "@shared/schema";
 import { getTaskColor, getTaskIcon } from "../model/utils";
 
 interface TaskCardProps {

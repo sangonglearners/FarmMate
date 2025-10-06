@@ -1,6 +1,6 @@
 {
   "include": ["src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "src/src/**/*"],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
@@ -22,7 +22,7 @@
       "@widgets/*": ["./src/widgets/*"],
       "@features/*": ["./src/features/*"],
       "@entities/*": ["./src/entities/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./shared/*"]
     }
   }
 }
