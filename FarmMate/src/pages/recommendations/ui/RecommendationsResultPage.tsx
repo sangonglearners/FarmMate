@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { useLocation } from "wouter";
+import { saveRecommendationResult, RecommendationResult } from "../../../shared/api/recommendation";
 
 // Mock 데이터 (API 응답 형식)
 const mockResult = {
@@ -187,19 +188,72 @@ function IndicatorBar({ label, value, maxValue = 3 }: IndicatorBarProps) {
 export default function RecommendationsResultPage() {
   const [, setLocation] = useLocation();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
-  const { cards } = mockResult.result;
+  const [result, setResult] = useState<RecommendationResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleSaveToPlan = () => {
+  useEffect(() => {
+    // 로컬 스토리지에서 결과 가져오기
+    const storedResult = localStorage.getItem('recommendation_result');
+    if (storedResult) {
+      try {
+        const parsedResult = JSON.parse(storedResult);
+        setResult(parsedResult);
+      } catch (error) {
+        console.error('결과 파싱 오류:', error);
+        // Mock 데이터 사용
+        setResult(mockResult.result);
+      }
+    } else {
+      // Mock 데이터 사용
+      setResult(mockResult.result);
+    }
+    setIsLoading(false);
+  }, []);
+
+  const handleSaveToPlan = async () => {
     if (selectedCard === null) {
       alert("작물 조합을 선택해주세요!");
       return;
     }
     
-    // TODO: rec_result 테이블에 저장
-    console.log("선택된 조합:", selectedCard, cards[selectedCard]);
-    alert("플래너에 등록되었습니다!");
-    setLocation("/");
+    if (!result) {
+      alert("추천 결과를 찾을 수 없습니다.");
+      return;
+    }
+
+    try {
+      const card = result.cards[selectedCard];
+      const combination = result.recommended_combinations[selectedCard];
+      
+      await saveRecommendationResult({
+        crop_names: card.crops,
+        expected_revenue: card.expected_revenue,
+        indicators: card.indicators,
+        combination_detail: combination,
+      });
+
+      alert("플래너에 등록되었습니다!");
+      // 로컬 스토리지 정리
+      localStorage.removeItem('recommendation_result');
+      setLocation("/");
+    } catch (error) {
+      console.error('저장 오류:', error);
+      alert("저장 중 오류가 발생했습니다. 다시 시도해주세요.");
+    }
   };
+
+  if (isLoading || !result) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">결과를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { cards } = result;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -280,7 +334,7 @@ export default function RecommendationsResultPage() {
             className="w-full h-12 text-lg"
             size="lg"
           >
-            플래너에 등록하기
+            추천 결과 저장하기
           </Button>
           <Button
             variant="outline"

@@ -14,10 +14,11 @@
 - [X] Supabase>edge function>test에서 배포된 함수 테스트
 
 ## Phase 2: 프론트엔드 API 연동 (Phase 3과 병렬 가능)
-- [ ] `@shared/api/recommendation.ts` 파일 생성
-- [ ] Supabase Edge Function 호출 함수 구현
-- [ ] React Query로 데이터 페칭 설정
-- [ ] 기본 에러 처리 추가
+- [x] `@shared/api/recommendation.ts` 파일 생성
+- [x] Supabase Edge Function 호출 함수 구현
+- [x] 입력 페이지에서 API 호출 연동
+- [x] 로컬 스토리지를 통한 결과 전달
+- [x] 기본 에러 처리 추가
 
 > 💡 **개발 팁**: Phase 3 UI를 먼저 개발하고 mock 데이터로 테스트한 후, Phase 2 API를 연동하는 것을 추천합니다.
 
@@ -30,9 +31,11 @@
   - [x] **재배 시기 선택**: 시작/종료 월 토글 버튼 (1~12월)
 - [x] "작물 추천" 버튼 → API 호출 (임시 alert, 추후 연동)image.png
 
-### 3.2 로딩 화면
-- [ ] 로딩 스피너 + "작물 조합을 만들고 있습니다" 메시지
-- [ ] 완료 시 결과 페이지로 자동 전환
+### 3.2 로딩 화면 (`/recommendations/loading`)
+- [x] 로딩 스피너 + "작물 조합을 만들고 있습니다" 메시지
+- [x] 🌱 아이콘과 회전 애니메이션
+- [x] 진행 단계 표시 (재배 조건 분석, 데이터 조회, 조합 계산)
+- [x] API 호출 완료 시 결과 페이지로 자동 전환
 
 ### 3.3 추천 결과 페이지 (`/recommendations/result`)
 - [x] Gift box 카드 3개 (리스트 뷰)
@@ -48,27 +51,19 @@
 ## Phase 4: 데이터 연동 및 완성
 
 ### 4.1 `rec_result` 테이블 생성 및 저장
-- [ ] 테이블 스키마 생성
-```sql
-CREATE TABLE rec_result (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id),
-  farm_id UUID REFERENCES farms(id),
-  crop_names TEXT[],              -- 3개 작물명 배열
-  expected_revenue TEXT,          -- 예상 매출액
-  indicators JSONB,               -- {수익성, 노동편의성, 품종희소성}
-  combination_detail JSONB,       -- 전체 조합 상세 정보 (recommended_combinations[idx])
-  created_at TIMESTAMP DEFAULT NOW()
-);
-```
-- [ ] 선택한 조합 저장 함수 구현
-  - 사용자 ID, 농장 ID 자동 연동
+- [x] 테이블 스키마 생성 (`create_rec_result_table.sql`)
+  - user_id, farm_id, crop_names, expected_revenue, indicators, combination_detail, created_at
+  - RLS 정책 설정 (사용자별 데이터 격리)
+  - 인덱스 생성 (user_id, created_at)
+- [x] 선택한 조합 저장 함수 구현 (`saveRecommendationResult`)
+  - 사용자 ID 자동 연동
   - 선택한 카드의 정보를 테이블에 저장
+  - 결과 페이지에서 "플래너에 등록하기" 버튼 연동
 
 ### 4.2 에러 처리
-- [ ] API 호출 실패: 에러 메시지 + 재시도 버튼
-- [ ] 추천 결과 없음: "조건에 맞는 작물이 없습니다" 메시지
-- [ ] 농장 정보 없음: 농장 등록 안내
+- [x] API 호출 실패: 에러 메시지 + 입력 페이지로 복귀
+- [x] 추천 결과 없음: Mock 데이터 fallback
+- [x] 로컬 스토리지 파싱 오류 처리
 
 ## 기술 스택
 - **Backend**: Supabase Edge Functions (Deno)

@@ -3,6 +3,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { useLocation } from "wouter";
 import { ChevronLeft, ChevronDown, Check } from "lucide-react";
+import { getRecommendations } from "../../../shared/api/recommendation";
 
 export default function RecommendationsInputPage() {
   const [, setLocation] = useLocation();
@@ -15,18 +16,33 @@ export default function RecommendationsInputPage() {
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
-  const handleSubmit = () => {
-    // 임시로 콘솔 로그, 나중에 API 호출로 교체
-    console.log({
-      start_month: startMonth,
-      end_month: endMonth,
-      input_place: selectedFarm,
-      input_irang: parseInt(irangCount)
-    });
-    
-    // TODO: 로딩 화면 추가 및 API 호출
-    // 임시로 바로 결과 페이지로 이동
-    setLocation('/recommendations/result');
+  const handleSubmit = async () => {
+    if (!startMonth || !endMonth || !selectedFarm || !irangCount) {
+      return;
+    }
+
+    // 로딩 페이지로 이동
+    setLocation('/recommendations/loading');
+
+    try {
+      // API 호출
+      const response = await getRecommendations({
+        start_month: startMonth,
+        end_month: endMonth,
+        input_place: selectedFarm,
+        input_irang: parseInt(irangCount)
+      });
+
+      // 결과를 로컬 스토리지에 임시 저장
+      localStorage.setItem('recommendation_result', JSON.stringify(response.result));
+
+      // 결과 페이지로 이동
+      setLocation('/recommendations/result');
+    } catch (error) {
+      console.error('추천 API 호출 실패:', error);
+      alert('작물 추천 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setLocation('/recommendations/input');
+    }
   };
 
   const isFormValid = startMonth && endMonth && selectedFarm && irangCount && parseInt(irangCount) > 0;
