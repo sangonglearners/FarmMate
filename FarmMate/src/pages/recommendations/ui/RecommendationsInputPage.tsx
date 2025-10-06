@@ -1,20 +1,67 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { useLocation } from "wouter";
 import { ChevronLeft, ChevronDown, Check } from "lucide-react";
 import { getRecommendations } from "../../../shared/api/recommendation";
+import { supabase } from "../../../shared/api/supabase";
+
+interface Farm {
+  id: string;
+  name: string;
+  environment: string;
+}
 
 export default function RecommendationsInputPage() {
   const [, setLocation] = useLocation();
   const [startMonth, setStartMonth] = useState<number | null>(null);
   const [endMonth, setEndMonth] = useState<number | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<string>("");
+  const [selectedFarmId, setSelectedFarmId] = useState<string>("");
   const [irangCount, setIrangCount] = useState<string>("");
   const [startMonthOpen, setStartMonthOpen] = useState(false);
   const [endMonthOpen, setEndMonthOpen] = useState(false);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [isLoadingFarms, setIsLoadingFarms] = useState(true);
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  // 농장 정보 불러오기
+  useEffect(() => {
+    const fetchFarms = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setIsLoadingFarms(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('farms')
+          .select('id, name, environment')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        setFarms(data || []);
+      } catch (error) {
+        console.error('농장 정보 조회 오류:', error);
+        setFarms([]);
+      } finally {
+        setIsLoadingFarms(false);
+      }
+    };
+
+    fetchFarms();
+  }, []);
+
+  // 환경에 맞는 이모지 반환
+  const getEnvironmentEmoji = (environment: string) => {
+    if (environment === '노지') return '🌾';
+    if (environment === '시설') return '🏠';
+    return '🏗️'; // 기타 (보온시설, 해가림시설 등)
+  };
 
   const handleSubmit = async () => {
     if (!startMonth || !endMonth || !selectedFarm || !irangCount) {
@@ -71,28 +118,62 @@ export default function RecommendationsInputPage() {
             <CardTitle className="text-lg">재배 위치</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant={selectedFarm === "노지" ? "default" : "outline"}
-                onClick={() => setSelectedFarm("노지")}
-                className="h-20"
-              >
-                <div>
-                  <div className="text-2xl mb-1">🌾</div>
-                  <div className="text-sm">노지</div>
-                </div>
-              </Button>
-              <Button
-                variant={selectedFarm === "시설" ? "default" : "outline"}
-                onClick={() => setSelectedFarm("시설")}
-                className="h-20"
-              >
-                <div>
-                  <div className="text-2xl mb-1">🏠</div>
-                  <div className="text-sm">시설</div>
-                </div>
-              </Button>
-            </div>
+            {isLoadingFarms ? (
+              <div className="flex justify-center py-8">
+                <div className="w-6 h-6 border-2 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+              </div>
+            ) : farms.length > 0 ? (
+              // 농장 정보가 있는 경우
+              <div className="grid grid-cols-2 gap-3">
+                {farms.map((farm) => (
+                  <Button
+                    key={farm.id}
+                    variant={selectedFarmId === farm.id ? "default" : "outline"}
+                    onClick={() => {
+                      setSelectedFarmId(farm.id);
+                      setSelectedFarm(farm.environment);
+                    }}
+                    className="h-20"
+                  >
+                    <div>
+                      <div className="text-2xl mb-1">{getEnvironmentEmoji(farm.environment)}</div>
+                      <div className="text-sm">{farm.name}</div>
+                      <div className="text-xs text-gray-500">({farm.environment})</div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              // 농장 정보가 없는 경우 - 기본 노지/시설 선택
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant={selectedFarm === "노지" ? "default" : "outline"}
+                  onClick={() => {
+                    setSelectedFarm("노지");
+                    setSelectedFarmId("");
+                  }}
+                  className="h-20"
+                >
+                  <div>
+                    <div className="text-2xl mb-1">🌾</div>
+                    <div className="text-sm">노지</div>
+                  </div>
+                </Button>
+                <Button
+                  variant={selectedFarm === "시설" ? "default" : "outline"}
+                  onClick={() => {
+                    setSelectedFarm("시설");
+                    setSelectedFarmId("");
+                  }}
+                  className="h-20"
+                >
+                  <div>
+                    <div className="text-2xl mb-1">🏠</div>
+                    <div className="text-sm">시설</div>
+                  </div>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
