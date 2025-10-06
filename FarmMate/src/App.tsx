@@ -8,6 +8,7 @@ import CalendarPage from './pages/calendar/ui/CalendarPage';
 import MyPage from './pages/my-page/ui/MyPage';
 import NotFound from './pages/not-found';
 import Layout from './components/layout/layout';
+import { RecommendationsInputPage, RecommendationsLoadingPage, RecommendationsResultPage } from './pages/recommendations';
 
 // QueryClient 생성
 const queryClient = new QueryClient({
@@ -29,7 +30,10 @@ function MainApp() {
           <Route path="/farms" component={FarmsPage} />
           <Route path="/crops" component={FarmsPage} />
           <Route path="/calendar" component={CalendarPage} />
-          <Route path="/recommendations" component={HomePage} />
+          <Route path="/recommendations/input" component={RecommendationsInputPage} />
+          <Route path="/recommendations/loading" component={RecommendationsLoadingPage} />
+          <Route path="/recommendations/result" component={RecommendationsResultPage} />
+          <Route path="/recommendations" component={RecommendationsInputPage} />
           <Route path="/my-page" component={MyPage} />
           <Route path="/auth/callback" component={HomePage} />
           {/* NotFound는 추후 useRoute 조합으로 추가 */}
