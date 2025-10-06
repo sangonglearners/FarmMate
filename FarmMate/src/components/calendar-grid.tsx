@@ -1,7 +1,11 @@
+<<<<<<< HEAD
+import type { Task, Crop } from "@shared/schema";
+=======
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Task, Crop } from "@shared/types/schema";
 import { listTasksRange } from "@/shared/api/tasks";
+>>>>>>> main
 
 interface CalendarGridProps {
   currentDate: Date;
@@ -42,6 +46,8 @@ export default function CalendarGrid({
     queryFn: () => listTasksRange(startDateStr, endDateStr),
     // 부모가 tasks를 이미 내려주면 리스크 줄이기 위해 거기 걸맞게 stale 하게 둠
     enabled: !tasksProp || tasksProp.length === 0,
+    staleTime: 0, // 항상 최신 데이터를 가져오도록 설정
+    refetchOnWindowFocus: true, // 창 포커스 시 자동 새로고침
   });
 
   // 실제로 사용할 작업 배열: prop 우선, 없으면 쿼리 결과
@@ -60,7 +66,21 @@ export default function CalendarGrid({
       2,
       "0"
     )}`;
-    return tasks.filter((t) => t.scheduledDate === dateStr);
+    return tasks.filter((t) => {
+      // 정확한 날짜 매칭 또는 날짜 범위 내 포함
+      let isDateMatch = t.scheduledDate === dateStr;
+      
+      if (!isDateMatch && t.endDate) {
+        // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
+        const taskStartDate = new Date(t.scheduledDate);
+        const taskEndDate = new Date(t.endDate);
+        const currentDate = new Date(dateStr);
+        
+        isDateMatch = currentDate >= taskStartDate && currentDate <= taskEndDate;
+      }
+      
+      return isDateMatch;
+    });
   };
 
   const getCropName = (cropId: string | null | undefined) => {

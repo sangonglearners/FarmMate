@@ -23,17 +23,17 @@ function toTask(r: SupabaseTask): Task {
   return {
     id: r.id,
     title: r.title,
-    description: r.description || undefined,
+    description: r.description || null,
     taskType: r.task_type,
     scheduledDate: r.scheduled_date,
-    endDate: r.end_date || undefined,
+    endDate: r.end_date || null,
     completed: r.completed,
-    farmId: r.farm_id || "",
-    cropId: r.crop_id || "",
+    farmId: r.farm_id || null,
+    cropId: r.crop_id || null,
     userId: r.user_id,
-    completedAt: r.completed_at,
-    createdAt: r.created_at,
-    rowNumber: r.row_number || undefined,
+    completedAt: r.completed_at ? new Date(r.completed_at) : null,
+    createdAt: new Date(r.created_at),
+    rowNumber: r.row_number || null,
   };
 }
 
@@ -138,7 +138,7 @@ export const taskApi = {
         farm_id: taskData.farmId || null,
         crop_id: taskData.cropId || null,
         row_number: taskData.rowNumber || null,
-        completed: taskData.completed,
+        completed: taskData.completed || 0,
       })
       .eq('id', id)
       .eq('user_id', auth.user.id) // 보안: 자신의 작업만 수정 가능
@@ -176,6 +176,35 @@ export const taskApi = {
 
     if (error) {
       console.error('작업 완료 오류:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("작업을 찾을 수 없습니다.");
+    }
+
+    return toTask(data);
+  },
+
+  uncompleteTask: async (id: string): Promise<Task> => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    const { data, error } = await supabase
+      .from('tasks_v1')
+      .update({
+        completed: 0,
+        completed_at: null,
+      })
+      .eq('id', id)
+      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 완료 취소 가능
+      .select()
+      .single();
+
+    if (error) {
+      console.error('작업 완료 취소 오류:', error);
       throw error;
     }
 

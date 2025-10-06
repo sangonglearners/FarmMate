@@ -1,2 +1,2 @@
 // Recommendation entity types
-export type { CropRecommendation, InsertRecommendation } from "@shared/types/schema";
+export type { CropRecommendation, InsertRecommendation } from "@shared/schema";

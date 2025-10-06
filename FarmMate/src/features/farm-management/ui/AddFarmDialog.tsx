@@ -7,8 +7,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
-import { Button } from "@shared/ui/button";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -16,14 +16,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
-import { Input } from "@shared/ui/input";
-import { RadioGroup, RadioGroupItem } from "@shared/ui/radio-group";
-import { Label } from "@shared/ui/label";
-import { useToast } from "@shared/hooks/use-toast";
-import { insertFarmSchema } from "@shared/types/schema";
-import type { InsertFarm } from "@shared/types/schema";
-import type { FarmEntity } from "@shared/api/farm.repository";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { insertFarmSchema } from "@shared/schema";
+import type { InsertFarm } from "@shared/schema";
+import type { FarmEntity } from "@/shared/api/farm.repository";
 import { farmApi } from "@features/farm-management/api/farm.api";
 import { z } from "zod";
 

@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft } from "lucide-react";
-import { Button } from "@shared/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@shared/ui/card";
-import { CalendarGrid } from "@widgets/calendar-grid";
-import MonthCalendar from "@widgets/calendar-grid/ui/MonthCalendar";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { CalendarGrid } from "../../../widgets/calendar-grid";
+import MonthCalendar from "../../../widgets/calendar-grid/ui/MonthCalendar";
 
-import { useCrops } from "@features/crop-management";
-import { getTaskPriority, getTaskColor, getTaskIcon } from "@entities/task/model/utils";
+import { useCrops } from "../../../features/crop-management";
+import { getTaskPriority, getTaskColor, getTaskIcon } from "../../../entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
+import TodoList from "../../../components/todo-list";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -38,13 +39,15 @@ export default function HomePage() {
     queryKey: ["tasks"],
     queryFn: async () => {
       try {
-        const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("@/shared/api/tasks");
         return await taskApi.getTasks();
       } catch (error) {
         console.error("작업 목록 로딩 실패:", error);
         return [];
       }
     },
+    staleTime: 0, // 항상 최신 데이터를 가져오도록 설정
+    refetchOnWindowFocus: true, // 창 포커스 시 자동 새로고침
   });
   const { data: crops = [] } = useCrops();
 
@@ -94,8 +97,24 @@ export default function HomePage() {
     }
   };
 
-  // Get selected date's tasks (기본값은 오늘)
-  const selectedDateTasks = tasks.filter(task => task.scheduledDate === selectedDate);
+  // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
+  const selectedDateTasks = tasks.filter(task => {
+    // 정확한 날짜 매칭
+    if (task.scheduledDate === selectedDate) {
+      return true;
+    }
+    
+    // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
+    if ((task as any).endDate) {
+      const taskStartDate = new Date(task.scheduledDate);
+      const taskEndDate = new Date((task as any).endDate);
+      const currentDate = new Date(selectedDate);
+      
+      return currentDate >= taskStartDate && currentDate <= taskEndDate;
+    }
+    
+    return false;
+  });
   
   // Get upcoming tasks (next 7 days)
   const upcomingTasks = tasks
@@ -283,30 +302,11 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             {selectedDateTasks.length > 0 ? (
-              <div className="space-y-3">
-                {selectedDateTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleTaskClick(task)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="text-lg">{getTaskIcon(task.taskType)}</div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          {task.title}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {formatDisplayDate(task.scheduledDate)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`text-xs px-2 py-1 rounded-full ${getTaskColor(task.taskType)}`}>
-                      {formatDisplayDate(task.scheduledDate)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TodoList 
+                tasks={selectedDateTasks}
+                selectedDate={selectedDate}
+                onTaskClick={handleTaskClick}
+              />
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -324,14 +324,26 @@ export default function HomePage() {
       {/* Add Task Dialog */}
       <AddTaskDialog
         open={showAddTaskDialog}
-        onOpenChange={setShowAddTaskDialog}
+        onOpenChange={(open) => {
+          setShowAddTaskDialog(open);
+          if (!open) {
+            // 다이얼로그가 닫힐 때 작업 목록 새로고침
+            refetchTasks();
+          }
+        }}
         selectedDate={selectedDate}
       />
 
       {/* Edit Task Dialog */}
       <AddTaskDialog
         open={showEditTaskDialog}
-        onOpenChange={setShowEditTaskDialog}
+        onOpenChange={(open) => {
+          setShowEditTaskDialog(open);
+          if (!open) {
+            // 다이얼로그가 닫힐 때 작업 목록 새로고침
+            refetchTasks();
+          }
+        }}
         task={selectedTask}
         selectedDate={selectedDate}
       />

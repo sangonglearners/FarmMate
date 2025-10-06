@@ -1,8 +1,8 @@
 // Crop management hooks
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@shared/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { cropApi } from "../api/crop.api";
-import type { Crop, InsertCrop } from "@shared/types/schema";
+import type { Crop, InsertCrop } from "@shared/schema";
 
 export const useCrops = (search?: string) => {
   return useQuery<Crop[]>({

@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@shared/ui/button";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
-import { Textarea } from "@shared/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@shared/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,18 +22,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@shared/ui/form";
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/select";
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+<<<<<<< HEAD
+} from "@/components/ui/popover";
+import { useToast } from "@/hooks/use-toast";
+import { insertTaskSchema } from "@shared/schema";
+import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
+import { apiRequest } from "@/shared/api/client";
+=======
 } from "@shared/ui/popover";
 import { useToast } from "@shared/hooks/use-toast";
 import { insertTaskSchema } from "../../../shared/schema";
@@ -44,8 +51,9 @@ import { saveTask } from "@/shared/api/saveTask";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
 
+>>>>>>> main
 import { z } from "zod";
-import { Calendar } from "@shared/ui/calendar";
+import { Calendar } from "@/components/ui/calendar";
 
 const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),
@@ -153,7 +161,10 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         cropId: data.cropId ? Number(data.cropId) : undefined,
       }),
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({ title: "일정이 등록되었습니다.", description: "새로운 작업 일정이 추가되었습니다." });
       onOpenChange(false);

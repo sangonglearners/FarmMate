@@ -1,2 +1,2 @@
 // User entity types
-export type { User, InsertUser } from "@shared/types/schema";
+export type { User, InsertUser } from "@shared/schema";

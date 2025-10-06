@@ -1,7 +1,7 @@
 // Farm management API functions (Supabase direct via repository)
-import type { InsertFarm } from "@shared/types/schema";
-import { FarmRepository } from "@shared/api/farm.repository";
-import type { FarmEntity } from "@shared/api/farm.repository";
+import type { InsertFarm } from "@shared/schema";
+import { FarmRepository } from "@/shared/api/farm.repository";
+import type { FarmEntity } from "@/shared/api/farm.repository";
 
 export const farmApi = {
   getFarms: async (): Promise<FarmEntity[]> => {

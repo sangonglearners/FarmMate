@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@shared/ui/dialog";
-import { Button } from "@shared/ui/button";
-import { Input } from "@shared/ui/input";
-import { Label } from "@shared/ui/label";
-import { Calendar } from "@shared/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui/select";
-import { Checkbox } from "@shared/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../shared/ui/dialog";
+import { Button } from "../shared/ui/button";
+import { Input } from "../shared/ui/input";
+import { Label } from "../shared/ui/label";
+import { Calendar } from "../shared/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../shared/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../shared/ui/select";
+import { Checkbox } from "../shared/ui/checkbox";
 import { CalendarIcon, Edit2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFarms } from "@features/farm-management";
 import { useCrops } from "@features/crop-management";
-import type { Task } from "@shared/types/schema";
+import type { Task } from "../shared/types/schema";
 
 interface EditTaskDialogProps {
   task: Task;
@@ -40,15 +40,19 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
   const { data: farms } = useFarms();
   const { data: crops } = useCrops();
 
-  // 이랑 번호 추출
+  // 이랑 번호 추출 - task.rowNumber를 우선 사용하고, 없으면 description에서 파싱
   useEffect(() => {
-    if (task.description && task.description.includes("이랑:")) {
+    if (task.rowNumber) {
+      // task.rowNumber가 있으면 직접 사용
+      setSelectedRows([task.rowNumber]);
+    } else if (task.description && task.description.includes("이랑:")) {
+      // description에서 파싱
       const match = task.description.match(/이랑:\s*(\d+)번/);
       if (match) {
         setSelectedRows([parseInt(match[1])]);
       }
     }
-  }, [task.description]);
+  }, [task.rowNumber, task.description]);
 
   const selectedFarm = farms?.find((farm: any) => farm.id === selectedFarmId);
   const selectedCrop = crops?.find((crop: any) => crop.id === selectedCropId);
@@ -101,9 +105,10 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
         scheduledDate: startDate?.toLocaleDateString('sv-SE'),
         endDate: endDate?.toLocaleDateString('sv-SE'),
         description: selectedRows.length > 0 ? `이랑: ${selectedRows.join(", ")}번` : description,
+        rowNumber: selectedRows.length > 0 ? selectedRows[0] : null, // 첫 번째 이랑 번호 저장
       };
 
-      const { taskApi } = await import("@shared/api/tasks");
+      const { taskApi } = await import("../shared/api/tasks");
       await taskApi.updateTask(task.id, updateData);
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });

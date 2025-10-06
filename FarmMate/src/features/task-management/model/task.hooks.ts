@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { taskApi } from "@shared/api/tasks";
-import type { Task, InsertTask } from "@shared/types/schema";
-import { useToast } from "@shared/hooks/use-toast";
+import { taskApi } from "@/shared/api/tasks";
+import type { Task, InsertTask } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 export const useTasks = () => {
   return useQuery<Task[]>({
@@ -82,6 +82,29 @@ export const useCompleteTask = () => {
       toast({
         title: "작업 완료 실패",
         description: "작업 완료 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useUncompleteTask = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: taskApi.uncompleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({
+        title: "작업 완료 취소",
+        description: "작업 완료가 취소되었습니다.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "작업 완료 취소 실패",
+        description: "작업 완료 취소 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     },
