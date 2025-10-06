@@ -24,8 +24,9 @@ export default function RecommendationsInputPage() {
       input_irang: parseInt(irangCount)
     });
     
-    // 로딩 화면으로 이동 (추후 구현)
-    alert("추천 기능은 곧 구현됩니다!");
+    // TODO: 로딩 화면 추가 및 API 호출
+    // 임시로 바로 결과 페이지로 이동
+    setLocation('/recommendations/result');
   };
 
   const isFormValid = startMonth && endMonth && selectedFarm && irangCount && parseInt(irangCount) > 0;
