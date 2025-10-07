@@ -114,7 +114,7 @@ export default function RecommendationsInputPage() {
   const isFormValid = startMonth && endMonth && selectedFarm && irangCount && parseInt(irangCount) > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50 p-4 pb-72">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -235,7 +235,7 @@ export default function RecommendationsInputPage() {
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               {/* 시작 시기 */}
-              <div>
+              <div className="relative">
                 <label className="text-sm text-gray-600 mb-2 block">시작 월</label>
                 <button
                   onClick={() => setStartMonthOpen(!startMonthOpen)}
@@ -251,7 +251,7 @@ export default function RecommendationsInputPage() {
                   />
                 </button>
                 {startMonthOpen && (
-                  <div className="mt-2 border border-gray-200 rounded-md max-h-60 overflow-y-auto absolute z-10 bg-white w-[calc(50%-1rem)]">
+                  <div className="absolute mt-2 left-0 right-0 border border-gray-200 rounded-md max-h-60 overflow-y-auto z-20 bg-white shadow-lg">
                     {months.map((month) => (
                       <button
                         key={`start-${month}`}
@@ -274,7 +274,7 @@ export default function RecommendationsInputPage() {
               </div>
 
               {/* 종료 시기 */}
-              <div>
+              <div className="relative">
                 <label className="text-sm text-gray-600 mb-2 block">종료 월</label>
                 <button
                   onClick={() => setEndMonthOpen(!endMonthOpen)}
@@ -290,7 +290,7 @@ export default function RecommendationsInputPage() {
                   />
                 </button>
                 {endMonthOpen && (
-                  <div className="mt-2 border border-gray-200 rounded-md max-h-60 overflow-y-auto absolute z-10 bg-white w-[calc(50%-1rem)]">
+                  <div className="absolute mt-2 left-0 right-0 border border-gray-200 rounded-md max-h-60 overflow-y-auto z-20 bg-white shadow-lg">
                     {months.map((month) => (
                       <button
                         key={`end-${month}`}
