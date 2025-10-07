@@ -189,23 +189,46 @@ export default function RecommendationsResultPage() {
   const [, setLocation] = useLocation();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [result, setResult] = useState<RecommendationResult | null>(null);
+  const [farmInfo, setFarmInfo] = useState<{
+    farm_id: string | null;
+    farm_name: string | null;
+    farm_environment: string | null;
+  } | null>(null);
+  const [inputConditions, setInputConditions] = useState<{
+    rec_range: number;
+    rec_period: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // 로컬 스토리지에서 결과 가져오기
-    const storedResult = localStorage.getItem('recommendation_result');
-    if (storedResult) {
+    const storedData = localStorage.getItem('recommendation_result');
+    if (storedData) {
       try {
-        const parsedResult = JSON.parse(storedResult);
-        setResult(parsedResult);
+        const parsedData = JSON.parse(storedData);
+        // 새로운 형식 (result + farmInfo + inputConditions)
+        if (parsedData.result && parsedData.farmInfo) {
+          setResult(parsedData.result);
+          setFarmInfo(parsedData.farmInfo);
+          setInputConditions(parsedData.inputConditions || null);
+        } else {
+          // 이전 형식 (result만 있음)
+          setResult(parsedData);
+          setFarmInfo(null);
+          setInputConditions(null);
+        }
       } catch (error) {
         console.error('결과 파싱 오류:', error);
         // Mock 데이터 사용
         setResult(mockResult.result);
+        setFarmInfo(null);
+        setInputConditions(null);
       }
     } else {
       // Mock 데이터 사용
       setResult(mockResult.result);
+      setFarmInfo(null);
+      setInputConditions(null);
     }
     setIsLoading(false);
   }, []);
@@ -226,13 +249,18 @@ export default function RecommendationsResultPage() {
       const combination = result.recommended_combinations[selectedCard];
       
       await saveRecommendationResult({
+        farm_id: farmInfo?.farm_id || undefined,
+        farm_name: farmInfo?.farm_name || undefined,
+        farm_environment: farmInfo?.farm_environment || undefined,
+        rec_range: inputConditions?.rec_range,
+        rec_period: inputConditions?.rec_period,
         crop_names: card.crops,
         expected_revenue: card.expected_revenue,
         indicators: card.indicators,
         combination_detail: combination,
       });
 
-      alert("플래너에 등록되었습니다!");
+      alert("추천 결과가 저장되었습니다!");
       // 로컬 스토리지 정리
       localStorage.removeItem('recommendation_result');
       setLocation("/");
