@@ -62,22 +62,22 @@ if (method !== "POST" || !pathOk) {
       body = {};
     }
 
-  // 두 가지 키 네이밍 모두 허용: input_* 또는 단순 이름
-  const start_month: number = body.start_month ?? body?.startMonth;
-  const end_month: number = body.end_month ?? body?.endMonth;
-  const place: string = body.input_place ?? body.place;
-  const irang: number = body.input_irang ?? body.irang;
+    // 두 가지 키 네이밍 모두 허용: input_* 또는 단순 이름
+    const start_month: number = body.start_month ?? body?.startMonth;
+    const end_month: number = body.end_month ?? body?.endMonth;
+    const place: string = body.input_place ?? body.place;
+    const irang: number = body.input_irang ?? body.irang;
 
-  if (
-    typeof start_month !== "number" ||
-    typeof end_month !== "number" ||
-    typeof place !== "string" ||
-    typeof irang !== "number"
-  ) {
-    return json({ error: "Invalid payload" }, { status: 400 });
-  }
+    if (
+      typeof start_month !== "number" ||
+      typeof end_month !== "number" ||
+      typeof place !== "string" ||
+      typeof irang !== "number"
+    ) {
+      return json({ error: "Invalid payload" }, { status: 400 });
+    }
 
-  // --- Supabase 클라이언트 ---
+    // --- Supabase 클라이언트 ---
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   
@@ -90,22 +90,22 @@ if (method !== "POST" || !pathOk) {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
   });
 
-  // --- 데이터 조회 ---
+    // --- 데이터 조회 ---
   console.log("🔍 데이터베이스에서 작물 데이터 조회 중...");
   
   let { data: cropsData, error } = await supabase
-    .from("recommend") // 필요 시 'recommend_view'로 교체
-    .select(`
-      category,
-      item,
-      variety,
-      labor_score,
-      rarity_score,
-      sow_start,
-      harvest_end,
-      profit_open,
-      profit_greenhouse
-    `);
+      .from("recommend") // 필요 시 'recommend_view'로 교체
+      .select(`
+        category,
+        item,
+        variety,
+        labor_score,
+        rarity_score,
+        sow_start,
+        harvest_end,
+        profit_open,
+        profit_greenhouse
+      `);
 
   if (error) {
     console.error("❌ 데이터베이스 조회 오류:", error);
@@ -184,35 +184,35 @@ if (method !== "POST" || !pathOk) {
     cropsData = sampleData;
   }
 
-  // --- 추천 엔진 실행 ---
-  const engine: any = new (CropRecommendationEngine as any)();
+    // --- 추천 엔진 실행 ---
+    const engine: any = new (CropRecommendationEngine as any)();
 
-  let result: unknown;
-  if (engine && typeof engine.run === "function") {
-    // run(payload) 시그니처 지원
-    result = await engine.run({
-      start_month,
-      end_month,
-      place,
-      irang,
-      cropsData,
-    });
-  } else if (engine && typeof engine.recommendCrops === "function") {
-    // recommendCrops(...) 시그니처 지원
-    result = await engine.recommendCrops(
-      start_month,
-      end_month,
-      place,
-      irang,
-      cropsData
-    );
-  } else {
-    throw new Error(
-      "CropRecommendationEngine에 run 또는 recommendCrops 메서드가 없습니다."
-    );
-  }
+    let result: unknown;
+    if (engine && typeof engine.run === "function") {
+      // run(payload) 시그니처 지원
+      result = await engine.run({
+        start_month,
+        end_month,
+        place,
+        irang,
+        cropsData,
+      });
+    } else if (engine && typeof engine.recommendCrops === "function") {
+      // recommendCrops(...) 시그니처 지원
+      result = await engine.recommendCrops(
+        start_month,
+        end_month,
+        place,
+        irang,
+        cropsData
+      );
+    } else {
+      throw new Error(
+        "CropRecommendationEngine에 run 또는 recommendCrops 메서드가 없습니다."
+      );
+    }
 
-  return json({ ok: true, result });
+    return json({ ok: true, result });
   } catch (err: any) {
     return json(
       { error: String(err?.message ?? err ?? "Unknown error") },
