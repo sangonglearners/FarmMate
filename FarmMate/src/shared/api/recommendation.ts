@@ -88,6 +88,10 @@ export async function getRecommendations(
  */
 export async function saveRecommendationResult(data: {
   farm_id?: string;
+  farm_name?: string;
+  farm_environment?: string;
+  rec_range?: number;
+  rec_period?: string;
   crop_names: string[];
   expected_revenue: string;
   indicators: {
@@ -109,6 +113,10 @@ export async function saveRecommendationResult(data: {
       .insert({
         user_id: user.id,
         farm_id: data.farm_id || null,
+        farm_name: data.farm_name || null,
+        farm_environment: data.farm_environment || null,
+        rec_range: data.rec_range || null,
+        rec_period: data.rec_period || null,
         crop_names: data.crop_names,
         expected_revenue: data.expected_revenue,
         indicators: data.indicators,

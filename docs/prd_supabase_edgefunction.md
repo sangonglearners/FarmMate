@@ -27,9 +27,15 @@
 ### 3.1 입력 페이지 (`/recommendations/input`)
 - [x] 입력 폼 구현
   - [x] **재배 위치 선택**: farms 테이블에서 사용자 농장 목록 조회 → `environment` 값 사용
+    - [x] 농장 등록 시: 농장명 + 환경 (이모지 포함) 표시
+    - [x] 농장 미등록 시: 노지/시설 기본 선택 제공
   - [x] **재배 범위 입력**: 이랑 수 입력 (숫자, 최소값 1)
-  - [x] **재배 시기 선택**: 시작/종료 월 토글 버튼 (1~12월)
-- [x] "작물 추천" 버튼 → API 호출 (임시 alert, 추후 연동)image.png
+    - [x] 도움말 텍스트: "3개 품종 기준 9-30개 권장"
+  - [x] **재배 시기 선택**: 시작/종료 월 어코디언 토글 (1~12월)
+    - [x] 가로 배치 (시작월 | 종료월)
+- [x] "작물 추천 받기" 버튼 → API 호출 및 로딩 페이지 이동
+- [x] 상단 "추천 기록 보기" 버튼 추가
+- [x] 제목/부제 가운데 정렬
 
 ### 3.2 로딩 화면 (`/recommendations/loading`)
 - [x] 로딩 스피너 + "작물 조합을 만들고 있습니다" 메시지
@@ -38,32 +44,78 @@
 - [x] API 호출 완료 시 결과 페이지로 자동 전환
 
 ### 3.3 추천 결과 페이지 (`/recommendations/result`)
-- [x] Gift box 카드 3개 (리스트 뷰)
-  - [x] 카드 헤더: "Gift box 1/2/3" + 🎁 이모지
-  - [x] 작물명 3개 (품목 + 품종) - 녹색 배지로 표시
-  - [x] 예상 매출액 (천 단위 구분)
-  - [x] 지표 시각화 (0~3): 진행 바 + 숫자 표기
-    - 수익성, 노동편의성, 품종희소성
+- [x] 추천 조합 카드 3개 (리스트 뷰, 컴팩트 디자인)
+  - [x] 카드 헤더: "Plan A/B/C" (큰 폰트, 배지 스타일)
+  - [x] 작물명 3개 (품목 + 품종) - 한 줄씩, 녹색 배지 + 🌱 이모지
+  - [x] 예상 매출액 (명시적 라벨 "예상 매출액" + 천 단위 구분)
+  - [x] 지표 시각화 (0~3): 한 줄에 진행 바 + 숫자 표기
+    - 💰 수익성, ⚙️ 노동편의성, ✨ 품종희소성
 - [x] 카드 선택 (라디오 버튼, 하나만 선택)
-- [x] "플래너에 등록하기" 버튼 → `rec_result` 테이블에 저장 (TODO)
+- [x] "추천 결과 저장하기" 버튼 → `rec_result` 테이블에 저장
+  - [x] 입력 조건(재배 범위, 재배 시기) 함께 저장
+  - [x] 농장 정보(farm_id, farm_name, farm_environment) 저장
 - [x] "다시 추천받기" 버튼
 
 ## Phase 4: 데이터 연동 및 완성
 
 ### 4.1 `rec_result` 테이블 생성 및 저장
 - [x] 테이블 스키마 생성 (`create_rec_result_table.sql`)
-  - user_id, farm_id, crop_names, expected_revenue, indicators, combination_detail, created_at
+  - user_id, farm_id, farm_name, farm_environment, rec_range, rec_period
+  - crop_names, expected_revenue, indicators, combination_detail, created_at
   - RLS 정책 설정 (사용자별 데이터 격리)
   - 인덱스 생성 (user_id, created_at)
+- [x] 테이블 컬럼 추가 (`add_farm_info_to_rec_result.sql`, `add_input_conditions_to_rec_result.sql`)
+  - farm_name, farm_environment: 농장 정보 스냅샷 저장
+  - rec_range: 재배 범위 (이랑 수)
+  - rec_period: 재배 시기 (예: "3월 ~ 6월")
 - [x] 선택한 조합 저장 함수 구현 (`saveRecommendationResult`)
   - 사용자 ID 자동 연동
-  - 선택한 카드의 정보를 테이블에 저장
-  - 결과 페이지에서 "플래너에 등록하기" 버튼 연동
+  - 선택한 카드의 정보 + 입력 조건 저장
+  - 결과 페이지에서 "추천 결과 저장하기" 버튼 연동
 
 ### 4.2 에러 처리
 - [x] API 호출 실패: 에러 메시지 + 입력 페이지로 복귀
 - [x] 추천 결과 없음: Mock 데이터 fallback
 - [x] 로컬 스토리지 파싱 오류 처리
+
+### 4.4 추천 기록 자동 삭제
+> ✅ **구현 완료**: PostgreSQL `pg_cron` 사용
+
+**구현 방법: PostgreSQL `pg_cron` (선택)**
+- [x] 마이그레이션 파일 생성 (`setup_auto_delete_recommendations.sql`)
+- [x] `pg_cron` 확장 활성화
+- [x] 삭제 함수 작성: `delete_old_recommendations()`
+- [x] cron 작업 등록: 매일 자정(UTC) 실행
+- [x] UI 안내 문구 추가: 추천 기록 목록 페이지
+
+**설정 사항 (확정)**
+- ✅ 삭제 기간: **7일 고정**
+- ✅ 알림: **사전 알림 없음** (UI에 안내 문구만 표시)
+- ✅ 삭제 방식: **하드 삭제** (복구 불가)
+- ✅ Supabase 무료 티어에서 `pg_cron` 사용 가능 확인됨
+
+**사용자 수행 필요 작업**
+1. Supabase Dashboard에서 SQL 실행
+2. cron 작업 등록 확인
+3. (선택) 수동 테스트 실행
+
+### 4.3 추천 결과 조회 UI
+- [x] 추천 기록 목록 페이지 (`/recommendations/history`)
+  - [x] rec_result 테이블에서 사용자의 저장된 추천 결과 조회
+  - [x] 리스트 형태로 표시 (날짜, 입력 조건 요약)
+    - [x] 🌾/🏠/🏗️ 재배 위치 (농장명 + 환경)
+    - [x] 📏 재배 범위 (N이랑)
+    - [x] 📅 재배 시기 (N월 ~ N월)
+    - [x] 💰 예상 매출액
+  - [x] 카드 클릭 시 상세 페이지로 이동
+  - [x] 빈 화면 처리 (이모지 + 안내 문구 + CTA 버튼)
+- [x] 추천 결과 상세 페이지 (`/recommendations/history/:id`)
+  - [x] 저장 당시 입력 조건 카드 표시
+    - [x] 재배 위치, 재배 범위, 재배 시기
+  - [x] 선택했던 작물 조합 카드 표시 (Plan A 스타일)
+  - [x] 삭제 버튼 (확인 모달 포함)
+- [x] 입력 페이지 상단에 "추천 기록 보기" 버튼 추가
+  - [x] 현재 유지: 마이페이지에는 추가하지 않음 (Beta 기능 포지셔닝)
 
 ## 기술 스택
 - **Backend**: Supabase Edge Functions (Deno)
@@ -191,6 +243,10 @@ CREATE TABLE rec_result (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id),
   farm_id UUID REFERENCES farms(id),
+  farm_name TEXT,                 -- 농장명 스냅샷
+  farm_environment TEXT,          -- 재배 환경 스냅샷 ("노지" | "시설")
+  rec_range INTEGER,              -- 재배 범위 (이랑 수)
+  rec_period TEXT,                -- 재배 시기 (예: "3월 ~ 6월")
   crop_names TEXT[],              -- 3개 작물명 배열
   expected_revenue TEXT,          -- 예상 매출액
   indicators JSONB,               -- {수익성: 2.1, 노동편의성: 1.0, 품종희소성: 2.3}
