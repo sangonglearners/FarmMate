@@ -91,6 +91,12 @@ export default function RecommendationsHistoryPage() {
         </Button>
         <h1 className="text-2xl font-bold text-gray-900">추천 기록</h1>
         <p className="text-gray-600 text-sm mt-1">저장한 작물 추천 결과를 확인하세요</p>
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+          <span className="text-amber-600 text-sm">⏰</span>
+          <p className="text-amber-700 text-xs">
+            저장된 추천 기록은 7일 후 자동으로 삭제됩니다.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-3 max-w-2xl">
