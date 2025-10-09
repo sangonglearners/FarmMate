@@ -825,31 +825,29 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           // 다른 월인 경우: 각 월의 날짜 범위를 배열로
                           const parts = [];
                           
-                          // 시작 월의 날짜 범위
-                          const startMonthLastDay = new Date(startDate.getFullYear(), startMonth, 0).getDate();
+                          // 시작 월의 날짜 범위 (종료일 생략)
                           const startMonthIndex = currentPeriods.findIndex(p => (p as any).month === startMonth);
                           parts.push({
                             month: startMonth,
-                            text: `${startMonth}/${startDay}~${startMonthLastDay}`, // 10/29~31
+                            text: `${startMonth}/${startDay}~`, // 10/29~
                             monthIndex: startMonthIndex
                           });
                           
-                          // 중간 월들 (있다면)
+                          // 중간 월들 (있다면) - 전체 월
                           for (let month = startMonth + 1; month < endMonth; month++) {
-                            const monthLastDay = new Date(startDate.getFullYear(), month, 0).getDate();
                             const monthIndex = currentPeriods.findIndex(p => (p as any).month === month);
                             parts.push({
                               month: month,
-                              text: `${month}/1~${monthLastDay}`, // 전체 월
+                              text: `${month}월`, // 전체 월 표시
                               monthIndex: monthIndex
                             });
                           }
                           
-                          // 종료 월의 날짜 범위
+                          // 종료 월의 날짜 범위 (시작일 생략)
                           const endMonthIndex = currentPeriods.findIndex(p => (p as any).month === endMonth);
                           parts.push({
                             month: endMonth,
-                            text: `${endMonth}/1~${endDay}`, // 11/1~3
+                            text: `~${endMonth}/${endDay}`, // ~11/3
                             monthIndex: endMonthIndex
                           });
                           
