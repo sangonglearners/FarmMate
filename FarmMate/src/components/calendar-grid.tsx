@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-import type { Task, Crop } from "@shared/schema";
-=======
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Task, Crop } from "@shared/types/schema";
+import type { Task, Crop } from "@shared/schema";
 import { listTasksRange } from "@/shared/api/tasks";
->>>>>>> main
 
 interface CalendarGridProps {
   currentDate: Date;
