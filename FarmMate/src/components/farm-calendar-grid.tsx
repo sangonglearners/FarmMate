@@ -798,7 +798,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       // 날짜 표시 로직
                       const formatDateRange = (startDate: Date, endDate: Date) => {
                         if (viewMode === "yearly") {
-                          // 연간 뷰: 월/일 형식으로 구체적인 날짜 표시
+                          // 연간 뷰: 각 월의 날짜 범위를 객체 배열로 반환
                           const startMonth = startDate.getMonth() + 1;
                           const startDay = startDate.getDate();
                           const endMonth = endDate.getMonth() + 1;
@@ -806,32 +806,54 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           
                           // 같은 날짜인 경우
                           if (startDate.getTime() === endDate.getTime()) {
-                            return `${startMonth}/${startDay}`;
+                            return [{
+                              month: startMonth,
+                              text: `${startMonth}/${startDay}`,
+                              monthIndex: taskGroup.startDayIndex
+                            }];
                           }
                           
                           // 같은 월인 경우
                           if (startMonth === endMonth) {
-                            return `${startMonth}/${startDay}~${endDay}`;
+                            return [{
+                              month: startMonth,
+                              text: `${startMonth}/${startDay}~${endDay}`,
+                              monthIndex: taskGroup.startDayIndex
+                            }];
                           }
                           
-                          // 다른 월인 경우: 각 월의 날짜 범위를 명시
-                          // 10/29~10/31, 11/1~11/3 형식
+                          // 다른 월인 경우: 각 월의 날짜 범위를 배열로
                           const parts = [];
                           
                           // 시작 월의 날짜 범위
                           const startMonthLastDay = new Date(startDate.getFullYear(), startMonth, 0).getDate();
-                          parts.push(`${startMonth}/${startDay}~${startMonthLastDay}`);
+                          const startMonthIndex = currentPeriods.findIndex(p => (p as any).month === startMonth);
+                          parts.push({
+                            month: startMonth,
+                            text: `${startMonth}/${startDay}~${startMonthLastDay}`, // 10/29~31
+                            monthIndex: startMonthIndex
+                          });
                           
                           // 중간 월들 (있다면)
                           for (let month = startMonth + 1; month < endMonth; month++) {
                             const monthLastDay = new Date(startDate.getFullYear(), month, 0).getDate();
-                            parts.push(`${month}/1~${monthLastDay}`);
+                            const monthIndex = currentPeriods.findIndex(p => (p as any).month === month);
+                            parts.push({
+                              month: month,
+                              text: `${month}/1~${monthLastDay}`, // 전체 월
+                              monthIndex: monthIndex
+                            });
                           }
                           
                           // 종료 월의 날짜 범위
-                          parts.push(`${endMonth}/1~${endDay}`);
+                          const endMonthIndex = currentPeriods.findIndex(p => (p as any).month === endMonth);
+                          parts.push({
+                            month: endMonth,
+                            text: `${endMonth}/1~${endDay}`, // 11/1~3
+                            monthIndex: endMonthIndex
+                          });
                           
-                          return parts.join(', ');
+                          return parts;
                         } else {
                           // 월간 뷰: 월/일 표시
                           const startMonth = startDate.getMonth() + 1;
@@ -872,13 +894,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={`continuous-task-${rowNumber}-${groupIndex}`}
-                          className={`absolute ${taskColor} ${borderRadiusClass} px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm pointer-events-auto`}
+                          className={`absolute ${taskColor} ${borderRadiusClass} ${viewMode === "yearly" ? "" : "px-2 py-1"} text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity ${viewMode === "yearly" ? "" : "flex items-center"} shadow-sm pointer-events-auto`}
                           style={{
                             left: leftPosition,
                             width: boxWidth,
                             top: '8px', // 상단 여백
                             height: viewMode === "yearly" ? '40px' : '32px', // 연간 뷰는 높이를 더 크게
-                            zIndex: 5
+                            zIndex: 5,
+                            position: 'absolute' // relative positioning for children in yearly view
                           }}
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
@@ -887,14 +910,46 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <div className="flex flex-col truncate w-full">
-                            <div className={`truncate font-medium ${viewMode === "yearly" ? "text-[10px]" : ""}`}>
-                              {displayTitle}
+                          {viewMode === "yearly" ? (
+                            // 연간 뷰: 각 월의 날짜를 해당 위치에 배치
+                            <>
+                              {/* 작물 이름 - 왼쪽 상단에 고정 */}
+                              <div className="absolute left-2 top-2 text-[11px] font-semibold truncate max-w-[80px]">
+                                {displayTitle}
+                              </div>
+                              {/* 각 월의 날짜 범위 - 해당 월 위치에 배치 */}
+                              {Array.isArray(dateRangeText) && dateRangeText.map((dateInfo: any, idx: number) => {
+                                const cellWidth = 120;
+                                // 박스 시작점으로부터 해당 월까지의 거리 계산
+                                const offsetMonths = dateInfo.monthIndex - taskGroup.startDayIndex;
+                                const leftPos = offsetMonths * cellWidth;
+                                
+                                return (
+                                  <div
+                                    key={`date-${idx}`}
+                                    className="absolute text-[9px] opacity-75 leading-tight whitespace-nowrap"
+                                    style={{
+                                      left: `${leftPos + 8}px`, // 8px 패딩
+                                      top: '22px', // 작물 이름 아래
+                                      maxWidth: `${cellWidth - 16}px` // 양쪽 패딩 제외
+                                    }}
+                                  >
+                                    {dateInfo.text}
+                                  </div>
+                                );
+                              })}
+                            </>
+                          ) : (
+                            // 월간 뷰: 기존 방식
+                            <div className="flex flex-col truncate w-full">
+                              <div className="truncate font-medium">
+                                {displayTitle}
+                              </div>
+                              <div className="text-[10px] opacity-75 truncate">
+                                {dateRangeText}
+                              </div>
                             </div>
-                            <div className={`text-[10px] opacity-75 ${viewMode === "yearly" ? "text-[9px] leading-tight" : "truncate"}`}>
-                              {dateRangeText}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       );
                     })}
