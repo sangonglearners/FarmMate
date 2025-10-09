@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "./ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,43 +22,43 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "./ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "./ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "./ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { useToast } from "@/hooks/use-toast";
+} from "./ui/collapsible";
+import { useToast } from "../hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
-import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
+import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { useLocation } from "wouter";
-import { useDeleteTask } from "@features/task-management";
+import { useDeleteTask } from "../features/task-management";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@/shared/api/client";
 
 // ⬇ Supabase 유틸 추가
-import { saveTask } from "@/shared/api/saveTask";
-import { supabase } from "@/shared/api/supabase";
-import { mustOk } from "@/shared/api/mustOk";
-import { useFarms } from "@features/farm-management";
-import { useCrops } from "@features/crop-management";
-import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
+import { saveTask } from "../shared/api/saveTask";
+import { supabase } from "../shared/api/supabase";
+import { mustOk } from "../shared/api/mustOk";
+import { useFarms } from "../features/farm-management";
+import { useCrops } from "../features/crop-management";
+import { serverRegistrationRepository, type CropSearchResult } from "../shared/api/server-registration.repository";
 
 import { z } from "zod";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "./ui/calendar";
 import WorkCalculatorDialog from "./work-calculator-dialog";
 
 const formSchema = insertTaskSchema.extend({
@@ -121,6 +121,7 @@ export default function AddTaskDialog({
   const deleteMutation = useDeleteTask();
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
+  const [cropSearchResults, setCropSearchResults] = useState<CropSearchResult[]>([]);
   const [customCropName, setCustomCropName] = useState("");
   const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
@@ -579,7 +580,6 @@ export default function AddTaskDialog({
           endDate: (data as any).endDate,
           scheduledDate: (data as any).scheduledDate
         });
-        const { taskApi } = await import("@/shared/api/tasks");
         const taskToCreate = {
           title: data.title!,
           description: (data as any).description || "",
@@ -611,7 +611,10 @@ export default function AddTaskDialog({
       }
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 등록되었습니다.",
@@ -631,7 +634,7 @@ export default function AddTaskDialog({
   /** 수정 */
   const updateMutation = useMutation({
     mutationFn: async (data: InsertTask) => {
-        const { taskApi } = await import("../shared/api");
+        const { taskApi } = await import("../shared/api/tasks");
       const rowNumber = (data as any).rowNumber;
       const description = rowNumber 
         ? `이랑: ${rowNumber}번`
@@ -665,7 +668,10 @@ export default function AddTaskDialog({
       });
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 수정되었습니다.",
@@ -685,7 +691,7 @@ export default function AddTaskDialog({
   /** 대량 저장 (일괄/개별) */
   const bulkCreateMutation = useMutation({
     mutationFn: async (tasks: InsertTask[]) => {
-        const { taskApi } = await import("@/shared/api/tasks");
+          const { taskApi } = await import("../shared/api/tasks");
       const results = [];
       
       for (const task of tasks) {
@@ -706,7 +712,10 @@ export default function AddTaskDialog({
       return results;
     },
     onSuccess: () => {
+      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
 
       toast({
         title: "일정이 등록되었습니다.",
@@ -828,7 +837,6 @@ export default function AddTaskDialog({
         
         // endDate가 있는 경우 taskApi.createTask를 직접 사용
         if ((task as any).endDate) {
-          const { taskApi } = await import("@/shared/api/tasks");
           await taskApi.createTask({
             title: task.title,
             description: task.description || "",
@@ -1050,14 +1058,14 @@ export default function AddTaskDialog({
                 )}
 
                 {/* 검색 중 표시 */}
-                {isSearching && (
+                {cropSearchTerm && cropSearchResults.length === 0 && (
                   <div className="p-2 text-center text-sm text-gray-500">
                     작물을 검색 중입니다...
                   </div>
                 )}
 
                 {/* 검색 결과가 없을 때 */}
-                {cropSearchTerm && !isSearching && cropSearchResults.length === 0 && (
+                {cropSearchTerm && cropSearchResults.length === 0 && (
                   <div className="p-2 text-center text-sm text-gray-500">
                     "{cropSearchTerm}"에 대한 검색 결과가 없습니다.
                   </div>
