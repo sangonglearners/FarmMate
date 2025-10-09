@@ -940,7 +940,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           ) : (
                             // 월간 뷰: 기존 방식
                             <div className="flex flex-col truncate w-full">
-                              <div className="truncate font-medium">
+                              <div className="truncate text-[11px] font-semibold">
                                 {displayTitle}
                               </div>
                               <div className="text-[10px] opacity-75 truncate">
