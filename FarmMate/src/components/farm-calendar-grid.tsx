@@ -428,7 +428,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           <div className={viewMode === "yearly" ? "min-w-[1500px]" : "min-w-[700px]"}>
             {/* 헤더 */}
             <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-              <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative">
+              <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-20 bg-gray-50">
                 <div className="absolute inset-0 p-1">
                   {/* 대각선 */}
                   <svg className="absolute inset-0 w-full h-full">
@@ -472,7 +472,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {rowNumbers.map((rowNumber) => (
                 <div key={rowNumber} className="flex border-b border-gray-200 last:border-b-0">
                   {/* 이랑 번호 */}
-                  <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0">
+                  <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-10">
                     {rowNumber}
                   </div>
 
