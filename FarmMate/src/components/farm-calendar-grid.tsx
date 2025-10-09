@@ -3,9 +3,10 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
-import type { Task, Crop } from "@shared/types/schema";
+import type { Task, Crop } from "@shared/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
-import type { FarmEntity } from "@shared/api/farm.repository";
+import type { FarmEntity } from "@/shared/api/farm.repository";
+import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -238,10 +239,129 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     switch (taskType) {
       case "파종": return "bg-blue-100 text-blue-800 border-blue-200";
       case "육묘": return "bg-green-100 text-green-800 border-green-200";
+      case "수확": return "bg-orange-100 text-orange-800 border-orange-200";
       case "수확-선별": return "bg-orange-100 text-orange-800 border-orange-200";
       case "저장-포장": return "bg-purple-100 text-purple-800 border-purple-200";
+      case "정식": return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "관수": return "bg-cyan-100 text-cyan-800 border-cyan-200";
+      case "비료": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "방제": return "bg-red-100 text-red-800 border-red-200";
+      case "제초": return "bg-lime-100 text-lime-800 border-lime-200";
       default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
+  };
+
+  // 연속된 일정을 그룹화하는 함수 (월간 뷰용)
+  const getContinuousTaskGroups = (rowNumber: number) => {
+    if (viewMode !== "monthly") return [];
+    
+    const currentPeriods = getMonthlyDays(); // 현재 표시 중인 날짜들
+    
+    const rowTasks = memoizedTasks.filter(task => {
+      // 선택된 농장의 작업만 필터링
+      if (task.farmId !== selectedFarm?.id) return false;
+      
+      const taskRowNumber = task.rowNumber || (() => {
+        if (task.description && task.description.includes("이랑:")) {
+          const match = task.description.match(/이랑:\s*(\d+)번/);
+          return match ? parseInt(match[1]) : null;
+        }
+        return null;
+      })();
+      
+      return taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1);
+    });
+
+    // 연속된 일정 그룹화
+    const taskGroups: TaskGroup[] = [];
+    const processedTasks = new Set<string>();
+    
+    console.log(`[DEBUG] 이랑 ${rowNumber}의 모든 작업:`, rowTasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      scheduledDate: task.scheduledDate,
+      endDate: (task as any).endDate,
+      hasEndDate: !!(task as any).endDate
+    })));
+    
+    rowTasks.forEach(task => {
+      if (processedTasks.has(task.id)) return;
+      
+      // 멀티데이 일정인 경우 (endDate가 있는 경우)
+      if ((task as any).endDate) {
+        const startDate = new Date(task.scheduledDate);
+        const endDate = new Date((task as any).endDate);
+        
+        console.log(`[DEBUG] 멀티데이 작업 처리 중:`, {
+          taskId: task.id,
+          title: task.title,
+          startDate: task.scheduledDate,
+          endDate: (task as any).endDate,
+          startDateObj: startDate,
+          endDateObj: endDate
+        });
+        
+        // 현재 표시 중인 10일 범위 내에서의 시작/끝 인덱스 계산
+        let startIndex = -1;
+        let endIndex = -1;
+        
+        currentPeriods.forEach((dayInfo, index) => {
+          const dayDate = new Date((dayInfo as any).year, (dayInfo as any).month, (dayInfo as any).day);
+          
+          // 날짜를 YYYY-MM-DD 형식으로 정규화하여 정확한 비교
+          const dayDateStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}-${String(dayDate.getDate()).padStart(2, '0')}`;
+          const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+          const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+          
+          
+          // 시작 인덱스 찾기 (범위 내 첫 번째 날짜)
+          if (startIndex === -1 && dayDateStr >= startDateStr && dayDateStr <= endDateStr) {
+            startIndex = index;
+          }
+          
+          // 끝 인덱스 업데이트 (범위 내 마지막 날짜)
+          if (dayDateStr >= startDateStr && dayDateStr <= endDateStr) {
+            endIndex = index;
+          }
+        });
+        
+        // 시작과 끝 인덱스가 모두 유효한 경우 그룹 추가 (같은 인덱스여도 포함)
+        if (startIndex !== -1 && endIndex !== -1) {
+          console.log(`[DEBUG] 멀티데이 일정 감지:`, {
+            taskId: task.id,
+            title: task.title,
+            startDate: task.scheduledDate,
+            endDate: (task as any).endDate,
+            startIndex,
+            endIndex,
+            spanDays: endIndex - startIndex + 1
+          });
+          
+          taskGroups.push({
+            task,
+            startDate,
+            endDate,
+            startDayIndex: startIndex,
+            endDayIndex: endIndex,
+            isFirstDay: true,
+            isLastDay: true
+          });
+          
+          processedTasks.add(task.id);
+        } else {
+          console.log(`[DEBUG] 멀티데이 일정 감지 실패:`, {
+            taskId: task.id,
+            title: task.title,
+            startDate: task.scheduledDate,
+            endDate: (task as any).endDate,
+            startIndex,
+            endIndex
+          });
+        }
+      }
+    });
+    
+    return taskGroups;
   };
 
   // 월간 뷰 네비게이션
@@ -469,39 +589,133 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
             {/* 이랑별 데이터 */}
             <div>
-              {rowNumbers.map((rowNumber) => (
-                <div key={rowNumber} className="flex border-b border-gray-200 last:border-b-0">
-                  {/* 이랑 번호 */}
-                  <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-10">
-                    {rowNumber}
-                  </div>
+              {rowNumbers.map((rowNumber) => {
+                const continuousTaskGroups = getContinuousTaskGroups(rowNumber);
+                
+                return (
+                  <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
+                    {/* 이랑 번호 */}
+                    <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-10">
+                      {rowNumber}
+                    </div>
 
-                  {/* 각 날짜/월의 작업 */}
-                  {currentPeriods.map((dayInfo, index) => {
-                    const periodTasks = getTasksForPeriod(rowNumber, dayInfo);
-                    const isTodayCell = isToday(dayInfo);
-                    
-                    return (
-                      <div
-                        key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                        className={`${viewMode === "yearly" ? "w-[120px] flex-shrink-0" : "flex-1"} p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors ${
-                          isTodayCell ? "bg-green-50 border-green-200" : ""
-                        } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
-                          viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
-                        }`}
-                        onClick={() => {
-                          if (viewMode === "monthly") {
-                            const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
-                            setSelectedCellDate(dateStr);
-                            onDateClick(dateStr);
-                          }
-                        }}
-                      >
+                    {/* 연속된 일정 박스들 렌더링 (월간 뷰만) */}
+                    {viewMode === "monthly" && continuousTaskGroups.map((taskGroup, groupIndex) => {
+                      const taskColor = getTaskColor(taskGroup.task);
+                      
+                      // 정확한 그리드 위치 계산 - flex 기반으로 수정
+                      const totalFlexUnits = currentPeriods.length; // 총 flex 단위 (날짜 개수)
+                      const spanDays = taskGroup.endDayIndex - taskGroup.startDayIndex + 1; // 일정이 걸리는 날짜 수
+                      
+                      // 각 날짜 셀의 실제 너비 계산 (border 포함)
+                      // 각 셀은 flex-1이므로 동일한 너비를 가짐
+                      // border-right는 각 셀마다 1px씩 있음 (마지막 셀 제외)
+                      
+                      // 시작 위치: 이랑 컬럼(60px) + 시작 인덱스만큼의 날짜 셀들
+                      const startFlexUnits = taskGroup.startDayIndex;
+                      
+                      // 너비: spanDays만큼의 날짜 셀들 - 중간 borders
+                      const middleBorders = Math.max(0, spanDays - 1); // 중간에 있는 border 개수
+                      
+                      // 구글 캘린더 스타일의 둥근 모서리 처리
+                      let borderRadiusClass = '';
+                      if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
+                        // 하루 일정은 모든 모서리 둥글게
+                        borderRadiusClass = 'rounded-lg';
+                      } else {
+                        // 연속 일정의 경우
+                        if (taskGroup.startDayIndex === 0) {
+                          borderRadiusClass += 'rounded-l-lg'; // 첫 번째 날이면 왼쪽 둥글게
+                        }
+                        if (taskGroup.endDayIndex === currentPeriods.length - 1) {
+                          borderRadiusClass += ' rounded-r-lg'; // 마지막 날이면 오른쪽 둥글게
+                        }
+                      }
+                      
+                      // 제목 표시 로직 개선
+                      const displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
+                      
+                      // 디버깅 정보
+                      console.log(`[DEBUG] 박스 위치 계산 (최종 수정):`, {
+                        taskId: taskGroup.task.id,
+                        title: displayTitle,
+                        startDayIndex: taskGroup.startDayIndex,
+                        endDayIndex: taskGroup.endDayIndex,
+                        spanDays,
+                        startFlexUnits,
+                        middleBorders,
+                        totalFlexUnits,
+                        calculatedLeft: `max(61px, calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits}))`,
+                        calculatedWidth: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px - 16px)`
+                      });
+                      
+                      return (
+                        <div
+                          key={`continuous-task-${rowNumber}-${groupIndex}`}
+                          className={`absolute ${taskColor} ${borderRadiusClass} px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm`}
+                          style={{
+                            // 이랑 컬럼(60px + 1px border) 이후부터 시작하여 정확한 날짜 셀 위치에 배치
+                            // 이랑 컬럼의 실제 너비: 60px + 1px border = 61px
+                            // 날짜 영역의 실제 너비: 100% - 61px
+                            left: `max(61px, calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits}))`,
+                            // spanDays만큼의 날짜 셀 너비에서 borders와 padding 제외
+                            // border-right는 각 셀마다 1px씩 있음 (마지막 셀 제외)
+                            width: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px - 16px)`,
+                            top: '8px', // 상단 여백
+                            height: '24px', // 높이
+                            zIndex: 20
+                          }}
+                          title={`${displayTitle} (${taskGroup.task.scheduledDate} ~ ${(taskGroup.task as any).endDate})`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTask(taskGroup.task);
+                            setIsEditDialogOpen(true);
+                          }}
+                        >
+                          <div className="truncate">
+                            {displayTitle}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* 각 날짜/월의 작업 */}
+                    {currentPeriods.map((dayInfo, index) => {
+                      const periodTasks = getTasksForPeriod(rowNumber, dayInfo);
+                      const isTodayCell = isToday(dayInfo);
+                      
+                      // 월간 뷰에서 멀티데이 일정은 개별 셀에 표시하지 않음 (연속 박스로 표시됨)
+                      const displayTasks = viewMode === "monthly" 
+                        ? periodTasks.filter(task => {
+                            // endDate가 없거나 시작일과 종료일이 같은 경우만 개별 셀에 표시
+                            if (!(task as any).endDate || task.scheduledDate === (task as any).endDate) return true;
+                            
+                            // 멀티데이 일정은 개별 셀에서 제외
+                            return false; // 멀티데이 일정은 항상 제외
+                          })
+                        : periodTasks;
+                      
+                      return (
+                        <div
+                          key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
+                          className={`${viewMode === "yearly" ? "w-[120px] flex-shrink-0" : "flex-1"} p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                            isTodayCell ? "bg-green-50 border-green-200" : ""
+                          } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
+                            viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
+                          }`}
+                          onClick={() => {
+                            if (viewMode === "monthly") {
+                              const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
+                              setSelectedCellDate(dateStr);
+                              onDateClick(dateStr);
+                            }
+                          }}
+                        >
                         <div className="space-y-1">
                           {viewMode === "monthly" ? (
                             <>
-                              {/* 월간 뷰: 작물명과 작업 표시 */}
-                              {periodTasks.map((task) => {
+                              {/* 월간 뷰: 작물명과 작업 표시 (연속된 일정 제외) */}
+                              {displayTasks.map((task) => {
                               const cropName = getCropName(task.cropId);
                               return (
                                 <div 
@@ -520,7 +734,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                     </div>
                                   )}
                                   <div 
-                                    className={`text-xs px-1 py-0.5 rounded border break-words leading-tight ${getTaskColor(task)} ${(task as any).endDate && (task as any).endDate !== task.scheduledDate ? 'border-l-4 border-l-blue-500' : ''}`}
+                                    className={`text-xs px-1 py-0.5 rounded border break-words leading-tight ${getTaskColor(task)}`}
                                     style={{
                                       display: '-webkit-box',
                                       WebkitLineClamp: 2,
@@ -529,7 +743,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       wordWrap: 'break-word',
                                       maxHeight: '2.5rem'
                                     }}
-                                    title={(task as any).endDate && (task as any).endDate !== task.scheduledDate ? `${task.scheduledDate} ~ ${(task as any).endDate}` : task.title || task.taskType}
+                                    title={task.title || task.taskType}
                                   >
                                     {task.title || task.taskType}
                                   </div>
@@ -641,8 +855,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       </div>
                     );
                   })}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
