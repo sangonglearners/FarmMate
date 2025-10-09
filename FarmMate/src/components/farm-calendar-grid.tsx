@@ -624,8 +624,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         >
           <div className={viewMode === "yearly" ? "min-w-[1500px]" : "min-w-[700px]"}>
             {/* 헤더 */}
-            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-              <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-20 bg-gray-50">
+            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30">
+              <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50">
                 <div className="absolute inset-0 p-1">
                   {/* 대각선 */}
                   <svg className="absolute inset-0 w-full h-full">
@@ -672,10 +672,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 return (
                   <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
                     {/* 이랑 번호 */}
-                    <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-10">
+                    <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-20">
                       {rowNumber}
                     </div>
 
+                    {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
+                    <div className="absolute left-[61px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
                     {/* 연속된 일정 박스들 렌더링 (월간 뷰만) */}
                     {viewMode === "monthly" && continuousTaskGroups.map((taskGroup, groupIndex) => {
                       const taskColor = getTaskColor(taskGroup.task);
@@ -752,18 +754,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={`continuous-task-${rowNumber}-${groupIndex}`}
-                          className={`absolute ${taskColor} ${borderRadiusClass} px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm`}
+                          className={`absolute ${taskColor} ${borderRadiusClass} px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm pointer-events-auto`}
                           style={{
-                            // 이랑 컬럼(60px + 1px border) 이후부터 시작하여 정확한 날짜 셀 위치에 배치
-                            // 이랑 컬럼의 실제 너비: 60px + 1px border = 61px
-                            // 날짜 영역의 실제 너비: 100% - 61px
-                            left: `calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits})`,
+                            // 새로운 컨테이너 기준으로 계산 (left-[61px]부터 시작)
+                            // 이제 0부터 시작하므로 날짜 셀 위치만 계산
+                            left: `calc(${startFlexUnits} * 100% / ${totalFlexUnits})`,
                             // spanDays만큼의 날짜 셀 너비에서 borders만 제외
-                            // border-right는 각 셀마다 1px씩 있음 (마지막 셀 제외)
-                            width: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px)`,
+                            width: `calc(${spanDays} * 100% / ${totalFlexUnits} - ${middleBorders}px)`,
                             top: '8px', // 상단 여백
                             height: '32px', // 높이 (날짜 정보 포함)
-                            zIndex: 20
+                            zIndex: 5
                           }}
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
@@ -783,6 +783,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         </div>
                       );
                     })}
+                    </div>
 
                     {/* 각 날짜/월의 작업 */}
                     {currentPeriods.map((dayInfo, index) => {
