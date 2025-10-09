@@ -302,6 +302,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         });
         
         // 현재 표시 중인 10일 범위 내에서의 시작/끝 인덱스 계산
+        // 월을 넘나드는 경우 각 월별로 별도 처리
         let startIndex = -1;
         let endIndex = -1;
         
@@ -313,19 +314,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
           const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
           
-          
-          // 시작 인덱스 찾기 (범위 내 첫 번째 날짜)
-          if (startIndex === -1 && dayDateStr >= startDateStr && dayDateStr <= endDateStr) {
-            startIndex = index;
-          }
-          
-          // 끝 인덱스 업데이트 (범위 내 마지막 날짜)
+          // 현재 날짜가 작업 범위 내에 있는지 확인
           if (dayDateStr >= startDateStr && dayDateStr <= endDateStr) {
+            // 시작 인덱스 찾기 (범위 내 첫 번째 날짜)
+            if (startIndex === -1) {
+              startIndex = index;
+            }
+            // 끝 인덱스 업데이트 (범위 내 마지막 날짜)
             endIndex = index;
           }
         });
         
-        // 시작과 끝 인덱스가 모두 유효한 경우 그룹 추가 (같은 인덱스여도 포함)
+        // 시작과 끝 인덱스가 모두 유효한 경우 그룹 추가
         if (startIndex !== -1 && endIndex !== -1) {
           console.log(`[DEBUG] 멀티데이 일정 감지:`, {
             taskId: task.id,
@@ -337,15 +337,92 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             spanDays: endIndex - startIndex + 1
           });
           
-          taskGroups.push({
-            task,
-            startDate,
-            endDate,
-            startDayIndex: startIndex,
-            endDayIndex: endIndex,
-            isFirstDay: true,
-            isLastDay: true
-          });
+          // 월을 넘나드는 경우 각 월별로 별도의 박스 생성
+          const startMonth = (currentPeriods[startIndex] as any).month;
+          const endMonth = (currentPeriods[endIndex] as any).month;
+          
+          if (startMonth === endMonth) {
+            // 같은 월 내에서만 표시되는 경우
+            taskGroups.push({
+              task,
+              startDate,
+              endDate,
+              startDayIndex: startIndex,
+              endDayIndex: endIndex,
+              isFirstDay: true,
+              isLastDay: true
+            });
+          } else {
+            // 월을 넘나드는 경우 각 월별로 별도 박스 생성
+            // 실제 작업의 월 범위를 계산하여 각 월별로 처리
+            const taskStartMonth = startDate.getMonth();
+            const taskEndMonth = endDate.getMonth();
+            const taskStartYear = startDate.getFullYear();
+            const taskEndYear = endDate.getFullYear();
+            
+            // 작업이 걸쳐있는 모든 월에 대해 박스 생성
+            let currentYear = taskStartYear;
+            let currentMonth = taskStartMonth;
+            
+            while (currentYear < taskEndYear || (currentYear === taskEndYear && currentMonth <= taskEndMonth)) {
+              // 현재 월에서의 시작일과 종료일 계산
+              let monthStartDay, monthEndDay;
+              
+              if (currentYear === taskStartYear && currentMonth === taskStartMonth) {
+                // 첫 번째 월: 작업 시작일부터 월의 마지막 날까지
+                monthStartDay = startDate.getDate();
+                monthEndDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+              } else if (currentYear === taskEndYear && currentMonth === taskEndMonth) {
+                // 마지막 월: 월의 첫 날부터 작업 종료일까지
+                monthStartDay = 1;
+                monthEndDay = endDate.getDate();
+              } else {
+                // 중간 월: 월의 첫 날부터 마지막 날까지
+                monthStartDay = 1;
+                monthEndDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+              }
+              
+              // 현재 표시 중인 10일 범위에서 이 월의 날짜들이 포함되는지 확인
+              const monthStartDate = new Date(currentYear, currentMonth, monthStartDay);
+              const monthEndDate = new Date(currentYear, currentMonth, monthEndDay);
+              
+              let monthStartIndex = -1;
+              let monthEndIndex = -1;
+              
+              currentPeriods.forEach((dayInfo, index) => {
+                const dayDate = new Date((dayInfo as any).year, (dayInfo as any).month, (dayInfo as any).day);
+                
+                // 현재 날짜가 이 월의 범위 내에 있는지 확인
+                if (dayDate >= monthStartDate && dayDate <= monthEndDate) {
+                  if (monthStartIndex === -1) {
+                    monthStartIndex = index;
+                  }
+                  monthEndIndex = index;
+                }
+              });
+              
+              // 이 월의 날짜가 현재 표시 범위에 포함되는 경우 박스 생성
+              if (monthStartIndex !== -1 && monthEndIndex !== -1) {
+                taskGroups.push({
+                  task,
+                  startDate: monthStartDate,
+                  endDate: monthEndDate,
+                  startDayIndex: monthStartIndex,
+                  endDayIndex: monthEndIndex,
+                  isFirstDay: currentYear === taskStartYear && currentMonth === taskStartMonth,
+                  isLastDay: currentYear === taskEndYear && currentMonth === taskEndMonth
+                });
+              }
+              
+              // 다음 월로 이동
+              if (currentMonth === 11) {
+                currentMonth = 0;
+                currentYear++;
+              } else {
+                currentMonth++;
+              }
+            }
+          }
           
           processedTasks.add(task.id);
         } else {
@@ -614,7 +691,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       // 시작 위치: 이랑 컬럼(60px) + 시작 인덱스만큼의 날짜 셀들
                       const startFlexUnits = taskGroup.startDayIndex;
                       
-                      // 너비: spanDays만큼의 날짜 셀들 - 중간 borders
+                      // 너비: spanDays만큼의 날짜 셀들 - 중간 borders만 제외
                       const middleBorders = Math.max(0, spanDays - 1); // 중간에 있는 border 개수
                       
                       // 구글 캘린더 스타일의 둥근 모서리 처리
@@ -623,11 +700,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         // 하루 일정은 모든 모서리 둥글게
                         borderRadiusClass = 'rounded-lg';
                       } else {
-                        // 연속 일정의 경우
-                        if (taskGroup.startDayIndex === 0) {
+                        // 연속 일정의 경우 - 월별로 올바른 둥근 모서리 적용
+                        if (taskGroup.isFirstDay || taskGroup.startDayIndex === 0) {
                           borderRadiusClass += 'rounded-l-lg'; // 첫 번째 날이면 왼쪽 둥글게
                         }
-                        if (taskGroup.endDayIndex === currentPeriods.length - 1) {
+                        if (taskGroup.isLastDay || taskGroup.endDayIndex === currentPeriods.length - 1) {
                           borderRadiusClass += ' rounded-r-lg'; // 마지막 날이면 오른쪽 둥글게
                         }
                       }
@@ -635,8 +712,31 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       // 제목 표시 로직 개선
                       const displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       
+                      // 날짜 표시 로직 - 월 정보 포함
+                      const formatDateRange = (startDate: Date, endDate: Date) => {
+                        const startMonth = startDate.getMonth() + 1;
+                        const startDay = startDate.getDate();
+                        const endMonth = endDate.getMonth() + 1;
+                        const endDay = endDate.getDate();
+                        
+                        // 같은 날짜인 경우
+                        if (startDate.getTime() === endDate.getTime()) {
+                          return `${startMonth}/${startDay}`;
+                        }
+                        
+                        // 같은 월인 경우
+                        if (startMonth === endMonth) {
+                          return `${startMonth}/${startDay}~${endDay}`;
+                        }
+                        
+                        // 다른 월인 경우
+                        return `${startMonth}/${startDay}~${endMonth}/${endDay}`;
+                      };
+                      
+                      const dateRangeText = formatDateRange(taskGroup.startDate, taskGroup.endDate);
+                      
                       // 디버깅 정보
-                      console.log(`[DEBUG] 박스 위치 계산 (최종 수정):`, {
+                      console.log(`[DEBUG] 박스 위치 계산 (너비 수정):`, {
                         taskId: taskGroup.task.id,
                         title: displayTitle,
                         startDayIndex: taskGroup.startDayIndex,
@@ -645,8 +745,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         startFlexUnits,
                         middleBorders,
                         totalFlexUnits,
-                        calculatedLeft: `max(61px, calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits}))`,
-                        calculatedWidth: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px - 16px)`
+                        calculatedLeft: `calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits})`,
+                        calculatedWidth: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px)`
                       });
                       
                       return (
@@ -657,23 +757,28 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             // 이랑 컬럼(60px + 1px border) 이후부터 시작하여 정확한 날짜 셀 위치에 배치
                             // 이랑 컬럼의 실제 너비: 60px + 1px border = 61px
                             // 날짜 영역의 실제 너비: 100% - 61px
-                            left: `max(61px, calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits}))`,
-                            // spanDays만큼의 날짜 셀 너비에서 borders와 padding 제외
+                            left: `calc(61px + ${startFlexUnits} * (100% - 61px) / ${totalFlexUnits})`,
+                            // spanDays만큼의 날짜 셀 너비에서 borders만 제외
                             // border-right는 각 셀마다 1px씩 있음 (마지막 셀 제외)
-                            width: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px - 16px)`,
+                            width: `calc(${spanDays} * (100% - 61px) / ${totalFlexUnits} - ${middleBorders}px)`,
                             top: '8px', // 상단 여백
-                            height: '24px', // 높이
+                            height: '32px', // 높이 (날짜 정보 포함)
                             zIndex: 20
                           }}
-                          title={`${displayTitle} (${taskGroup.task.scheduledDate} ~ ${(taskGroup.task as any).endDate})`}
+                          title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTask(taskGroup.task);
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <div className="truncate">
-                            {displayTitle}
+                          <div className="flex flex-col truncate">
+                            <div className="truncate font-medium">
+                              {displayTitle}
+                            </div>
+                            <div className="truncate text-[10px] opacity-75">
+                              {dateRangeText}
+                            </div>
                           </div>
                         </div>
                       );
@@ -807,31 +912,45 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                 return isMonthMatch;
                               });
                               
-                              // 날짜 범위 계산
+                              // 날짜 범위 계산 - 월별로 올바른 범위 표시
                               let dateRange = null;
                               if (monthTasks.length > 0) {
-                                const allDates: number[] = [];
+                                const taskDateRanges: { start: Date, end: Date }[] = [];
                                 
                                 monthTasks.forEach(task => {
                                   const startDate = new Date(task.scheduledDate);
-                                  allDates.push(startDate.getDate());
+                                  const endDate = (task as any).endDate ? new Date((task as any).endDate) : startDate;
                                   
-                                  // 날짜 범위가 있는 경우 종료일도 포함
-                                  if ((task as any).endDate) {
-                                    const endDate = new Date((task as any).endDate);
-                                    // 같은 월 내에서만 종료일 추가
-                                    if (endDate.getMonth() + 1 === currentMonth) {
-                                      allDates.push(endDate.getDate());
-                                    }
+                                  // 현재 월에서의 실제 날짜 범위 계산
+                                  const currentMonthStart = new Date(currentDate.getFullYear(), currentMonth - 1, 1);
+                                  const currentMonthEnd = new Date(currentDate.getFullYear(), currentMonth, 0);
+                                  
+                                  // 작업 범위와 현재 월의 교집합 계산
+                                  const rangeStart = startDate > currentMonthStart ? startDate : currentMonthStart;
+                                  const rangeEnd = endDate < currentMonthEnd ? endDate : currentMonthEnd;
+                                  
+                                  // 현재 월에 포함되는 경우만 추가
+                                  if (rangeStart <= currentMonthEnd && rangeEnd >= currentMonthStart) {
+                                    taskDateRanges.push({ start: rangeStart, end: rangeEnd });
                                   }
                                 });
                                 
-                                const uniqueDates = Array.from(new Set(allDates)).sort((a, b) => a - b);
-                                
-                                if (uniqueDates.length === 1) {
-                                  dateRange = `${currentMonth}/${uniqueDates[0]}`;
-                                } else {
-                                  dateRange = `${currentMonth}/${uniqueDates[0]}-${uniqueDates[uniqueDates.length - 1]}`;
+                                if (taskDateRanges.length > 0) {
+                                  // 모든 날짜 범위를 합쳐서 하나의 범위로 만들기
+                                  const allDates: number[] = [];
+                                  taskDateRanges.forEach(range => {
+                                    for (let d = range.start.getDate(); d <= range.end.getDate(); d++) {
+                                      allDates.push(d);
+                                    }
+                                  });
+                                  
+                                  const uniqueDates = Array.from(new Set(allDates)).sort((a, b) => a - b);
+                                  
+                                  if (uniqueDates.length === 1) {
+                                    dateRange = `${currentMonth}/${uniqueDates[0]}`;
+                                  } else {
+                                    dateRange = `${currentMonth}/${uniqueDates[0]}-${uniqueDates[uniqueDates.length - 1]}`;
+                                  }
                                 }
                               }
                               
