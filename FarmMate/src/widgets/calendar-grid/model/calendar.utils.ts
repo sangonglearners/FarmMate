@@ -78,3 +78,118 @@ export const getCalendarDays = (currentDate: Date): CalendarDay[] => {
 };
 
 export const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
+
+// 연속된 일정 그룹화를 위한 타입
+export interface TaskGroup {
+  task: Task;
+  startDate: Date;
+  endDate: Date;
+  startDayIndex: number;
+  endDayIndex: number;
+  isFirstDay: boolean;
+  isLastDay: boolean;
+}
+
+// 연속된 일정을 그룹화하는 함수
+export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] => {
+  const taskGroups: TaskGroup[] = [];
+  
+  // 동일한 작물, 작업타입, 끝날짜를 가진 연속된 Task들을 그룹화
+  const taskMap = new Map<string, Task[]>();
+  
+  tasks.forEach(task => {
+    // 그룹 키: 작물ID + 작업타입 + 끝날짜
+    const groupKey = `${task.cropId || 'unknown'}_${task.taskType || 'unknown'}_${task.endDate || task.scheduledDate}`;
+    
+    if (!taskMap.has(groupKey)) {
+      taskMap.set(groupKey, []);
+    }
+    taskMap.get(groupKey)!.push(task);
+  });
+  
+  // 각 그룹에서 연속된 Task들을 하나의 TaskGroup으로 처리
+  taskMap.forEach((groupTasks, groupKey) => {
+    if (groupTasks.length <= 1) {
+      // 단일 Task인 경우 기존 로직 사용
+      const task = groupTasks[0];
+      const startDate = new Date(task.scheduledDate);
+      const endDate = task.endDate ? new Date(task.endDate) : startDate;
+      
+      // 연속된 일정이 아닌 경우 (시작일과 끝일이 같은 경우) 그룹화하지 않음
+      if (startDate.getTime() === endDate.getTime()) {
+        return;
+      }
+      
+      let startDayIndex = -1;
+      let endDayIndex = -1;
+      
+      calendarDays.forEach((dayInfo, index) => {
+        if (dayInfo.day === null) return; // 빈 셀은 건너뛰기
+        
+        const dayDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
+        
+        if (startDayIndex === -1 && dayDate >= startDate && dayDate <= endDate) {
+          startDayIndex = index;
+        }
+        
+        if (dayDate >= startDate && dayDate <= endDate) {
+          endDayIndex = index;
+        }
+      });
+      
+      if (startDayIndex !== -1 && endDayIndex !== -1 && startDayIndex !== endDayIndex) {
+        taskGroups.push({
+          task,
+          startDate,
+          endDate,
+          startDayIndex,
+          endDayIndex,
+          isFirstDay: true,
+          isLastDay: true
+        });
+      }
+    } else {
+      // 여러 Task가 있는 경우 (연속된 일정), 첫 번째 Task를 대표로 사용
+      const sortedTasks = groupTasks.sort((a, b) => 
+        new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
+      );
+      
+      const firstTask = sortedTasks[0];
+      const lastTask = sortedTasks[sortedTasks.length - 1];
+      
+      const startDate = new Date(firstTask.scheduledDate);
+      const endDate = new Date(lastTask.endDate);
+      
+      let startDayIndex = -1;
+      let endDayIndex = -1;
+      
+      calendarDays.forEach((dayInfo, index) => {
+        if (dayInfo.day === null) return; // 빈 셀은 건너뛰기
+        
+        const dayDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
+        
+        if (startDayIndex === -1 && dayDate >= startDate && dayDate <= endDate) {
+          startDayIndex = index;
+        }
+        
+        if (dayDate >= startDate && dayDate <= endDate) {
+          endDayIndex = index;
+        }
+      });
+      
+      if (startDayIndex !== -1 && endDayIndex !== -1 && startDayIndex !== endDayIndex) {
+        taskGroups.push({
+          task: firstTask, // 대표 Task 사용
+          startDate,
+          endDate,
+          startDayIndex,
+          endDayIndex,
+          isFirstDay: true,
+          isLastDay: true
+        });
+      }
+    }
+  });
+  
+  return taskGroups;
+};

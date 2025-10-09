@@ -3,7 +3,9 @@ import {
   getTaskColor, 
   getTasksForDate, 
   getCropName, 
-  weekDays 
+  weekDays,
+  getTaskGroups,
+  type TaskGroup
 } from "../model/calendar.utils";
 
 interface MonthCalendarProps {
@@ -69,57 +71,128 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
     nextDay++;
   }
 
+  // 연속된 일정 그룹화
+  const taskGroups = getTaskGroups(tasks, days);
+
   return (
-    <div className="grid grid-cols-7 gap-1">
-      {/* 요일 헤더 */}
-      {weekDays.map(day => (
-        <div key={day} className="text-center py-2 text-sm font-medium text-gray-600">
-          {day}
-        </div>
-      ))}
-
-      {/* 날짜 그리드 */}
-      {days.map((dayInfo, index) => {
-        const currentDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
-        const dayTasks = getTasksForDate(tasks, currentDate);
+    <div className="relative">
+      {/* 연속된 일정 박스들 렌더링 - 홈화면에서는 비활성화 */}
+      {/* {taskGroups.map((taskGroup, groupIndex) => {
+        if (!taskGroup.task.endDate || taskGroup.startDayIndex === taskGroup.endDayIndex) {
+          // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
+          return null;
+        }
         
-        // 오늘 날짜인지 확인
-        const today = new Date();
-        const todayCheck = 
-          today.getDate() === dayInfo.day &&
-          today.getMonth() === dayInfo.month &&
-          today.getFullYear() === dayInfo.year;
-          
-        // 날짜 문자열을 직접 생성하여 시간대 문제 방지
-        const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-        const isSelected = selectedDate === dateStr;
-
+        const cropName = getCropName(crops, taskGroup.task.cropId);
+        const taskColor = getTaskColor(taskGroup.task.taskType);
+        
+        // 그리드 위치 계산
+        const startRow = Math.floor(taskGroup.startDayIndex / 7);
+        const endRow = Math.floor(taskGroup.endDayIndex / 7);
+        const startCol = taskGroup.startDayIndex % 7;
+        const endCol = taskGroup.endDayIndex % 7;
+        
+        // 박스 스타일 계산 (CSS Grid 기반 정확한 계산)
+        const cellWidth = 14.2857; // 100% / 7 ≈ 14.2857%
+        const left = `${startCol * cellWidth}%`;
+        const width = `${(endCol - startCol + 1) * cellWidth}%`;
+        const top = `${startRow * 84 + 40}px`; // min-h-20(80px) + gap + 헤더
+        const height = `${(endRow - startRow + 1) * 84 - 8}px`;
+        
         return (
           <div
-            key={index}
-            className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-              !dayInfo.isCurrentMonth ? 'text-gray-400 bg-gray-25' : ''
-            } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
-              isSelected ? 'bg-blue-50 border-blue-300' : ''
-            } ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
-            onClick={() => {
-              onDateClick(dateStr);
+            key={`task-${groupIndex}`}
+            className={`absolute ${taskColor} rounded-lg px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden`}
+            style={{
+              left,
+              width,
+              top,
+              height,
+              zIndex: 10,
+              minHeight: '20px'
             }}
+            title={`${cropName} - ${taskGroup.task.taskType}`}
           >
-            <div className={`text-xs mb-1 ${todayCheck ? 'font-bold text-primary' : ''} ${
-              !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
-            }`}>
-              {dayInfo.day}
+            <div className="truncate">
+              {cropName && `${cropName} - `}{taskGroup.task.taskType}
             </div>
-            {/* 작업이 있는 경우 개수만 표시 (현재 달만) */}
-            {dayInfo.isCurrentMonth && dayTasks.length > 0 && (
-              <div className="text-xs text-gray-500 text-center">
-                {dayTasks.length}개
-              </div>
-            )}
           </div>
         );
-      })}
+      })} */}
+      
+      {/* 캘린더 그리드 */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* 요일 헤더 */}
+        {weekDays.map(day => (
+          <div key={day} className="text-center py-2 text-sm font-medium text-gray-600">
+            {day}
+          </div>
+        ))}
+
+        {/* 날짜 그리드 */}
+        {days.map((dayInfo, index) => {
+          const currentDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
+          const dayTasks = getTasksForDate(tasks, currentDate);
+          
+          // 홈화면에서는 모든 일정을 개별적으로 표시
+          const singleDayTasks = dayTasks;
+          
+          // 오늘 날짜인지 확인
+          const today = new Date();
+          const todayCheck = 
+            today.getDate() === dayInfo.day &&
+            today.getMonth() === dayInfo.month &&
+            today.getFullYear() === dayInfo.year;
+            
+          // 날짜 문자열을 직접 생성하여 시간대 문제 방지
+          const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
+          const isSelected = selectedDate === dateStr;
+
+          return (
+            <div
+              key={index}
+              className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                !dayInfo.isCurrentMonth ? 'text-gray-400 bg-gray-25' : ''
+              } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
+                isSelected ? 'bg-blue-50 border-blue-300' : ''
+              } ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
+              onClick={() => {
+                onDateClick(dateStr);
+              }}
+            >
+              <div className={`text-xs mb-1 ${todayCheck ? 'font-bold text-primary' : ''} ${
+                !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
+              }`}>
+                {dayInfo.day}
+              </div>
+              
+              {/* 단일 날짜 일정 표시 */}
+              {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
+                <div className="space-y-1">
+                  {singleDayTasks.slice(0, 2).map((task, taskIndex) => {
+                    const cropName = getCropName(crops, task.cropId);
+                    const taskColor = getTaskColor(task.taskType);
+                    return (
+                      <div
+                        key={taskIndex}
+                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate`}
+                        title={`${cropName} - ${task.taskType}`}
+                      >
+                        {cropName && `${cropName} - `}{task.taskType}
+                      </div>
+                    );
+                  })}
+                  {singleDayTasks.length > 2 && (
+                    <div className="text-xs text-gray-500">
+                      +{singleDayTasks.length - 2}개 더
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

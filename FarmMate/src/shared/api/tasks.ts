@@ -1,6 +1,6 @@
 // client/src/shared/api/tasks.ts
 import { supabase } from "./supabase";
-import type { Task } from "@shared/types/schema";
+import type { Task } from "@shared/schema";
 
 interface SupabaseTask {
   id: string;
