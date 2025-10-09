@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Crop } from "@shared/types";
+import type { Crop } from "@shared/schema";
 
 interface CropCardProps {
   crop: Crop;

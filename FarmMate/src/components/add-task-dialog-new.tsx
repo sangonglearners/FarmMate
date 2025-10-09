@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
-<<<<<<< HEAD
-import { Calendar as CalendarIcon, Check, Search, Calculator, ChevronDown } from "lucide-react";
-=======
 import { CalendarIcon, Check, Search, Calculator, ChevronDown } from "lucide-react";
->>>>>>> main
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
@@ -49,9 +45,9 @@ import {
 } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 <<<<<<< HEAD
-import { insertTaskSchema } from "@shared/types";
-import type { InsertTask, Task, Farm, Crop } from "@shared/types";
-import { apiRequest } from "@shared/api";
+import { insertTaskSchema } from "@shared/schema";
+import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
+import { apiRequest } from "@/shared/api";
 =======
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";

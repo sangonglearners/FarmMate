@@ -43,11 +43,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-import type { FarmEntity } from "@shared/api/farm.repository";
+import type { FarmEntity } from "@/shared/api/farm.repository";
 import { useLocation } from "wouter";
 import { useDeleteTask } from "@features/task-management";
 // ⬇ /api 호출 제거
-// import { apiRequest } from "@shared/api/client";
+// import { apiRequest } from "@/shared/api/client";
 
 // ⬇ Supabase 유틸 추가
 import { saveTask } from "@/shared/api/saveTask";
@@ -126,6 +126,8 @@ export default function AddTaskDialog({
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [cropSearchResults, setCropSearchResults] = useState<any[]>([]);
   const [, setLocation] = useLocation();
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
@@ -577,7 +579,7 @@ export default function AddTaskDialog({
           endDate: (data as any).endDate,
           scheduledDate: (data as any).scheduledDate
         });
-        const { taskApi } = await import("@shared/api/tasks");
+        const { taskApi } = await import("@/shared/api/tasks");
         const taskToCreate = {
           title: data.title!,
           description: (data as any).description || "",
@@ -826,7 +828,7 @@ export default function AddTaskDialog({
         
         // endDate가 있는 경우 taskApi.createTask를 직접 사용
         if ((task as any).endDate) {
-          const { taskApi } = await import("@shared/api/tasks");
+          const { taskApi } = await import("@/shared/api/tasks");
           await taskApi.createTask({
             title: task.title,
             description: task.description || "",
