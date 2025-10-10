@@ -33,6 +33,8 @@ import { useCrops as useMyCrops, useCreateCrop, useUpdateCrop } from "../model/c
 import { useFarms } from "@features/farm-management";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
+import { registrationData } from "@/shared/data/registration";
+import type { RegistrationData } from "@/shared/data/registration";
 
 // 기존 form 스키마(사용자 재배 목록에 실제 추가)는 그대로 유지
 const formSchema = insertCropSchema.extend({
@@ -77,6 +79,7 @@ export type CropOption = {
   name: string; // 품목
   category: string | null | undefined; // 중분류
   varieties: string[] | undefined;
+  isMyCrop?: boolean; // 내가 등록한 작물인지 여부
 };
 
 export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId, showFarmSelect }: AddCropDialogProps) {
@@ -89,17 +92,30 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
   const [serverSearchResults, setServerSearchResults] = useState<CropSearchResult[]>([]);
   const [isServerSearching, setIsServerSearching] = useState(false);
 
-  // 사용자가 등록한 작물 데이터만 사용
+  // registration 데이터를 사용하여 작물 목록 생성
   const crops: CropOption[] = useMemo(() => {
+    // 내가 등록한 작물 (대표 작물)
     const myCropOptions = (myCrops || []).map((c: any) => ({
       id: c.id,
       majorCategory: c.category ?? "",
       name: c.name ?? "",
       category: c.category ?? "",
       varieties: c.variety ? [c.variety] : [],
+      isMyCrop: true, // 내가 등록한 작물임을 표시
     }));
     
-    return myCropOptions;
+    // registration 데이터에서 작물 목록 생성
+    const registrationCropOptions = registrationData.map((regCrop) => ({
+      id: `reg_${regCrop.id}`,
+      majorCategory: regCrop.대분류,
+      name: regCrop.품목,
+      category: regCrop.대분류,
+      varieties: [regCrop.품종],
+      isMyCrop: false, // registration 작물
+    }));
+    
+    // 내가 등록한 작물과 registration 작물을 합쳐서 반환
+    return [...myCropOptions, ...registrationCropOptions];
   }, [myCrops]);
 
   const [selectedCrop, setSelectedCrop] = useState<string>("");
@@ -265,47 +281,56 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                     작물 데이터베이스 검색 결과 ({serverSearchResults.length}개)
                   </div>
                   <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
-                    {serverSearchResults.map((searchCrop) => (
-                      <button
-                        key={searchCrop.id}
-                        type="button"
-                        onClick={() => {
-                          console.log('서버 검색 작물 선택:', searchCrop);
-                          console.log('폼 값 설정 전:', {
-                            name: form.getValues('name'),
-                            category: form.getValues('category'),
-                            variety: form.getValues('variety')
-                          });
-                          
-                          form.setValue('name', searchCrop.품목);
-                          form.setValue('category', searchCrop.대분류);
-                          form.setValue('variety', searchCrop.품종);
-                          
-                          console.log('폼 값 설정 후:', {
-                            name: form.getValues('name'),
-                            category: form.getValues('category'),
-                            variety: form.getValues('variety')
-                          });
-                          
-                          setSearchTerm(searchCrop.품목);
-                          setServerSearchResults([]);
-                          setShowDirectRegister(true); // 직접 등록 모드로 전환
-                        }}
-                        className="w-full text-left p-3 border rounded-lg hover:bg-gray-50"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-medium">{searchCrop.품목}</span>
-                            <span className="text-sm text-gray-500 ml-2">
-                              ({searchCrop.품종})
-                            </span>
+                    {serverSearchResults.map((searchCrop) => {
+                      // 검색된 작물이 내가 등록한 작물인지 확인
+                      const isMyCrop = myCrops?.some((myCrop: any) => 
+                        myCrop.name === searchCrop.품목 && myCrop.variety === searchCrop.품종
+                      );
+                      
+                      return (
+                        <button
+                          key={searchCrop.id}
+                          type="button"
+                          onClick={() => {
+                            console.log('서버 검색 작물 선택:', searchCrop);
+                            console.log('폼 값 설정 전:', {
+                              name: form.getValues('name'),
+                              category: form.getValues('category'),
+                              variety: form.getValues('variety')
+                            });
+                            
+                            form.setValue('name', searchCrop.품목);
+                            form.setValue('category', searchCrop.대분류);
+                            form.setValue('variety', searchCrop.품종);
+                            
+                            console.log('폼 값 설정 후:', {
+                              name: form.getValues('name'),
+                              category: form.getValues('category'),
+                              variety: form.getValues('variety')
+                            });
+                            
+                            setSearchTerm(searchCrop.품목);
+                            setServerSearchResults([]);
+                            setShowDirectRegister(true); // 직접 등록 모드로 전환
+                          }}
+                          className="w-full text-left p-3 border rounded-lg hover:bg-gray-50"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">
+                                {isMyCrop && "⭐ "}{searchCrop.품목}
+                              </span>
+                              <span className="text-sm text-gray-500 ml-2">
+                                ({searchCrop.품종})
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {searchCrop.대분류}
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-400">
-                            {searchCrop.대분류}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -342,40 +367,89 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
               ) : (
                 // 결과 리스트 또는 대표 작물 없음 메시지
                 filteredCrops.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                    {filteredCrops.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setSelectedCrop(selectedCrop === c.id ? "" : c.id)}
-                      className={`p-3 text-left border rounded-lg transition-colors ${
-                        selectedCrop === c.id
-                          ? "border-green-500 bg-green-50 text-green-700"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          {/* 대분류 */}
-                          <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">
-                            {c.majorCategory}
-                          </div>
-                          {/* 품목(이름) */}
-                          <div className="font-medium text-sm">{c.name}</div>
-                          {/* 대표 품종 1개만 표시 */}
-                          <div className="text-[11px] text-gray-600">
-                            {(c.varieties && c.varieties.length > 0)
-                              ? c.varieties[0]
-                              : "품종 정보 없음"}
-                          </div>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {/* 대표 작물 섹션 */}
+                    {filteredCrops.filter(c => c.isMyCrop).length > 0 && (
+                      <div>
+                        <div className="text-xs text-gray-500 font-medium mb-2 px-1">⭐ 대표 작물</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {filteredCrops.filter(c => c.isMyCrop).map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setSelectedCrop(selectedCrop === c.id ? "" : c.id)}
+                              className={`p-3 text-left border rounded-lg transition-colors ${
+                                selectedCrop === c.id
+                                  ? "border-green-500 bg-green-50 text-green-700"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-1">
+                                  {/* 대분류 */}
+                                  <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">
+                                    {c.majorCategory}
+                                  </div>
+                                  {/* 품목(이름) */}
+                                  <div className="font-medium text-sm">⭐ {c.name}</div>
+                                  {/* 대표 품종 1개만 표시 */}
+                                  <div className="text-[11px] text-gray-600">
+                                    {(c.varieties && c.varieties.length > 0)
+                                      ? c.varieties[0]
+                                      : "품종 정보 없음"}
+                                  </div>
+                                </div>
+                                {selectedCrop === c.id && (
+                                  <Check className="h-4 w-4 text-green-600 shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                        {selectedCrop === c.id && (
-                          <Check className="h-4 w-4 text-green-600 shrink-0" />
-                        )}
                       </div>
-                    </button>
-                  ))}
-                </div>
+                    )}
+                    
+                    {/* 전체 작물 섹션 */}
+                    {filteredCrops.filter(c => !c.isMyCrop).length > 0 && (
+                      <div>
+                        <div className="text-xs text-gray-500 font-medium mb-2 px-1">전체 작물</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {filteredCrops.filter(c => !c.isMyCrop).map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setSelectedCrop(selectedCrop === c.id ? "" : c.id)}
+                              className={`p-3 text-left border rounded-lg transition-colors ${
+                                selectedCrop === c.id
+                                  ? "border-green-500 bg-green-50 text-green-700"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-1">
+                                  {/* 대분류 */}
+                                  <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">
+                                    {c.majorCategory}
+                                  </div>
+                                  {/* 품목(이름) */}
+                                  <div className="font-medium text-sm">{c.name}</div>
+                                  {/* 대표 품종 1개만 표시 */}
+                                  <div className="text-[11px] text-gray-600">
+                                    {(c.varieties && c.varieties.length > 0)
+                                      ? c.varieties[0]
+                                      : "품종 정보 없음"}
+                                  </div>
+                                </div>
+                                {selectedCrop === c.id && (
+                                  <Check className="h-4 w-4 text-green-600 shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="rounded-md border border-dashed p-4 text-center text-sm text-gray-600">
                     <p className="mb-3">등록된 작물이 없습니다.</p>
