@@ -1132,7 +1132,7 @@ export default function AddTaskDialog({
                 )}
 
                 {/* 검색 중 표시 */}
-                {cropSearchTerm && cropSearchResults.length === 0 && (
+                {cropSearchTerm && cropSearchResults.length === 0 && !isCropSelectedFromList && (
                   <div className="p-2 text-center text-sm text-gray-500">
                     작물을 검색 중입니다...
                   </div>
@@ -1239,7 +1239,7 @@ export default function AddTaskDialog({
                   </Collapsible>
                 )}
 
-                {isCropSelectedFromList && (
+                {registrationMode === 'batch' && (
                   <p className="text-xs text-gray-500">
                     선택된 작물에 따라 농작업이 자동 선택됩니다
                   </p>
