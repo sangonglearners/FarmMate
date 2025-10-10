@@ -111,9 +111,22 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
     }
   };
 
+  // 할 일 목록을 완료 상태에 따라 정렬 (미완료 -> 완료 순서)
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aCompleted = localCompletions.get(a.id) || false;
+    const bCompleted = localCompletions.get(b.id) || false;
+    
+    // 미완료가 먼저, 완료된 것이 나중에 오도록 정렬
+    if (aCompleted && !bCompleted) return 1;
+    if (!aCompleted && bCompleted) return -1;
+    
+    // 같은 완료 상태라면 원래 순서 유지
+    return 0;
+  });
+
   return (
     <div className="space-y-2">
-      {tasks.map((task) => {
+      {sortedTasks.map((task) => {
         const isCompleted = localCompletions.get(task.id) || false;
         
         return (
