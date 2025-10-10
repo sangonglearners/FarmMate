@@ -530,6 +530,18 @@ export default function AddTaskDialog({
     setCustomCropName(cropName);
     setIsCropSelectedFromList(true); // 리스트에서 선택됨을 표시
     
+    // 일괄등록 모드일 때만 농작업 자동 선택 기능 적용
+    if (registrationMode === 'batch') {
+      // 파종/육묘 구분에 따라 농작업 자동 선택
+      if (regCrop.파종육묘구분 === '파종') {
+        // 파종이면: 파종, 수확만 자동 체크
+        setSelectedWorks(['파종', '수확']);
+      } else if (regCrop.파종육묘구분 === '육묘') {
+        // 육묘이면: 파종, 육묘, 수확 자동 체크
+        setSelectedWorks(['파종', '육묘', '수확']);
+      }
+    }
+    
     // 해당 작물이 내 핵심 작물에 있으면 cropId 설정
     const matchingCrop = myCrops.find(c => c.name === regCrop.품목 && c.variety === regCrop.품종);
     if (matchingCrop) {
