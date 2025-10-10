@@ -135,8 +135,18 @@ lsof -ti:3000,5000 | xargs kill -9
 
 ## 📄 Documentation
 
+### Main Documentation
 - **FarmMate Documentation**: See `FarmMate/CLAUDE.md` for detailed project information
 - **Framework Guide**: See `채소생활 프레임워크.pdf` for project framework details
+
+### Product Requirements Documents (PRD)
+- **[작업 등록 기능](docs/prd-task-list.md)** - TodoList, 일정 관리, 농작업 계산기
+- **[Registration 데이터](docs/prd-registration-data.md)** - 작물 데이터 구조 및 활용 방안
+- **[작물 추천 기능](docs/prd_crop_recommendation.md)** - AI 기반 작물 추천 시스템
+- **[캘린더 박스 위치](docs/prd_calendar_box_positioning.md)** - 캘린더 UI/UX 개선
+- **[농장 목록](docs/prd-farm-list.md)** - 농장 관리 시스템
+- **[소셜 공유](docs/prd-social-sharing.md)** - 공유 기능
+- **[Supabase Edge Function](docs/prd_supabase_edgefunction.md)** - 서버리스 함수 구현
 
 ## 🤝 Contributing
 
