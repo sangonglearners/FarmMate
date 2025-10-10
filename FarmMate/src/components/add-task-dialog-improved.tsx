@@ -132,6 +132,7 @@ export default function AddTaskDialog({
   const [, setLocation] = useLocation();
   const [showNoResultsConfirm, setShowNoResultsConfirm] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -271,6 +272,9 @@ export default function AddTaskDialog({
         setCropSearchTerm(cropNameFromTitle);
         setCustomCropName(cropNameFromTitle);
       }
+      
+      // 리스트 선택 상태 초기화
+      setIsCropSelectedFromList(false);
 
       // 농장 정보 먼저 설정 (farms 데이터가 있으면 바로 설정)
       console.log("수정 모드 농장 설정 시도:", {
@@ -337,6 +341,7 @@ export default function AddTaskDialog({
       setCustomCropName("");
       setSelectedWorks([]);
       setSelectedCrop(null);
+      setIsCropSelectedFromList(false); // 리스트 선택 상태 초기화
       // selectedFarm은 첫 번째 농장으로 자동 설정되므로 null로 초기화하지 않음
     }
   }, [task, open, selectedDate, crops, farms, form]);
@@ -444,7 +449,14 @@ export default function AddTaskDialog({
 
   // 작물 검색 디바운스 처리 (즉시 실행으로 변경)
   useEffect(() => {
-    console.log('⏰ 디바운스 useEffect 실행:', cropSearchTerm);
+    console.log('⏰ 디바운스 useEffect 실행:', cropSearchTerm, 'isCropSelectedFromList:', isCropSelectedFromList);
+    
+    // 리스트에서 작물을 선택한 경우 검색하지 않음
+    if (isCropSelectedFromList) {
+      console.log('📋 리스트에서 선택된 작물이므로 검색 건너뜀');
+      return;
+    }
+    
     const timeoutId = setTimeout(() => {
       if (cropSearchTerm.trim()) {
         console.log('🚀 디바운스 후 서버 검색 실행:', cropSearchTerm);
@@ -459,7 +471,7 @@ export default function AddTaskDialog({
       console.log('🧹 디바운스 타이머 정리');
       clearTimeout(timeoutId);
     };
-  }, [cropSearchTerm]);
+  }, [cropSearchTerm, isCropSelectedFromList]);
   
   // 검색어 변경 시 확인 상태 리셋
   useEffect(() => {
@@ -516,6 +528,7 @@ export default function AddTaskDialog({
     const cropName = `${regCrop.품목} (${regCrop.품종})`;
     setCropSearchTerm(cropName);
     setCustomCropName(cropName);
+    setIsCropSelectedFromList(true); // 리스트에서 선택됨을 표시
     
     // 해당 작물이 내 핵심 작물에 있으면 cropId 설정
     const matchingCrop = myCrops.find(c => c.name === regCrop.품목 && c.variety === regCrop.품종);
@@ -1068,6 +1081,7 @@ export default function AddTaskDialog({
                       });
                       
                       setCropSearchTerm(e.target.value);
+                      setIsCropSelectedFromList(false); // 직접 입력 시 리스트 선택 상태 해제
                       // handleCustomCropInput 호출하지 않음 - 검색 결과 초기화 방지
                     }}
                     className="pl-10"
@@ -1113,7 +1127,7 @@ export default function AddTaskDialog({
                 )}
 
                 {/* 검색 결과가 없을 때 */}
-                {cropSearchTerm && cropSearchResults.length === 0 && !isSearching && !showNoResultsConfirm && (
+                {cropSearchTerm && cropSearchResults.length === 0 && !isSearching && !showNoResultsConfirm && !isCropSelectedFromList && (
                   <div className="border rounded-md p-4 bg-yellow-50">
                     <p className="text-sm text-gray-700 mb-3">
                       검색 결과가 없습니다. 그래도 "{cropSearchTerm}"로 작물을 등록하시겠습니까?

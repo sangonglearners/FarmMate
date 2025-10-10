@@ -42,6 +42,7 @@ import { insertTaskSchema } from "../shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import { apiRequest } from "@shared/api";
 import { z } from "zod";
+import { registrationData } from "../shared/data/registration";
 
 const formSchema = insertTaskSchema.extend({
   environment: z.string().min(1, "재배환경을 선택해주세요"),
@@ -75,9 +76,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
     queryKey: ["/api/farms"],
   });
 
-  const { data: crops } = useQuery<Crop[]>({
-    queryKey: ["/api/crops"],
-  });
+  // crops API는 더 이상 사용하지 않음 - registration 데이터만 사용
 
   const { data: tasks } = useQuery<Task[]>({
     queryKey: ["tasks"],
@@ -166,11 +165,23 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
   // 대표 작물 목록 (자주 사용되는 작물들)
   const popularCrops = ['배추', '무', '당근', '상추', '시금치', '고추', '토마토', '오이', '호박', '브로콜리'];
   
-  // 작물 검색 필터링
-  const filteredCrops = crops?.filter(crop =>
-    crop.name.toLowerCase().includes(selectedCrop.toLowerCase()) ||
-    crop.category.toLowerCase().includes(selectedCrop.toLowerCase())
-  ) || [];
+  // registration 데이터에서 작물 검색
+  const getRegistrationCrops = (searchTerm: string) => {
+    if (!searchTerm.trim()) return [];
+    
+    const term = searchTerm.toLowerCase();
+    const results = registrationData.filter(crop => 
+      crop.품목.toLowerCase().includes(term) ||
+      crop.대분류.toLowerCase().includes(term) ||
+      crop.품종.toLowerCase().includes(term)
+    );
+    
+    
+    return results;
+  };
+
+  // registration 작물만 검색 결과로 사용
+  const allFilteredCrops = getRegistrationCrops(selectedCrop);
 
   // 기본 제목 생성
   const generateDefaultTitle = () => {
@@ -180,38 +191,38 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
     return '';
   };
 
-  // 작물이 없을 때 자동으로 작물 생성
-  const getOrCreateCrop = async (cropName: string) => {
+  // registration 데이터에서 작물 찾기
+  const findRegistrationCrop = (cropName: string) => {
     if (!cropName) return null;
-
-    // 기존 작물 찾기
-    let existingCrop = crops?.find(crop => crop.name === cropName);
     
-    if (!existingCrop) {
-      // 새 작물 생성
-      const newCropData = {
-        name: cropName,
-        category: "기타",
-        variety: "",
-        status: "재배중" as const,
-      };
+    return registrationData.find(
+      regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
+    );
+  };
 
-      try {
-        const response = await fetch("/api/crops", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newCropData),
-        });
-        
-        if (response.ok) {
-          existingCrop = await response.json();
+  // 작물 선택 핸들러 - 자동 농작업 선택 기능 포함
+  const handleCropSelect = (cropName: string) => {
+    setSelectedCrop(cropName);
+    
+    // 일괄등록 모드일 때만 자동 선택 기능 적용
+    if (registrationMode === 'batch') {
+      // 1. registrationData에서 해당 작물의 파종/육묘 구분 확인
+      const registrationCrop = registrationData.find(
+        regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
+      );
+      
+      if (registrationCrop) {
+        // 2. 파종/육묘 구분에 따라 농작업 자동 선택
+        if (registrationCrop.파종육묘구분 === '파종') {
+          // 파종이면: 파종, 수확만 자동 체크
+          setSelectedWorks(['파종', '수확']);
+        } else if (registrationCrop.파종육묘구분 === '육묘') {
+          // 육묘이면: 파종, 육묘, 수확 자동 체크
+          setSelectedWorks(['파종', '육묘', '수확']);
         }
-      } catch (error) {
-        console.error('작물 생성 실패:', error);
       }
+      // registrationData에 없으면 농작업 선택을 초기화하지 않음 (사용자가 직접 선택)
     }
-
-    return existingCrop;
   };
 
   const handleWorkToggle = (work: string) => {
@@ -273,8 +284,8 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
       return;
     }
 
-    // 작물 찾기 또는 생성
-    const targetCrop = await getOrCreateCrop(selectedCrop);
+    // registration 데이터에서 작물 찾기
+    const targetCrop = findRegistrationCrop(selectedCrop);
 
     // 작업 데이터 생성
     const tasksToCreate: InsertTask[] = [];
@@ -287,7 +298,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
           tasksToCreate.push({
             title: customTitle || defaultTitle,
             taskType: work,
-            cropId: targetCrop?.id || "",
+            cropId: targetCrop?.id || selectedCrop, // registration 작물의 경우 이름을 ID로 사용
             farmId: targetFarm.id,
             scheduledDate: startDate?.toLocaleDateString('sv-SE') || new Date().toLocaleDateString('sv-SE'),
             endDate: endDate ? endDate.toLocaleDateString('sv-SE') : startDate?.toLocaleDateString('sv-SE') || new Date().toLocaleDateString('sv-SE'),
@@ -306,10 +317,10 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
           selectedRows.forEach(row => {
             const defaultTitle = `${selectedCrop || '작물'} ${work}`;
             tasksToCreate.push({
-              title: customTitle || defaultTitle,
-              taskType: work,
-              cropId: targetCrop?.id || "",
-              farmId: targetFarm.id,
+            title: customTitle || defaultTitle,
+            taskType: work,
+            cropId: targetCrop?.id || selectedCrop, // registration 작물의 경우 이름을 ID로 사용
+            farmId: targetFarm.id,
               scheduledDate: currentDate.toLocaleDateString('sv-SE'),
               endDate: endDate ? endDate.toLocaleDateString('sv-SE') : currentDate.toLocaleDateString('sv-SE'),
               description: `이랑: ${row}번`,
@@ -401,44 +412,129 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
             <Input
               placeholder="작물명을 입력하거나 아래에서 선택하세요"
               value={selectedCrop}
-              onChange={(e) => setSelectedCrop(e.target.value)}
+              onChange={(e) => handleCropSelect(e.target.value)}
             />
             
-            {/* 대표 작물 리스트 */}
+            {/* 내 작물 선택 */}
             <div className="space-y-2">
-              <Label className="text-sm text-gray-600">대표 작물</Label>
-              <div className="flex flex-wrap gap-2">
-                {popularCrops.map(crop => (
-                  <Button
-                    key={crop}
-                    type="button"
-                    variant={selectedCrop === crop ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCrop(crop)}
-                  >
-                    {crop}
-                  </Button>
-                ))}
+              <Label className="text-sm text-gray-600">내 작물 선택</Label>
+              <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
+                {/* 핵심 작물 */}
+                <div className="border-b pb-2 mb-2">
+                  <div className="text-xs text-gray-500 font-medium mb-2 px-2">⭐ 핵심 작물</div>
+                  {registrationData.filter(crop => 
+                    ['스냅피', '이름없음', '비트'].some(name => crop.품목.includes(name))
+                  ).map(crop => (
+                    <button
+                      key={crop.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCrop(crop.품목);
+                        // registration 작물이므로 바로 농작업 자동 선택
+                        if (registrationMode === 'batch') {
+                          if (crop.파종육묘구분 === '파종') {
+                            setSelectedWorks(['파종', '수확']);
+                          } else if (crop.파종육묘구분 === '육묘') {
+                            setSelectedWorks(['파종', '육묘', '수확']);
+                          }
+                        }
+                      }}
+                      className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          {crop.품목} ({crop.품종})
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {crop.대분류}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                {/* 전체 작물 */}
+                <div>
+                  <div className="text-xs text-gray-500 font-medium mb-2 px-2">전체 작물</div>
+                  {registrationData.slice(0, 20).map(crop => (
+                    <button
+                      key={crop.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCrop(crop.품목);
+                        // registration 작물이므로 바로 농작업 자동 선택
+                        if (registrationMode === 'batch') {
+                          if (crop.파종육묘구분 === '파종') {
+                            setSelectedWorks(['파종', '수확']);
+                          } else if (crop.파종육묘구분 === '육묘') {
+                            setSelectedWorks(['파종', '육묘', '수확']);
+                          }
+                        }
+                      }}
+                      className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          {crop.품목} ({crop.품종})
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {crop.대분류}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* 검색된 작물 목록 */}
-            {selectedCrop && filteredCrops.length > 0 && (
+            {selectedCrop && allFilteredCrops.length > 0 && (
               <div className="space-y-2">
                 <Label className="text-sm text-gray-600">검색 결과</Label>
                 <div className="space-y-1 max-h-24 overflow-y-auto">
-                  {filteredCrops.slice(0, 5).map(crop => (
+                  {allFilteredCrops.slice(0, 5).map((crop, index) => (
                     <Button
-                      key={crop.id}
+                      key={crop.id || `reg-${index}`}
                       type="button"
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start"
-                      onClick={() => setSelectedCrop(crop.name)}
+                      onClick={() => {
+                        handleCropSelect(crop.품목);
+                      }}
                     >
-                      {crop.name} ({crop.category})
+                      {crop.품목} ({crop.품종}) - {crop.대분류}
                     </Button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* 검색 결과가 없을 때만 등록 여부 묻기 */}
+            {selectedCrop && allFilteredCrops.length === 0 && (
+              <div className="border border-yellow-300 bg-yellow-50 p-3 rounded-md">
+                <p className="text-sm text-gray-700 mb-2">
+                  검색 결과가 없습니다. 그래도 "{selectedCrop}"로 작물을 등록하시겠습니까?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedCrop('')}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      // 그대로 작물명을 사용하여 등록 진행
+                      // 이미 handleCropSelect에서 처리됨
+                    }}
+                  >
+                    등록하기
+                  </Button>
                 </div>
               </div>
             )}
