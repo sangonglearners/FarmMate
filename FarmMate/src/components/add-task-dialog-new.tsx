@@ -64,6 +64,8 @@ import { mustOk } from "@/shared/api/mustOk";
 >>>>>>> main
 import WorkCalculatorDialog from "./work-calculator-dialog";
 import { KEY_CROPS, TASK_TYPES } from "@/shared/constants/crops";
+import { registrationData, searchCrops } from "@/shared/data/registration";
+import type { RegistrationData } from "@/shared/data/registration";
 import { z } from "zod";
 
 const formSchema = insertTaskSchema.extend({
@@ -86,10 +88,11 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
   const [customCropName, setCustomCropName] = useState("");
-  const [showKeyCrops, setShowKeyCrops] = useState(false);
+  const [showMyCrops, setShowMyCrops] = useState(false);
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
+  const [showNoResultsConfirm, setShowNoResultsConfirm] = useState(false);
 
   const { data: farms } = useQuery<Farm[]>({ queryKey: ["/api/farms"] });
   const { data: crops } = useQuery<Crop[]>({ queryKey: ["/api/crops"] });
@@ -168,13 +171,32 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
       form.setValue("title", `${cropSearchTerm}_${taskType}`);
     }
   }, [cropSearchTerm, form]);
+  
+  // 검색어 변경 시 확인 상태 리셋
+  useEffect(() => {
+    setShowNoResultsConfirm(false);
+  }, [cropSearchTerm]);
 
-  // 작물 검색 필터링
-  const searchFilteredCrops =
-    crops?.filter(crop =>
-      crop.name.toLowerCase().includes(cropSearchTerm.toLowerCase()) ||
-      crop.category.toLowerCase().includes(cropSearchTerm.toLowerCase())
-    ) || [];
+  // 작물 검색 필터링 - registration 데이터에서 검색
+  const searchFilteredRegistrationCrops: RegistrationData[] = cropSearchTerm 
+    ? searchCrops(cropSearchTerm)
+    : [];
+  
+  // 내 핵심 작물 (즐겨찾기된 작물)
+  const myCrops = crops || [];
+  
+  // 핵심 작물인지 확인하는 함수
+  const isKeyCrop = (품목: string, 품종: string) => {
+    return myCrops.some(crop => 
+      crop.name === 품목 && (crop.variety === 품종 || crop.variety === "")
+    );
+  };
+  
+  // registration 작물을 핵심 작물과 일반 작물로 분리
+  const categorizedCrops = {
+    key: registrationData.filter(regCrop => isKeyCrop(regCrop.품목, regCrop.품종)),
+    normal: registrationData.filter(regCrop => !isKeyCrop(regCrop.품목, regCrop.품종))
+  };
 
   const handleWorkToggle = (work: string) => {
     setSelectedWorks(prev =>
@@ -200,7 +222,25 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     setCropSearchTerm(val);
     setCustomCropName(val);
     form.setValue("cropId", ""); // 커스텀 작물 처리
-    setShowKeyCrops(false);
+    setShowMyCrops(false);
+  };
+  
+  const handleRegistrationCropSelect = (regCrop: RegistrationData) => {
+    const cropName = `${regCrop.품목} (${regCrop.품종})`;
+    setCropSearchTerm(cropName);
+    setCustomCropName(cropName);
+    
+    // 해당 작물이 내 핵심 작물에 있으면 cropId 설정
+    const matchingCrop = myCrops.find(c => c.name === regCrop.품목 && c.variety === regCrop.품종);
+    if (matchingCrop) {
+      form.setValue("cropId", matchingCrop.id);
+      setSelectedCrop(matchingCrop);
+    } else {
+      form.setValue("cropId", "");
+      setSelectedCrop(null);
+    }
+    
+    setShowMyCrops(false);
   };
 
   const handleCustomCropInput = (cropName: string) => {
@@ -451,54 +491,81 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                   />
                 </div>
 
-                {/* 핵심 작물 선택 */}
-                <Collapsible open={showKeyCrops} onOpenChange={setShowKeyCrops}>
+                {/* 내 작물 선택 */}
+                <Collapsible open={showMyCrops} onOpenChange={setShowMyCrops}>
                   <CollapsibleTrigger asChild>
                     <Button type="button" variant="outline" className="w-full justify-between">
-                      핵심 작물 선택
-                      <ChevronDown className={cn("h-4 w-4 transition-transform", showKeyCrops && "rotate-180")} />
+                      내 작물 선택
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", showMyCrops && "rotate-180")} />
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-2">
-                    <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                      {KEY_CROPS.map((keyCrop, idx) => (
+                    <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
+                      {/* 핵심 작물 (상단, 별표 표시) */}
+                      {categorizedCrops.key.length > 0 && (
+                        <div className="border-b pb-2 mb-2">
+                          <div className="text-xs text-gray-500 font-medium mb-2 px-2">⭐ 핵심 작물</div>
+                          {categorizedCrops.key.map((regCrop) => (
+                            <button
+                              key={regCrop.id}
+                              type="button"
+                              onClick={() => handleRegistrationCropSelect(regCrop)}
+                              className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">⭐ {regCrop.품목}</span>
+                                  <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
+                                </div>
+                                <div className="text-xs text-gray-400">{regCrop.대분류}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* 일반 작물 */}
+                      <div className="text-xs text-gray-500 font-medium mb-2 px-2">전체 작물</div>
+                      {categorizedCrops.normal.map((regCrop) => (
                         <button
-                          key={idx}
+                          key={regCrop.id}
                           type="button"
-                          onClick={() => handleKeyCropSelect(keyCrop)}
-                          className="text-left p-2 hover:bg-gray-50 rounded text-sm"
+                          onClick={() => handleRegistrationCropSelect(regCrop)}
+                          className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                         >
-                          <div className="font-medium">
-                            {keyCrop.category} {'>'} {keyCrop.name} {'>'} {keyCrop.variety}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{regCrop.품목}</span>
+                              <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
+                            </div>
+                            <div className="text-xs text-gray-400">{regCrop.대분류}</div>
                           </div>
-                          <div className="text-xs text-gray-500">{keyCrop.description}</div>
                         </button>
                       ))}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
 
-                {cropSearchTerm && searchFilteredCrops.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto border rounded-md">
-                    {searchFilteredCrops.map(crop => {
-                      const farm = farms?.find(f => f.id === crop.farmId);
+                {/* 검색 결과 표시 */}
+                {cropSearchTerm && searchFilteredRegistrationCrops.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto border rounded-md">
+                    {searchFilteredRegistrationCrops.map((regCrop) => {
+                      const isKey = isKeyCrop(regCrop.품목, regCrop.품종);
                       return (
                         <button
-                          key={crop.id}
+                          key={regCrop.id}
                           type="button"
-                          onClick={() => handleCropSelect(crop.id)}
-                          className={`w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 ${
-                            form.getValues("cropId") === crop.id ? "bg-blue-50 border-blue-200" : ""
-                          }`}
+                          onClick={() => handleRegistrationCropSelect(regCrop)}
+                          className="w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0"
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-medium">{crop.name}</span>
-                              <span className="text-sm text-gray-500 ml-2">({crop.variety})</span>
+                              <span className="font-medium">
+                                {isKey && "⭐ "}{regCrop.품목}
+                              </span>
+                              <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
                             </div>
-                            <div className="text-xs text-gray-400">
-                              {farm?.name} · {farm?.environment}
-                            </div>
+                            <div className="text-xs text-gray-400">{regCrop.대분류}</div>
                           </div>
                         </button>
                       );
@@ -506,7 +573,45 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                   </div>
                 )}
 
-                {cropSearchTerm && <p className="text-xs text-gray-500">선택된 작물에 따라 농작업이 자동 선택됩니다</p>}
+                {/* 검색 결과가 없을 때 */}
+                {cropSearchTerm && searchFilteredRegistrationCrops.length === 0 && !showNoResultsConfirm && (
+                  <div className="border rounded-md p-4 bg-yellow-50">
+                    <p className="text-sm text-gray-700 mb-3">
+                      검색 결과가 없습니다. 그래도 "{cropSearchTerm}"로 작물을 등록하시겠습니까?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCropSearchTerm("");
+                          setCustomCropName("");
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setCustomCropName(cropSearchTerm);
+                          setShowNoResultsConfirm(true);
+                        }}
+                      >
+                        등록하기
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {showNoResultsConfirm && (
+                  <p className="text-xs text-green-600">✓ "{customCropName}"로 등록됩니다</p>
+                )}
+
+                {cropSearchTerm && searchFilteredRegistrationCrops.length > 0 && (
+                  <p className="text-xs text-gray-500">선택된 작물에 따라 농작업이 자동 선택됩니다</p>
+                )}
               </div>
 
               {/* 재배환경(폼 전용) */}

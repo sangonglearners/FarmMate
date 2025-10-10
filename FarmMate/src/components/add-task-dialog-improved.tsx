@@ -60,6 +60,8 @@ import { serverRegistrationRepository, type CropSearchResult } from "../shared/a
 import { z } from "zod";
 import { Calendar } from "./ui/calendar";
 import WorkCalculatorDialog from "./work-calculator-dialog";
+import { registrationData } from "../shared/data/registration";
+import type { RegistrationData } from "../shared/data/registration";
 
 const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),
@@ -128,6 +130,8 @@ export default function AddTaskDialog({
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
   const [, setLocation] = useLocation();
+  const [showNoResultsConfirm, setShowNoResultsConfirm] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -456,6 +460,11 @@ export default function AddTaskDialog({
       clearTimeout(timeoutId);
     };
   }, [cropSearchTerm]);
+  
+  // 검색어 변경 시 확인 상태 리셋
+  useEffect(() => {
+    setShowNoResultsConfirm(false);
+  }, [cropSearchTerm]);
 
   // 작물 필터
   const searchFilteredCrops =
@@ -464,6 +473,22 @@ export default function AddTaskDialog({
         crop.name.toLowerCase().includes(cropSearchTerm.toLowerCase()) ||
         crop.category.toLowerCase().includes(cropSearchTerm.toLowerCase())
     ) || [];
+  
+  // 내 핵심 작물 (즐겨찾기된 작물)
+  const myCrops = crops || [];
+  
+  // 핵심 작물인지 확인하는 함수
+  const isKeyCrop = (품목: string, 품종: string) => {
+    return myCrops.some(crop => 
+      crop.name === 품목 && (crop.variety === 품종 || crop.variety === "")
+    );
+  };
+  
+  // registration 작물을 핵심 작물과 일반 작물로 분리
+  const categorizedCrops = {
+    key: registrationData.filter(regCrop => isKeyCrop(regCrop.품목, regCrop.품종)),
+    normal: registrationData.filter(regCrop => !isKeyCrop(regCrop.품목, regCrop.품종))
+  };
 
   const handleWorkToggle = (work: string) => {
     setSelectedWorks((prev) =>
@@ -485,6 +510,31 @@ export default function AddTaskDialog({
       form.setValue("environment", farm.environment || "");
       setSelectedFarm(farm);
     }
+  };
+  
+  const handleRegistrationCropSelect = (regCrop: RegistrationData) => {
+    const cropName = `${regCrop.품목} (${regCrop.품종})`;
+    setCropSearchTerm(cropName);
+    setCustomCropName(cropName);
+    
+    // 해당 작물이 내 핵심 작물에 있으면 cropId 설정
+    const matchingCrop = myCrops.find(c => c.name === regCrop.품목 && c.variety === regCrop.품종);
+    if (matchingCrop) {
+      form.setValue("cropId", matchingCrop.id);
+      setSelectedCrop(matchingCrop);
+      
+      const farm = farms?.find((f) => f.id === (matchingCrop as any).farmId);
+      if (farm) {
+        form.setValue("farmId", (matchingCrop as any).farmId || "");
+        form.setValue("environment", farm.environment || "");
+        setSelectedFarm(farm);
+      }
+    } else {
+      form.setValue("cropId", "");
+      setSelectedCrop(null);
+    }
+    
+    setShowKeyCrops(false);
   };
 
   const handleKeyCropSelect = (keyCrop: (typeof KEY_CROPS)[0]) => {
@@ -1026,34 +1076,32 @@ export default function AddTaskDialog({
 
                 {/* 서버 검색 결과 표시 */}
                 {cropSearchTerm && cropSearchResults.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto border rounded-md">
-                    <div className="p-2 text-xs text-gray-500 bg-blue-50 border-b">
-                      작물 데이터베이스 검색 결과 ({cropSearchResults.length}개)
-                    </div>
-                    {cropSearchResults.map((searchCrop) => (
-                      <button
-                        key={searchCrop.id}
-                        type="button"
-                        onClick={() => handleSearchCropSelect(searchCrop)}
-                        className={`w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 ${
-                          selectedSearchCrop?.id === searchCrop.id
-                            ? "bg-blue-50 border-blue-200"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-medium">{searchCrop.품목}</span>
-                            <span className="text-sm text-gray-500 ml-2">
-                              ({searchCrop.품종})
-                            </span>
+                  <div className="max-h-48 overflow-y-auto border rounded-md">
+                    {cropSearchResults.map((searchCrop) => {
+                      const isKey = isKeyCrop(searchCrop.품목, searchCrop.품종);
+                      return (
+                        <button
+                          key={searchCrop.id}
+                          type="button"
+                          onClick={() => handleRegistrationCropSelect(searchCrop)}
+                          className="w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">
+                                {isKey && "⭐ "}{searchCrop.품목}
+                              </span>
+                              <span className="text-sm text-gray-500 ml-2">
+                                ({searchCrop.품종})
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {searchCrop.대분류}
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-400">
-                            {searchCrop.대분류}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -1065,10 +1113,39 @@ export default function AddTaskDialog({
                 )}
 
                 {/* 검색 결과가 없을 때 */}
-                {cropSearchTerm && cropSearchResults.length === 0 && (
-                  <div className="p-2 text-center text-sm text-gray-500">
-                    "{cropSearchTerm}"에 대한 검색 결과가 없습니다.
+                {cropSearchTerm && cropSearchResults.length === 0 && !isSearching && !showNoResultsConfirm && (
+                  <div className="border rounded-md p-4 bg-yellow-50">
+                    <p className="text-sm text-gray-700 mb-3">
+                      검색 결과가 없습니다. 그래도 "{cropSearchTerm}"로 작물을 등록하시겠습니까?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCropSearchTerm("");
+                          setCustomCropName("");
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setCustomCropName(cropSearchTerm);
+                          setShowNoResultsConfirm(true);
+                        }}
+                      >
+                        등록하기
+                      </Button>
+                    </div>
                   </div>
+                )}
+
+                {showNoResultsConfirm && (
+                  <p className="text-xs text-green-600">✓ "{customCropName}"로 등록됩니다</p>
                 )}
 
                 {/* 내 작물 선택 */}
@@ -1088,70 +1165,53 @@ export default function AddTaskDialog({
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-2">
-                    <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                      {crops && crops.length > 0 ? (
-                        crops.map((crop) => {
-                          const farm = farms?.find((f) => f.id === (crop as any).farmId);
-                          return (
+                    <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
+                      {/* 핵심 작물 (상단, 별표 표시) */}
+                      {categorizedCrops.key.length > 0 && (
+                        <div className="border-b pb-2 mb-2">
+                          <div className="text-xs text-gray-500 font-medium mb-2 px-2">⭐ 핵심 작물</div>
+                          {categorizedCrops.key.map((regCrop) => (
                             <button
-                              key={crop.id}
+                              key={regCrop.id}
                               type="button"
-                              onClick={() => handleCropSelect(crop.id)}
-                              className="text-left p-2 hover:bg-gray-50 rounded text-sm"
+                              onClick={() => handleRegistrationCropSelect(regCrop)}
+                              className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                             >
-                              <div className="font-medium">
-                                {crop.category} {'>'} {crop.name} {'>'} {crop.variety}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {farm?.name} · {farm?.environment}
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">⭐ {regCrop.품목}</span>
+                                  <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
+                                </div>
+                                <div className="text-xs text-gray-400">{regCrop.대분류}</div>
                               </div>
                             </button>
-                          );
-                        })
-                      ) : (
-                        <div className="text-center text-sm text-gray-500 py-4">
-                          등록된 작물이 없습니다.
-                          <br />
-                          먼저 작물을 등록해주세요.
+                          ))}
                         </div>
                       )}
+                      
+                      {/* 일반 작물 */}
+                      <div className="text-xs text-gray-500 font-medium mb-2 px-2">전체 작물</div>
+                      {categorizedCrops.normal.map((regCrop) => (
+                        <button
+                          key={regCrop.id}
+                          type="button"
+                          onClick={() => handleRegistrationCropSelect(regCrop)}
+                          className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{regCrop.품목}</span>
+                              <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
+                            </div>
+                            <div className="text-xs text-gray-400">{regCrop.대분류}</div>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
 
-                {cropSearchTerm && searchFilteredCrops.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto border rounded-md">
-                    {searchFilteredCrops.map((crop) => {
-                      const farm = farms?.find((f) => f.id === crop.farmId);
-                      return (
-                        <button
-                          key={crop.id}
-                          type="button"
-                          onClick={() => handleCropSelect(crop.id)}
-                          className={`w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 ${
-                            form.getValues("cropId") === crop.id
-                              ? "bg-blue-50 border-blue-200"
-                              : ""
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">{crop.name}</span>
-                              <span className="text-sm text-gray-500 ml-2">
-                                ({(crop as any).variety})
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {farm?.name} · {farm?.environment}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {cropSearchTerm && (
+                {cropSearchTerm && cropSearchResults.length > 0 && (
                   <p className="text-xs text-gray-500">
                     선택된 작물에 따라 농작업이 자동 선택됩니다
                   </p>
