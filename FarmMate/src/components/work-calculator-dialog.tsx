@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
 import type { Crop, InsertTask } from "../shared/types/schema";
+import { registrationData } from "@/shared/data/registration";
 
 interface WorkCalculatorDialogProps {
   open: boolean;
@@ -52,11 +53,33 @@ export default function WorkCalculatorDialog({
 }: WorkCalculatorDialogProps) {
   const { toast } = useToast();
   
-  const [totalDuration, setTotalDuration] = useState(70);
+  // registration 데이터에서 작물의 총 재배기간(파종~수확) 가져오기
+  const getDefaultDuration = () => {
+    const cropName = customCropName || cropSearchTerm || selectedCrop?.name || "";
+    
+    if (cropName) {
+      const registrationCrop = registrationData.find(
+        regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
+      );
+      
+      if (registrationCrop && registrationCrop.총재배기간) {
+        return registrationCrop.총재배기간;
+      }
+    }
+    
+    return 70; // 기본값
+  };
+  
+  const [totalDuration, setTotalDuration] = useState(getDefaultDuration());
   const [taskSchedules, setTaskSchedules] = useState<TaskSchedule[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>(
     propSelectedTasks || ["파종", "육묘", "수확"]
   );
+
+  // 작물이 변경되면 totalDuration 재설정
+  useEffect(() => {
+    setTotalDuration(getDefaultDuration());
+  }, [customCropName, cropSearchTerm, selectedCrop]);
 
   // propSelectedTasks가 변경되면 selectedTasks 업데이트
   useEffect(() => {
@@ -72,31 +95,64 @@ export default function WorkCalculatorDialog({
     const schedules: TaskSchedule[] = [];
     let currentDate = new Date(baseDate);
     
+    // registration 데이터에서 작물의 총 재배기간 가져오기
+    const cropName = customCropName || cropSearchTerm || selectedCrop?.name || "";
+    const registrationCrop = registrationData.find(
+      regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
+    );
+    
+    // 총 재배기간이 있으면 이를 기반으로 작업 기간 계산
+    const cropTotalDuration = registrationCrop?.총재배기간 || totalDuration;
+    
+    // 선택된 작업에 따라 작업 기간 계산
     selectedTasks.forEach((taskType, index) => {
+      let taskDuration = 0;
       const taskInfo = BATCH_TASK_SCHEDULES[taskType as keyof typeof BATCH_TASK_SCHEDULES];
-      if (taskInfo) {
+      
+      if (selectedTasks.length === 2 && selectedTasks.includes("파종") && selectedTasks.includes("수확")) {
+        // 파종+수확만 있는 경우 (파종작물)
+        if (taskType === "파종") {
+          taskDuration = Math.round(cropTotalDuration * 0.2); // 20%
+        } else if (taskType === "수확") {
+          taskDuration = Math.round(cropTotalDuration * 0.8); // 80%
+        }
+      } else if (selectedTasks.length === 3 && selectedTasks.includes("파종") && selectedTasks.includes("육묘") && selectedTasks.includes("수확")) {
+        // 파종+육묘+수확 모두 있는 경우 (육묘작물)
+        if (taskType === "파종") {
+          taskDuration = Math.round(cropTotalDuration * 0.15); // 15%
+        } else if (taskType === "육묘") {
+          taskDuration = Math.round(cropTotalDuration * 0.25); // 25%
+        } else if (taskType === "수확") {
+          taskDuration = Math.round(cropTotalDuration * 0.6); // 60%
+        }
+      } else {
+        // 기타 경우는 기본 비율 사용
+        const defaultRatios = { "파종": 0.2, "육묘": 0.3, "수확": 0.5 };
+        taskDuration = Math.round(cropTotalDuration * (defaultRatios[taskType as keyof typeof defaultRatios] || 0.2));
+      }
+      
+      if (taskDuration > 0) {
         const startDate = format(currentDate, "yyyy-MM-dd");
-        const endDate = format(addDays(currentDate, taskInfo.duration - 1), "yyyy-MM-dd");
+        const endDate = format(addDays(currentDate, taskDuration - 1), "yyyy-MM-dd");
         
         schedules.push({
           taskType,
-          duration: taskInfo.duration,
+          duration: taskDuration,
           startDate,
           endDate,
-          description: taskInfo.description
+          description: taskInfo?.description || `${taskType} 작업`
         });
         
         // 다음 작업 시작일 계산
-        currentDate = addDays(currentDate, taskInfo.duration);
+        currentDate = addDays(currentDate, taskDuration);
       }
     });
 
     setTaskSchedules(schedules);
     
-    // 총 소요 기간 계산
-    const total = schedules.reduce((sum, schedule) => sum + schedule.duration, 0);
-    setTotalDuration(total);
-  }, [baseDate, selectedTasks]);
+    // 총 소요 기간은 registration 데이터의 총 재배기간 사용
+    setTotalDuration(cropTotalDuration);
+  }, [baseDate, selectedTasks, customCropName, cropSearchTerm, selectedCrop]);
 
   const handleTaskToggle = (taskType: string) => {
     setSelectedTasks(prev => 
@@ -180,10 +236,21 @@ export default function WorkCalculatorDialog({
 
         <div className="space-y-4">
           {/* 작물 정보 */}
-          {selectedCrop && (
+          {(selectedCrop || customCropName || cropSearchTerm) && (
             <div className="bg-blue-50 p-3 rounded-lg">
               <p className="text-sm font-medium text-blue-900">
-                선택된 작물: {selectedCrop.category} &gt; {selectedCrop.name} &gt; {selectedCrop.variety}
+                선택된 작물: {(() => {
+                  const cropName = customCropName || cropSearchTerm || selectedCrop?.name || "";
+                  const registrationCrop = registrationData.find(
+                    regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
+                  );
+                  
+                  if (registrationCrop) {
+                    return `${registrationCrop.대분류} > ${registrationCrop.품목} (${registrationCrop.품종}) - 총 재배기간: ${registrationCrop.총재배기간}일`;
+                  }
+                  
+                  return cropName;
+                })()}
               </p>
             </div>
           )}
