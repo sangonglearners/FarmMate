@@ -562,8 +562,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     <div className="space-y-4">
       {/* 헤더 */}
       <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">나의 영농일지</h1>
-        <p className="text-gray-600 text-sm">오늘의 업무와 월간 영농 일정을 확인할 수 있습니다.</p>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">나의 캘린더</h1>
+        <p className="text-gray-600 text-sm">월간, 연간 작업 일정을 이랑별로 확인할 수 있습니다</p>
       </div>
 
       {/* 컨트롤 */}

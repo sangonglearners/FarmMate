@@ -33,7 +33,7 @@ export default function MobileNav() {
           isActive("/calendar") ? "text-primary bg-primary/10" : "text-gray-600"
         }`}>
           <Calendar className="w-5 h-5" />
-          <span className="text-xs mt-1">일지</span>
+          <span className="text-xs mt-1">캘린더</span>
         </Link>
         <Link href="/my-page" className={`flex flex-col items-center py-3 px-1 ${
           isActive("/my-page") ? "text-primary bg-primary/10" : "text-gray-600"
