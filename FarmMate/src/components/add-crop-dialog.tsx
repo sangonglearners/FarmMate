@@ -26,22 +26,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-<<<<<<< HEAD
-import { insertCropSchema } from "@shared/schema";
-import type { InsertCrop, Crop } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
-=======
 
 /** 기존 스키마/타입은 그대로 사용 */
-import { insertCropSchema } from "../../../shared/schema";
-import type { InsertCrop, Crop } from "../../../shared/schema";
+import { insertCropSchema } from "@shared/schema";
+import type { InsertCrop, Crop } from "@shared/schema";
 
 /** ⬇️ 여기부터 Supabase 유틸 임포트 */
 import { saveCrop, updateCrop } from "@/shared/api/saveCrop";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
-
->>>>>>> main
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
 
