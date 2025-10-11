@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Farm } from "@shared/types";
+import type { Farm } from "@/shared/types";
 
 interface FarmCardProps {
   farm: Farm;
