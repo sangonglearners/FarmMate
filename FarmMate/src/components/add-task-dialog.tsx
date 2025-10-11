@@ -34,24 +34,15 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-<<<<<<< HEAD
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema } from "@shared/schema";
 import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
-import { apiRequest } from "@/shared/api/client";
-=======
-} from "@shared/ui/popover";
-import { useToast } from "@shared/hooks/use-toast";
-import { insertTaskSchema } from "../../../shared/schema";
-import type { InsertTask, Task, Farm, Crop } from "../../../shared/schema";
 
 /** ⬇ Supabase 유틸 */
 import { saveTask } from "@/shared/api/saveTask";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
-
->>>>>>> main
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
 

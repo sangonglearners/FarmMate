@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Checkbox } from "../shared/ui/checkbox";
 import { CalendarIcon, Edit2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "../lib/utils";
+import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFarms } from "@features/farm-management";
 import { useCrops } from "@features/crop-management";
-import type { Task } from "../shared/types/schema";
+import type { Task } from "@shared/schema";
 
 interface EditTaskDialogProps {
   task: Task;
@@ -108,7 +108,6 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
         rowNumber: selectedRows.length > 0 ? selectedRows[0] : null, // 첫 번째 이랑 번호 저장
       };
 
-      const { taskApi } = await import("../shared/api/tasks");
       await taskApi.updateTask(task.id, updateData);
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
