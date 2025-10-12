@@ -5,7 +5,7 @@ import {
   getCategories, 
   getCropById,
   type RegistrationData 
-} from '../data/registration';
+} from '@/shared/data/registration';
 
 export interface CropSearchResult {
   id: string;
