@@ -355,8 +355,9 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     bulkCreateMutation.mutate(tasks);
   };
 
+  const onSubmit = async (data: InsertTask & { environment: string }) => {
     if (task) {
-      updateMutation.mutate(taskData);
+      updateMutation.mutate(data);
       return;
     }
 
@@ -375,7 +376,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     }
 
     // 단일 작업
-    createMutation.mutate(taskData);
+    createMutation.mutate(data);
   };
 
   const openWorkCalculator = () => {
