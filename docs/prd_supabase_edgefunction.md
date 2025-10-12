@@ -54,7 +54,7 @@
 - [x] "추천 결과 저장하기" 버튼 → `rec_result` 테이블에 저장
   - [x] 입력 조건(재배 범위, 재배 시기) 함께 저장
   - [x] 농장 정보(farm_id, farm_name, farm_environment) 저장
-- [x] "다시 추천받기" 버튼
+- [x] "추천 조건 변경하기" Ghost 버튼 (좌측 정렬, ChevronLeft 아이콘)
 
 ## Phase 4: 데이터 연동 및 완성
 
@@ -265,3 +265,37 @@ CREATE TABLE rec_result (
   <span className="value">{value}/3.0</span>
 </div>
 ```
+
+---
+
+## Phase 5: 추천 조합 더보기 기능
+
+### 5.1 기능 개요
+- 기본 3개 조합 표시 → 더보기 클릭 시 최대 6개까지 표시
+- 사용자가 원하는 조합을 찾지 못했을 때 추가 옵션 제공
+
+### 5.2 백엔드 작업
+- [x] `recommendation.ts`: `solveMILP` 호출 시 `maxCombinations`를 6으로 변경
+  - 기존: 3개 조합 생성
+  - 변경: 6개 조합 생성 (기본 3개 + 더보기 3개)
+
+### 5.3 프론트엔드 작업 (`RecommendationsResultPage.tsx`)
+- [x] `visibleCount` 상태 추가 (초기값: 3)
+- [x] 카드 표시 로직 수정: `cards.slice(0, visibleCount)` 사용
+- [x] 더보기 핸들러 구현: 클릭 시 모든 카드 표시 (`setVisibleCount(cards.length)`)
+- [x] 더보기 버튼 UI 추가
+  - 표시 조건: `visibleCount < cards.length`
+  - 버튼 텍스트: "더 많은 조합 보기"
+  - 스타일: 회색 테두리 버튼 (`variant="outline"`)
+- [x] 안내 문구 표시
+  - 표시 조건: `visibleCount >= cards.length && cards.length > 3`
+  - 내용: "모든 추천 조합을 확인했습니다 ✓"
+- [x] 하단 버튼 디자인 개선
+  - "추천 결과 저장하기": 초록색 메인 버튼
+  - "추천 조건 변경하기": Ghost 버튼 + ChevronLeft 아이콘 (좌측 정렬)
+
+### 5.4 동작 시나리오
+- **조합 3개 생성**: 모두 표시, 더보기 버튼 없음
+- **조합 4개 생성**: 처음 3개 표시 → 더보기 클릭 시 4개 모두 표시
+- **조합 6개 생성**: 처음 3개 표시 → 더보기 클릭 시 6개 모두 표시
+- **조합 6개 이상**: 백엔드에서 최대 6개만 생성하므로 발생 안 함

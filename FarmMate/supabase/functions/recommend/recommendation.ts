@@ -286,8 +286,8 @@ class CropRecommendationEngine {
         crop.finalScore = crop.profitScore * this.weights['수익성_사용'] + crop.laborScore * this.weights['노동편의성'] + crop.rarityScore * this.weights['품종희소성'];
       });
       console.log(`🎯 최종 점수 범위: ${Math.min(...filteredCrops.map((c) => c.finalScore))} ~ ${Math.max(...filteredCrops.map((c) => c.finalScore))}`);
-      // 8. 최적화로 조합 선택
-      const selectedCombinations = this.solveMILP(filteredCrops, 3);
+      // 8. 최적화로 조합 선택 (최대 6개: 기본 3개 + 더보기 3개)
+      const selectedCombinations = this.solveMILP(filteredCrops, 6);
       console.log(`🎯 선택된 조합 수: ${selectedCombinations.length}개`);
       if (selectedCombinations.length === 0) {
         return {
