@@ -194,7 +194,7 @@ export function getCropsByCategory(category: string): RegistrationData[] {
 
 // 모든 대분류 목록 조회
 export function getCategories(): string[] {
-  const categories = [...new Set(registrationData.map(crop => crop.대분류))];
+  const categories = Array.from(new Set(registrationData.map(crop => crop.대분류)));
   return categories.sort();
 }
 
