@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { useLocation } from "wouter";
+import { ChevronLeft } from "lucide-react";
 import { saveRecommendationResult, RecommendationResult } from "../../../shared/api/recommendation";
 
 // Mock 데이터 (API 응답 형식)
@@ -199,6 +200,7 @@ export default function RecommendationsResultPage() {
     rec_period: string;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(3); // 처음엔 3개만 표시
 
   useEffect(() => {
     // 로컬 스토리지에서 결과 가져오기
@@ -283,6 +285,15 @@ export default function RecommendationsResultPage() {
 
   const { cards } = result;
 
+  // 더보기 핸들러: 모든 카드 표시
+  const handleLoadMore = () => {
+    setVisibleCount(cards.length);
+  };
+
+  // 표시할 카드 필터링
+  const visibleCards = cards.slice(0, visibleCount);
+  const hasMore = visibleCount < cards.length;
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
@@ -293,7 +304,7 @@ export default function RecommendationsResultPage() {
 
       <div className="space-y-4 max-w-2xl">
         {/* Gift Box Cards */}
-        {cards.map((card, index) => (
+        {visibleCards.map((card, index) => (
           <Card
             key={index}
             className={`cursor-pointer transition-all ${
@@ -354,8 +365,25 @@ export default function RecommendationsResultPage() {
           </Card>
         ))}
 
+        {/* 더보기 버튼 또는 안내 문구 */}
+        {hasMore ? (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="outline"
+              onClick={handleLoadMore}
+              className="w-full max-w-md"
+            >
+              더 많은 조합 보기
+            </Button>
+          </div>
+        ) : cards.length > 3 && (
+          <p className="text-center text-sm text-gray-500 pt-2">
+            모든 추천 조합을 확인했습니다 ✓
+          </p>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex flex-col space-y-3 pt-4">
+        <div className="flex flex-col space-y-4 pt-4">
           <Button
             onClick={handleSaveToPlan}
             disabled={selectedCard === null}
@@ -364,13 +392,16 @@ export default function RecommendationsResultPage() {
           >
             추천 결과 저장하기
           </Button>
+          
+          {/* 텍스트 링크 */}
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
             onClick={() => setLocation("/recommendations/input")}
-            className="w-full h-12 text-lg"
-            size="lg"
+            className="w-auto px-2"
           >
-            다시 추천받기
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            추천 조건 변경하기
           </Button>
         </div>
       </div>
