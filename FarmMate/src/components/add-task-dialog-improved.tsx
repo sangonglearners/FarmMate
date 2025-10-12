@@ -130,10 +130,8 @@ export default function AddTaskDialog({
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [cropSearchResults, setCropSearchResults] = useState<any[]>([]);
   const [, setLocation] = useLocation();
   const [showNoResultsConfirm, setShowNoResultsConfirm] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
