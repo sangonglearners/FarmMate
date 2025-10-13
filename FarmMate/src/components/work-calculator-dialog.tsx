@@ -323,7 +323,7 @@ export default function WorkCalculatorDialog({
               className="text-xs"
             >
               <Plus className="w-3 h-3 mr-1" />
-              수확 사이를 추가
+              수확 사이클 추가
             </Button>
           </div>
 
