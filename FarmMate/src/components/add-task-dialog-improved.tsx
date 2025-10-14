@@ -5,16 +5,16 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,46 +22,46 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "./ui/form";
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "./ui/popover";
+} from "@/components/ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "./ui/collapsible";
-import { useToast } from "../hooks/use-toast";
-import { insertTaskSchema } from "../shared/types/schema";
+} from "@/components/ui/collapsible";
+import { useToast } from "@/hooks/use-toast";
+import { insertTaskSchema } from "@/shared/types/schema";
 import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { useLocation } from "wouter";
-import { useDeleteTask } from "../features/task-management";
+import { useDeleteTask } from "@/features/task-management";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@/shared/api/client";
 
 // ⬇ Supabase 유틸 추가
-import { saveTask } from "../shared/api/saveTask";
-import { supabase } from "../shared/api/supabase";
-import { mustOk } from "../shared/api/mustOk";
-import { useFarms } from "../features/farm-management";
-import { useCrops } from "../features/crop-management";
-import { serverRegistrationRepository, type CropSearchResult } from "../shared/api/server-registration.repository";
+import { saveTask } from "@/shared/api/saveTask";
+import { supabase } from "@/shared/api/supabase";
+import { mustOk } from "@/shared/api/mustOk";
+import { useFarms } from "@/features/farm-management";
+import { useCrops } from "@/features/crop-management";
+import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
 
 import { z } from "zod";
-import { Calendar } from "./ui/calendar";
-import WorkCalculatorDialog from "./work-calculator-dialog";
-import { registrationData } from "../shared/data/registration";
-import type { RegistrationData } from "../shared/data/registration";
+import { Calendar } from "@/components/ui/calendar";
+import WorkCalculatorDialog from "@/components/work-calculator-dialog";
+import { registrationData } from "@/shared/data/registration";
+import type { RegistrationData } from "@/shared/data/registration";
 
 const formSchema = insertTaskSchema.extend({
   title: z.string().min(1, "제목을 입력해주세요"),
