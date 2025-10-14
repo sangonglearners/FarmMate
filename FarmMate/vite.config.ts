@@ -19,6 +19,13 @@ export default defineConfig({
       "@entities": path.resolve(__dirname, "src", "entities"),
       "@shared": path.resolve(__dirname, "shared"),
       "@assets": path.resolve(__dirname, "attached_assets"),
+      "@lib": path.resolve(__dirname, "src", "lib"),
+      "@hooks": path.resolve(__dirname, "src", "hooks"),
+      "@contexts": path.resolve(__dirname, "src", "contexts"),
+      "@utils": path.resolve(__dirname, "src", "utils"),
+      "@styles": path.resolve(__dirname, "src", "styles"),
+      "@types": path.resolve(__dirname, "src", "types"),
+      "@config": path.resolve(__dirname, "src", "config"),
     },
   },
   // root: "client", // client 폴더 제거로 인해 주석처리
