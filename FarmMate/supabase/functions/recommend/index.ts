@@ -1,4 +1,5 @@
 // Supabase Edge Runtime 타입 선언 (에디터 자동완성/타입 체크 개선용)
+import { VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY } from '@/shared/constants/meta.env';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ⚠️ recommendation.ts가 default export인지 확인하세요.
@@ -69,9 +70,9 @@ Deno.serve(async (req)=>{
       });
     }
     // --- Supabase 클라이언트 ---
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-    if (!supabaseUrl || !supabaseKey) {
+    // const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    // const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY) {
       return json({
         error: "SUPABASE_URL / SUPABASE_ANON_KEY not set"
       }, {
