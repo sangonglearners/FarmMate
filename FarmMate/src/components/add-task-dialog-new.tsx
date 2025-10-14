@@ -312,26 +312,34 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     },
   });
 
-  // 개별 등록 - 날짜 범위 내 모든 날짜 생성
+  // 개별 등록 - 하나의 작업으로 날짜 범위 저장 (원래 방식)
   const createIndividualTasks = () => {
-    const startDate = new Date(dateRange.from);
-    const endDate = new Date(dateRange.to);
+    const startDate = form.getValues("scheduledDate") || "";
+    const endDate = form.getValues("endDate") || "";
     const ttype = form.getValues("taskType");
     const cropName = customCropName || crops?.find(c => c.id === form.getValues("cropId"))?.name || "작물";
 
-    const tasks: InsertTask[] = [];
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-      const dateStr = format(date, "yyyy-MM-dd");
-      tasks.push({
-        title: form.getValues("title") || `${cropName} ${ttype}`,
-        description: form.getValues("description") || `개별 등록으로 생성된 ${ttype} 작업`,
-        taskType: ttype,
-        scheduledDate: dateStr,
-        farmId: form.getValues("farmId"),
-        cropId: form.getValues("cropId"),
+    if (!startDate || !endDate) {
+      toast({
+        title: "시작/종료 날짜를 모두 선택해주세요",
+        variant: "destructive",
       });
+      return;
     }
-    bulkCreateMutation.mutate(tasks);
+
+    // 하나의 작업만 생성 (날짜 범위)
+    const task: InsertTask = {
+      title: form.getValues("title") || `${cropName}_${ttype}`,
+      description: form.getValues("description") || `개별 등록으로 생성된 ${ttype} 작업`,
+      taskType: ttype,
+      scheduledDate: startDate,
+      endDate: endDate, // 종료일도 함께 저장
+      farmId: form.getValues("farmId"),
+      cropId: form.getValues("cropId"),
+    };
+    
+    console.log("개별등록으로 생성될 작업 (날짜 범위):", task);
+    createMutation.mutate(task);
   };
 
   // 일괄 등록 - 여러 작업을 한 날짜에
@@ -355,14 +363,17 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     bulkCreateMutation.mutate(tasks);
   };
 
+  const onSubmit = async (data: InsertTask & { environment: string }) => {
     if (task) {
-      updateMutation.mutate(taskData);
+      updateMutation.mutate(data);
       return;
     }
 
     if (registrationMode === "individual") {
       if (!form.getValues("taskType")) return toast({ title: "작업 유형을 선택해주세요", variant: "destructive" });
-      if (!dateRange.from || !dateRange.to) return toast({ title: "날짜 범위를 선택해주세요", variant: "destructive" });
+      if (!form.getValues("scheduledDate") || !form.getValues("endDate")) {
+        return toast({ title: "시작/종료 날짜를 모두 선택해주세요", variant: "destructive" });
+      }
       createIndividualTasks();
       return;
     }
@@ -375,7 +386,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     }
 
     // 단일 작업
-    createMutation.mutate(taskData);
+    createMutation.mutate(data);
   };
 
   const openWorkCalculator = () => {
