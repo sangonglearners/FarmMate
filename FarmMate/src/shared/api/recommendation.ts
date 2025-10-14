@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-
+import { VITE_SUPABASE_URL } from '@/shared/constants/meta.env';
 export interface RecommendationRequest {
   start_month: number;
   end_month: number;
@@ -59,7 +59,7 @@ export async function getRecommendations(
     }
 
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/recommend`,
+      `${VITE_SUPABASE_URL}/functions/v1/recommend`,
       {
         method: 'POST',
         headers: {
