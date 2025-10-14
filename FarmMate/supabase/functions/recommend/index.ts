@@ -70,8 +70,8 @@ Deno.serve(async (req)=>{
       });
     }
     // --- Supabase 클라이언트 ---
-    // const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    // const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseUrl = VITE_SUPABASE_URL;
+    const supabaseKey = VITE_SUPABASE_ANON_KEY;
     if (!VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY) {
       return json({
         error: "SUPABASE_URL / SUPABASE_ANON_KEY not set"
