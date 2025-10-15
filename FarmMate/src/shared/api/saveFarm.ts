@@ -18,6 +18,16 @@ export async function saveFarm(input: {
   const storedFarms = localStorage.getItem(userFarmsKey);
   const farms = storedFarms ? JSON.parse(storedFarms) : [];
   
+  // 중복 검사 (공백 트림, 대소문자 무시)
+  const normalizedName = input.name.trim().toLowerCase();
+  const isDuplicate = farms.some((existingFarm: any) => 
+    existingFarm.name.trim().toLowerCase() === normalizedName
+  );
+  
+  if (isDuplicate) {
+    throw new Error("이미 등록된 이름입니다.");
+  }
+  
   // 새 농장 생성
   const newFarm = {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // 고유 ID
@@ -59,6 +69,16 @@ export async function updateFarm(id: string, input: {
   const farmIndex = farms.findIndex((f: any) => f.id === id);
   if (farmIndex === -1) {
     throw new Error("농장을 찾을 수 없습니다.");
+  }
+  
+  // 중복 검사 (공백 트림, 대소문자 무시, 자기 자신은 제외)
+  const normalizedName = input.name.trim().toLowerCase();
+  const isDuplicate = farms.some((existingFarm: any, index: number) => 
+    index !== farmIndex && existingFarm.name.trim().toLowerCase() === normalizedName
+  );
+  
+  if (isDuplicate) {
+    throw new Error("이미 등록된 이름입니다.");
   }
   
   // 농장 업데이트
