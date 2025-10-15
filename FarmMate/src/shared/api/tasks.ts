@@ -91,33 +91,49 @@ export const taskApi = {
   },
 
   createTask: async (taskData: any): Promise<Task> => {
+    console.log('🔹 taskApi.createTask 시작', taskData);
+    
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) {
+      console.error('❌ 사용자가 로그인되어 있지 않음');
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
+    console.log('✅ 인증된 사용자:', auth.user.id);
+
+    const insertData = {
+      user_id: auth.user.id,
+      title: taskData.title,
+      description: taskData.description || null,
+      task_type: taskData.taskType || '기타',
+      scheduled_date: taskData.scheduledDate,
+      end_date: taskData.endDate || null,
+      farm_id: taskData.farmId || null,
+      crop_id: taskData.cropId || null,
+      row_number: taskData.rowNumber || null,
+      completed: taskData.completed || 0,
+    };
+
+    console.log('📤 Supabase에 저장할 데이터:', insertData);
+
     const { data, error } = await supabase
       .from('tasks_v1')
-      .insert({
-        user_id: auth.user.id,
-        title: taskData.title,
-        description: taskData.description || null,
-        task_type: taskData.taskType || '기타',
-        scheduled_date: taskData.scheduledDate,
-        end_date: taskData.endDate || null,
-        farm_id: taskData.farmId || null,
-        crop_id: taskData.cropId || null,
-        row_number: taskData.rowNumber || null,
-        completed: taskData.completed || 0,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      console.error('작업 생성 오류:', error);
+      console.error('❌ 작업 생성 오류:', error);
+      console.error('❌ 오류 상세:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       throw error;
     }
 
+    console.log('✅ 작업 생성 성공:', data);
     return toTask(data);
   },
 

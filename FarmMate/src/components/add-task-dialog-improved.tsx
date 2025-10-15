@@ -52,6 +52,7 @@ import { useDeleteTask } from "@/features/task-management";
 // ⬇ Supabase 유틸 추가
 import { saveTask } from "@/shared/api/saveTask";
 import { supabase } from "@/shared/api/supabase";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import { mustOk } from "@/shared/api/mustOk";
 import { useFarms } from "@/features/farm-management";
 import { useCrops } from "@/features/crop-management";
@@ -64,7 +65,7 @@ import { registrationData } from "@/shared/data/registration";
 import type { RegistrationData } from "@/shared/data/registration";
 
 const formSchema = insertTaskSchema.extend({
-  title: z.string().min(1, "제목을 입력해주세요"),
+  title: z.string().optional(), // 제목을 선택사항으로 변경 (자동 생성)
   environment: z.string().optional(), // 농장 선택 시 자동 설정
   endDate: z.string().optional(),
   rowNumber: z.number().optional(),
@@ -695,7 +696,27 @@ export default function AddTaskDialog({
       });
       onOpenChange(false);
     },
-    onError: (e: any) => {
+    onError: async (e: any) => {
+      console.error('❌ 작업 등록 실패:', e);
+      
+      // 인증 오류인지 확인
+      if (e?.message?.includes('사용자가 로그인되어 있지 않습니다') || 
+          e?.message?.includes('Unauthorized') ||
+          e?.code === 'PGRST301') {
+        
+        // 현재 로그인 상태 확인
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (!user) {
+          toast({
+            title: "로그인이 필요합니다",
+            description: "작업을 저장하려면 먼저 로그인해주세요. 우측 상단의 로그인 버튼을 클릭하세요.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       toast({
         title: "작업 등록 실패",
         description: e?.message ?? "작업 등록 중 오류가 발생했습니다.",
@@ -796,7 +817,27 @@ export default function AddTaskDialog({
       });
       onOpenChange(false);
     },
-    onError: (e: any) => {
+    onError: async (e: any) => {
+      console.error('❌ 일괄 작업 등록 실패:', e);
+      
+      // 인증 오류인지 확인
+      if (e?.message?.includes('사용자가 로그인되어 있지 않습니다') || 
+          e?.message?.includes('Unauthorized') ||
+          e?.code === 'PGRST301') {
+        
+        // 현재 로그인 상태 확인
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (!user) {
+          toast({
+            title: "로그인이 필요합니다",
+            description: "작업을 저장하려면 먼저 로그인해주세요. 우측 상단의 로그인 버튼을 클릭하세요.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       toast({
         title: "작업 등록 실패",
         description: e?.message ?? "일괄 작업 등록 중 오류가 발생했습니다.",
@@ -860,8 +901,18 @@ export default function AddTaskDialog({
       bulkCreateMutation.mutate(tasks);
     } else {
       // individual: 한 작업을 날짜 범위로 (하나의 작업으로 시작일과 종료일만 저장)
+      console.log("🔹 개별등록 모드 시작", {
+        startDate,
+        endDate: form.getValues("endDate"),
+        farmId: form.getValues("farmId"),
+        taskType: form.getValues("taskType"),
+        cropId: form.getValues("cropId"),
+        title: form.getValues("title")
+      });
+      
       const endDate = (form.getValues("endDate") as string) || "";
       if (!startDate || !endDate) {
+        console.log("❌ 날짜가 없음", { startDate, endDate });
         toast({
           title: "시작/종료 날짜를 모두 선택해주세요",
           variant: "destructive",
@@ -869,11 +920,26 @@ export default function AddTaskDialog({
         return;
       }
       if (!form.getValues("farmId")) {
+        console.log("❌ 농장이 선택되지 않음");
         toast({ title: "농장을 선택해주세요", variant: "destructive" });
         return;
       }
+      
       const work = form.getValues("taskType") || "";
+      if (!work) {
+        console.log("❌ 작업 유형이 없음");
+        toast({ title: "작업 유형을 선택해주세요", variant: "destructive" });
+        return;
+      }
+      
       const rowNumber = form.getValues("rowNumber");
+      
+      // 작물 ID 결정 로직 개선 (일괄등록과 동일하게)
+      let finalCropId = form.getValues("cropId");
+      if (!finalCropId && selectedCrop?.id) {
+        finalCropId = selectedCrop.id;
+        console.log("개별등록에서 selectedCrop.id 사용:", finalCropId);
+      }
       
       // 하나의 작업만 생성 (날짜 범위)
       const task: InsertTask = {
@@ -885,12 +951,13 @@ export default function AddTaskDialog({
         scheduledDate: startDate,
         endDate: endDate, // 종료일도 함께 저장
         farmId: form.getValues("farmId") || "",
-        cropId: form.getValues("cropId") || "",
+        cropId: finalCropId || "",
         rowNumber: rowNumber || undefined,
       };
       
-      console.log("개별등록으로 생성될 작업 (날짜 범위):", task);
-      createMutation.mutate(task);
+      console.log("✅ 개별등록으로 생성될 작업 (날짜 범위):", task);
+      // 일괄등록과 동일한 방식으로 bulkCreateMutation 사용
+      bulkCreateMutation.mutate([task]);
     }
   };
 
@@ -954,6 +1021,7 @@ export default function AddTaskDialog({
   };
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
+    console.log("🔹 onSubmit 호출됨", { registrationMode, data });
     const { environment, ...taskData } = data; // DB에 없는 폼 전용 필드 제거
 
     // 농장 선택 검증
@@ -967,16 +1035,19 @@ export default function AddTaskDialog({
     }
 
     if (task) {
+      console.log("🔹 수정 모드 실행");
       updateMutation.mutate(taskData as InsertTask);
       return;
     }
 
     if (registrationMode === "batch" || registrationMode === "individual") {
+      console.log("🔹 createBatchTasks 호출");
       createBatchTasks();
       return;
     }
 
     // 단건
+    console.log("🔹 단건 등록");
     createMutation.mutate(taskData as InsertTask);
   };
 
@@ -1488,9 +1559,13 @@ export default function AddTaskDialog({
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>제목 *</FormLabel>
+                    <FormLabel>제목 (선택사항)</FormLabel>
                     <FormControl>
-                      <Input placeholder="작업 제목을 입력하세요" {...field} />
+                      <Input 
+                        placeholder="작업 제목을 입력하세요 (비워두면 자동 생성)" 
+                        {...field} 
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1645,11 +1720,18 @@ export default function AddTaskDialog({
                     createMutation.isPending ||
                     updateMutation.isPending ||
                     bulkCreateMutation.isPending ||
-                    deleteMutation.isPending ||
-                    (!task &&
-                      registrationMode === "batch" &&
-                      selectedWorks.length === 0)
+                    deleteMutation.isPending
                   }
+                  onClick={(e) => {
+                    console.log("💾 저장하기 버튼 클릭됨", {
+                      registrationMode,
+                      farmId: form.getValues("farmId"),
+                      taskType: form.getValues("taskType"),
+                      scheduledDate: form.getValues("scheduledDate"),
+                      endDate: form.getValues("endDate"),
+                      formValues: form.getValues()
+                    });
+                  }}
                 >
                   {createMutation.isPending ||
                   updateMutation.isPending ||
