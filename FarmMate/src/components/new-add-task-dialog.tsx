@@ -301,7 +301,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
             cropId: targetCrop?.id || selectedCrop, // registration 작물의 경우 이름을 ID로 사용
             farmId: targetFarm.id,
             scheduledDate: startDate?.toLocaleDateString('sv-SE') || new Date().toLocaleDateString('sv-SE'),
-            endDate: endDate ? endDate.toLocaleDateString('sv-SE') : startDate?.toLocaleDateString('sv-SE') || new Date().toLocaleDateString('sv-SE'),
+            endDate: endDate ? endDate.toLocaleDateString('sv-SE') : null,
             description: `이랑: ${row}번`,
           });
         });
@@ -322,7 +322,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
             cropId: targetCrop?.id || selectedCrop, // registration 작물의 경우 이름을 ID로 사용
             farmId: targetFarm.id,
               scheduledDate: currentDate.toLocaleDateString('sv-SE'),
-              endDate: endDate ? endDate.toLocaleDateString('sv-SE') : currentDate.toLocaleDateString('sv-SE'),
+              endDate: endDate ? endDate.toLocaleDateString('sv-SE') : null,
               description: `이랑: ${row}번`,
             });
           });

@@ -648,41 +648,20 @@ export default function AddTaskDialog({
         전체데이터: data
       });
       
-      // endDate가 있는 경우 taskApi.createTask를 직접 사용
-      if ((data as any).endDate) {
-        console.log("endDate가 있어서 taskApi.createTask 사용:", {
-          endDate: (data as any).endDate,
-          scheduledDate: (data as any).scheduledDate
-        });
-        const taskToCreate = {
-          title: data.title!,
-          description: (data as any).description || "",
-          taskType: (data as any).taskType || "기타",
-          scheduledDate: (data as any).scheduledDate,
-          endDate: (data as any).endDate, // endDate 포함
-          farmId: (data as any).farmId || "",
-          cropId: finalCropId || "",
-          rowNumber: (data as any).rowNumber || null,
-          completed: 0,
-        };
-        console.log("taskApi.createTask에 전달할 데이터:", taskToCreate);
-        return await taskApi.createTask(taskToCreate);
-      } else {
-        // endDate가 없는 경우 기존 saveTask 사용
-        console.log("endDate가 없어서 saveTask 사용:", {
-          endDate: (data as any).endDate,
-          scheduledDate: (data as any).scheduledDate
-        });
-        return saveTask({
-          title: data.title!,
-          memo: (data as any).description || undefined,
-          scheduledAt: (data as any).scheduledDate,
-          farmId: (data as any).farmId ? (data as any).farmId : undefined,
-          cropId: finalCropId || undefined,
-          rowNumber: (data as any).rowNumber || undefined,
-          taskType: (data as any).taskType || undefined,
-        });
-      }
+      // 항상 taskApi.createTask를 사용하여 endDate를 제대로 처리
+      const taskToCreate = {
+        title: data.title!,
+        description: (data as any).description || "",
+        taskType: (data as any).taskType || "기타",
+        scheduledDate: (data as any).scheduledDate,
+        endDate: (data as any).endDate || null, // endDate가 없으면 null로 설정
+        farmId: (data as any).farmId || "",
+        cropId: finalCropId || "",
+        rowNumber: (data as any).rowNumber || null,
+        completed: 0,
+      };
+      console.log("taskApi.createTask에 전달할 데이터:", taskToCreate);
+      return await taskApi.createTask(taskToCreate);
     },
     onSuccess: () => {
       // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
@@ -754,7 +733,7 @@ export default function AddTaskDialog({
         description: description,
         taskType: (data as any).taskType || "기타",
         scheduledDate: (data as any).scheduledDate,
-        endDate: (data as any).endDate || (data as any).scheduledDate || null, // 종료날짜가 없으면 시작날짜와 동일하게 설정
+        endDate: (data as any).endDate || null, // 종료날짜가 없으면 null로 설정
         farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
         cropId: finalCropId ? finalCropId.toString() : "",
         rowNumber: rowNumber || null,
@@ -794,7 +773,7 @@ export default function AddTaskDialog({
           description: (task as any).description || "",
           taskType: (task as any).taskType || "기타",
           scheduledDate: (task as any).scheduledDate || new Date().toISOString().split('T')[0],
-          endDate: (task as any).endDate || null,
+          endDate: (task as any).endDate || null, // endDate가 없으면 null로 설정
           farmId: (task as any).farmId ? (task as any).farmId.toString() : "",
           cropId: (task as any).cropId ? (task as any).cropId.toString() : "",
           rowNumber: (task as any).rowNumber || null,

@@ -100,7 +100,7 @@ export default function CalendarGrid({
       // 정확한 날짜 매칭 또는 날짜 범위 내 포함
       let isDateMatch = t.scheduledDate === dateStr;
       
-      if (!isDateMatch && t.endDate) {
+      if (!isDateMatch && t.endDate && t.endDate !== t.scheduledDate) {
         // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
         const taskStartDate = new Date(t.scheduledDate);
         const taskEndDate = new Date(t.endDate);
