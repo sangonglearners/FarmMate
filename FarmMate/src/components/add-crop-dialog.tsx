@@ -75,6 +75,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
       variety: "",
       status: "growing",
     },
+    mode: "onChange", // 실시간 유효성 검사
   });
 
   const selectedCropData = representativeCrops.find(crop => crop.id === selectedCrop);
@@ -138,6 +139,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
       onOpenChange(false);
     },
     onError: (e: any) => {
+      console.error("작물 추가 오류:", e);
       toast({
         title: "추가 실패",
         description: e?.message ?? "작물 추가 중 오류가 발생했습니다.",
@@ -166,6 +168,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
       onOpenChange(false);
     },
     onError: (e: any) => {
+      console.error("작물 수정 오류:", e);
       toast({
         title: "수정 실패",
         description: e?.message ?? "작물 수정 중 오류가 발생했습니다.",
@@ -200,7 +203,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="작물 이름을 검색해 주세요 (ex. 양배추)"
-                  value={searchTerm}
+                  value={searchTerm || ""}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
