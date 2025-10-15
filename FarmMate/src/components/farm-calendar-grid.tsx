@@ -287,8 +287,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     rowTasks.forEach(task => {
       if (processedTasks.has(task.id)) return;
       
-      // 멀티데이 일정인 경우 (endDate가 있는 경우)
-      if ((task as any).endDate) {
+        // 멀티데이 일정인 경우 (endDate가 있고 시작일과 다른 경우)
+        if ((task as any).endDate && (task as any).endDate !== task.scheduledDate) {
         const startDate = new Date(task.scheduledDate);
         const endDate = new Date((task as any).endDate);
         
