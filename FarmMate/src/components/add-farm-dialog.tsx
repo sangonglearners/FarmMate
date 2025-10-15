@@ -50,6 +50,7 @@ export default function AddFarmDialog({ open, onOpenChange, farm }: AddFarmDialo
       rowCount: 0,
       area: 0,
     },
+    mode: "onChange", // 실시간 유효성 검사
   });
 
   useEffect(() => {
