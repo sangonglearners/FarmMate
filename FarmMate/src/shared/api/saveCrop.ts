@@ -20,6 +20,16 @@ export async function saveCrop(input: {
   const storedCrops = localStorage.getItem(userCropsKey);
   const crops = storedCrops ? JSON.parse(storedCrops) : [];
   
+  // 중복 검사 (공백 트림, 대소문자 무시)
+  const normalizedName = input.name.trim().toLowerCase();
+  const isDuplicate = crops.some((existingCrop: any) => 
+    existingCrop.name.trim().toLowerCase() === normalizedName
+  );
+  
+  if (isDuplicate) {
+    throw new Error("이미 등록된 이름입니다.");
+  }
+  
   // 새 작물 생성
   const newCrop = {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // 고유 ID
@@ -65,6 +75,16 @@ export async function updateCrop(id: string, input: {
   const cropIndex = crops.findIndex((c: any) => c.id === id);
   if (cropIndex === -1) {
     throw new Error("작물을 찾을 수 없습니다.");
+  }
+  
+  // 중복 검사 (공백 트림, 대소문자 무시, 자기 자신은 제외)
+  const normalizedName = input.name.trim().toLowerCase();
+  const isDuplicate = crops.some((existingCrop: any, index: number) => 
+    index !== cropIndex && existingCrop.name.trim().toLowerCase() === normalizedName
+  );
+  
+  if (isDuplicate) {
+    throw new Error("이미 등록된 이름입니다.");
   }
   
   // 작물 업데이트

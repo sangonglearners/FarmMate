@@ -16,6 +16,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -134,10 +144,18 @@ export default function AddTaskDialog({
   const [, setLocation] = useLocation();
   const [showNoResultsConfirm, setShowNoResultsConfirm] = useState(false);
   const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
+  const [showRowDuplicateAlert, setShowRowDuplicateAlert] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
   const { data: crops } = useCrops();
+
+  /** 기존 작업 목록 가져오기 (이랑 중복 검사용) */
+  const { data: existingTasks } = useQuery<Task[]>({
+    queryKey: ["tasks"],
+    queryFn: () => import("@/shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
+  });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -152,6 +170,7 @@ export default function AddTaskDialog({
       environment: "",
       rowNumber: undefined,
     },
+    mode: "onChange", // 실시간 유효성 검사
   });
 
   // 제목 자동 설정 (편집 모드에서도 작동)
@@ -709,9 +728,8 @@ export default function AddTaskDialog({
     mutationFn: async (data: InsertTask) => {
         const { taskApi } = await import("../shared/api/tasks");
       const rowNumber = (data as any).rowNumber;
-      const description = rowNumber 
-        ? `이랑: ${rowNumber}번`
-        : (data as any).description || "";
+      // 메모 자동 문구 제거: description은 사용자가 입력한 값만 사용
+      const description = (data as any).description || "";
       
       // 작물 ID 결정 로직 개선
       let finalCropId = (data as any).cropId;
@@ -865,9 +883,7 @@ export default function AddTaskDialog({
       
       const tasks: InsertTask[] = selectedWorks.map((work) => ({
         title: form.getValues("title") || `${cropName}_${work}`,
-        description: rowNumber 
-          ? `이랑: ${rowNumber}번`
-          : (form.getValues("description") || `일괄 등록으로 생성된 ${work} 작업`),
+        description: form.getValues("description") || "", // 메모 자동 문구 제거: 사용자가 입력한 값만 사용
         taskType: work,
         scheduledDate: startDate,
         endDate: startDate, // 일괄등록 시 종료날짜를 시작날짜와 동일하게 설정
@@ -923,9 +939,7 @@ export default function AddTaskDialog({
       // 하나의 작업만 생성 (날짜 범위)
       const task: InsertTask = {
         title: form.getValues("title") || `${cropName}_${work}`,
-        description: rowNumber 
-          ? `이랑: ${rowNumber}번`
-          : (form.getValues("description") || `개별 등록으로 생성된 ${work} 작업`),
+        description: form.getValues("description") || "", // 메모 자동 문구 제거: 사용자가 입력한 값만 사용
         taskType: work,
         scheduledDate: startDate,
         endDate: endDate, // 종료일도 함께 저장
@@ -1013,6 +1027,42 @@ export default function AddTaskDialog({
       return;
     }
 
+    // 이랑 번호 필수 검증
+    if (!task && !data.rowNumber) {
+      toast({
+        title: "이랑 번호를 선택해주세요",
+        description: "특정 이랑을 반드시 선택해야 등록 가능합니다.",
+        variant: "destructive",
+      });
+      form.setError("rowNumber", {
+        type: "manual",
+        message: "이랑 번호를 선택해주세요",
+      });
+      return;
+    }
+
+    // 이랑 중복 체크 (수정 모드가 아닐 때만)
+    if (!task && data.rowNumber) {
+      const isDuplicate = existingTasks?.some((existingTask: any) => {
+        const isSameFarm = existingTask.farmId === data.farmId;
+        const isSameRow = existingTask.rowNumber === data.rowNumber;
+        return isSameFarm && isSameRow;
+      });
+
+      if (isDuplicate) {
+        // 중복이면 확인 모달 표시
+        setPendingSubmitData(taskData);
+        setShowRowDuplicateAlert(true);
+        return;
+      }
+    }
+
+    // 중복이 아니거나 수정 모드인 경우 계속 진행
+    proceedWithSubmit(taskData);
+  };
+
+  // 실제 제출 로직
+  const proceedWithSubmit = (taskData: any) => {
     if (task) {
       console.log("🔹 수정 모드 실행");
       updateMutation.mutate(taskData as InsertTask);
@@ -1132,7 +1182,7 @@ export default function AddTaskDialog({
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="작물명을 입력하세요"
-                    value={cropSearchTerm}
+                    value={cropSearchTerm || ""}
                     onChange={(e) => {
                       console.log("작물 입력 필드 변경:", {
                         이전값: cropSearchTerm,
@@ -1495,25 +1545,20 @@ export default function AddTaskDialog({
                       
                       return (
                         <FormItem>
-                          <FormLabel>이랑 번호 (선택사항)</FormLabel>
+                          <FormLabel>이랑 번호 *</FormLabel>
                           <Select 
                             onValueChange={(value) => {
                               console.log("이랑 번호 변경:", value);
-                              if (value === "all") {
-                                field.onChange(undefined); // 전체 이랑 선택 시 undefined
-                              } else {
-                                field.onChange(value ? parseInt(value) : undefined);
-                              }
+                              field.onChange(value ? parseInt(value) : undefined);
                             }} 
-                            value={displayValue}
+                            value={field.value?.toString() || ""}
                           >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="이랑 번호를 선택해주세요" />
+                              <SelectValue placeholder="이랑 번호를 선택해주세요 *" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="all">전체 이랑</SelectItem>
                             {Array.from({ length: currentFarm.rowCount }, (_, i) => i + 1).map((rowNum) => (
                               <SelectItem key={rowNum} value={rowNum.toString()}>
                                 {rowNum}번 이랑
@@ -1523,7 +1568,7 @@ export default function AddTaskDialog({
                         </Select>
                         <FormMessage />
                         <p className="text-xs text-gray-500">
-                          선택하지 않으면 전체 이랑에 작업이 등록됩니다
+                          특정 이랑을 반드시 선택해야 합니다
                         </p>
                       </FormItem>
                     );
@@ -1654,7 +1699,7 @@ export default function AddTaskDialog({
                     <FormLabel>메모 (선택사항)</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="추가 메모를 입력하세요"
+                        placeholder="예시 : 작물 kg"
                         {...field}
                         value={field.value || ""}
                       />
@@ -1741,6 +1786,35 @@ export default function AddTaskDialog({
          selectedFarm={selectedFarm}
          selectedRowNumber={form.getValues("rowNumber")}
        />
+
+      {/* 이랑 중복 경고 AlertDialog */}
+      <AlertDialog open={showRowDuplicateAlert} onOpenChange={setShowRowDuplicateAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>이랑 중복 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              이미 이랑에 작물이 등록되어 있습니다. 그래도 작업을 등록하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowRowDuplicateAlert(false);
+              setPendingSubmitData(null);
+            }}>
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowRowDuplicateAlert(false);
+              if (pendingSubmitData) {
+                proceedWithSubmit(pendingSubmitData);
+              }
+              setPendingSubmitData(null);
+            }}>
+              확인
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
