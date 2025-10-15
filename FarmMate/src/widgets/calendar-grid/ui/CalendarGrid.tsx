@@ -34,7 +34,8 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
   return (
     <div className="relative">
       {/* 연속된 일정 박스들 렌더링 - 홈화면에서는 비활성화 */}
-      {/* {taskGroups.map((taskGroup, groupIndex) => {
+      {/* 연속된 일정 박스들 렌더링 */}
+      {taskGroups.map((taskGroup, groupIndex) => {
         if (!taskGroup.task.endDate || taskGroup.startDayIndex === taskGroup.endDayIndex) {
           // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
           return null;
@@ -75,7 +76,7 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
             </div>
           </div>
         );
-      })} */}
+      })}
       
       {/* 캘린더 그리드 */}
       <div className="grid grid-cols-7 gap-2">
