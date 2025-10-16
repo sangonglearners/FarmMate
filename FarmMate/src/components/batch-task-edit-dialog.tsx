@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { CalendarIcon, Check, ChevronDown } from "lucide-react";
+import { CalendarIcon, Check, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,12 +35,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { taskApi } from "@/shared/api/tasks";
 import type { Task } from "@shared/schema";
 import { useFarms } from "@/features/farm-management";
-import { registrationData } from "@/shared/data/registration";
+import { useCrops } from "@/features/crop-management";
+import { registrationData, searchCrops } from "@/shared/data/registration";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -79,6 +85,19 @@ export default function BatchTaskEditDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: farms = [] } = useFarms();
+  const { data: crops = [] } = useCrops();
+
+  // 작물 선택 관련 state
+  const [cropSearchTerm, setCropSearchTerm] = useState("");
+  const [customCropName, setCustomCropName] = useState("");
+  const [selectedCrop, setSelectedCrop] = useState<any>(null);
+  const [cropSearchResults, setCropSearchResults] = useState<any[]>([]);
+  const [showKeyCrops, setShowKeyCrops] = useState(false);
+  const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
+
+  // 핵심 작물 (Supabase crop 테이블)과 전체 작물 (registration 테이블) 구분
+  const keyCrops = crops; // Supabase crop 테이블의 작물들
+  const allCrops = registrationData; // registration 테이블의 작물들
 
   // 첫 번째 작업에서 기본 정보 추출
   const firstTask = taskGroup?.[0];
@@ -89,8 +108,52 @@ export default function BatchTaskEditDialog({
 
   // 현재 작업들에서 작업 타입 추출
   const currentTaskTypes = useMemo(() => {
-    return taskGroup.map(task => task.taskType).filter(Boolean);
+    const types = taskGroup?.map(task => task.taskType).filter(Boolean) || [];
+    console.log('현재 작업 타입들:', { taskGroup, types });
+    return types;
   }, [taskGroup]);
+
+  // 작물 검색 로직
+  useEffect(() => {
+    if (cropSearchTerm.trim() === "" || isCropSelectedFromList) {
+      setCropSearchResults([]);
+      return;
+    }
+
+    const results = searchCrops(cropSearchTerm);
+    setCropSearchResults(results);
+  }, [cropSearchTerm, isCropSelectedFromList]);
+
+  // 핵심 작물 선택 핸들러 (Supabase crop 테이블)
+  const handleKeyCropSelect = (keyCrop: any) => {
+    const displayName = keyCrop.name;
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
+    setSelectedCrop(keyCrop);
+    setIsCropSelectedFromList(true);
+    form.setValue("cropName", displayName);
+    setShowKeyCrops(false);
+  };
+
+  // 검색 작물 선택 핸들러
+  const handleSearchCropSelect = (searchCrop: any) => {
+    const displayName = `${searchCrop.품목} > ${searchCrop.품종}`;
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
+    setSelectedCrop(null);
+    setIsCropSelectedFromList(true);
+    form.setValue("cropName", displayName);
+    setCropSearchResults([]);
+  };
+
+  // 작물 입력 핸들러
+  const handleCropInput = (value: string) => {
+    setCropSearchTerm(value);
+    setCustomCropName(value);
+    setSelectedCrop(null);
+    setIsCropSelectedFromList(false);
+    form.setValue("cropName", value);
+  };
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -187,7 +250,7 @@ export default function BatchTaskEditDialog({
 
   // 폼 초기화
   useEffect(() => {
-    if (open && taskGroup.length > 0) {
+    if (open && taskGroup && taskGroup.length > 0) {
       const schedules = calculateTaskSchedules(startDate, currentTaskTypes);
       
       form.reset({
@@ -313,8 +376,9 @@ export default function BatchTaskEditDialog({
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
-      // 기존 작업의 task_group_id 가져오기
+      // 기존 작업의 task_group_id와 cropId 가져오기
       const existingTaskGroupId = taskGroup?.[0]?.taskGroupId;
+      const existingCropId = taskGroup?.[0]?.cropId;
       
       const updateData = data.tasks.map((task, index) => ({
         id: task.id!,
@@ -322,6 +386,7 @@ export default function BatchTaskEditDialog({
           title: `${data.cropName}_${task.taskType}`,
           taskType: task.taskType,
           farmId: data.farmId || null, // undefined 방지
+          cropId: existingCropId || null, // 기존 cropId 보존
           rowNumber: data.rowNumber,
           scheduledDate: task.startDate,
           endDate: task.endDate,
@@ -330,13 +395,31 @@ export default function BatchTaskEditDialog({
         },
       }));
 
+      console.log('일괄 수정 데이터:', updateData);
       await batchUpdateMutation.mutateAsync(updateData);
+      
+      // 성공 시 다이얼로그 닫기
+      onOpenChange(false);
+      toast({
+        title: "수정 완료",
+        description: "작업이 성공적으로 수정되었습니다.",
+      });
     } catch (error) {
       console.error("일괄 수정 실패:", error);
+      toast({
+        title: "수정 실패",
+        description: "작업 수정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     }
   };
 
   const selectedFarm = farms.find(farm => farm.id === form.watch("farmId"));
+
+  // taskGroup이 없거나 비어있으면 렌더링하지 않음
+  if (!taskGroup || taskGroup.length === 0) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -347,16 +430,106 @@ export default function BatchTaskEditDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* 작물명 */}
+            {/* 작물 선택 */}
             <FormField
               control={form.control}
               name="cropName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>작물명</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="작물명을 입력해주세요" />
-                  </FormControl>
+                  <FormLabel>작물 *</FormLabel>
+                  <div className="space-y-3">
+                    {/* 작물 입력 필드 */}
+                    <div className="relative">
+                      <Input
+                        placeholder="작물명을 입력하거나 아래에서 선택하세요"
+                        value={cropSearchTerm}
+                        onChange={(e) => handleCropInput(e.target.value)}
+                      />
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    </div>
+
+                    {/* 검색 결과 */}
+                    {cropSearchResults.length > 0 && (
+                      <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
+                        <div className="text-sm font-medium text-gray-600 mb-2">검색 결과</div>
+                        {cropSearchResults.map((crop, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            className="w-full text-left p-2 hover:bg-gray-100 rounded text-sm"
+                            onClick={() => handleSearchCropSelect(crop)}
+                          >
+                            <div className="font-medium">{crop.품목}</div>
+                            <div className="text-gray-500 text-xs">{crop.품종} - {crop.대분류}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 내 작물 선택 */}
+                    <Collapsible open={showKeyCrops} onOpenChange={setShowKeyCrops}>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-between"
+                        >
+                          내 작물 선택
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              showKeyCrops ? "rotate-180" : ""
+                            }`}
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2">
+                        <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
+                          {/* 핵심 작물 섹션 (Supabase crop 테이블) */}
+                          <div className="mb-4">
+                            <div className="flex items-center text-sm font-medium text-gray-600 mb-2">
+                              <span className="text-yellow-500 mr-1">★</span>
+                              핵심 작물
+                            </div>
+                            {keyCrops.map((crop) => (
+                              <button
+                                key={crop.id}
+                                type="button"
+                                className="w-full text-left p-2 hover:bg-gray-100 rounded text-sm"
+                                onClick={() => handleKeyCropSelect(crop)}
+                              >
+                                <div className="flex items-center">
+                                  <span className="text-yellow-500 mr-2">★</span>
+                                  <div>
+                                    <div className="font-medium">{crop.name}</div>
+                                    <div className="text-gray-500 text-xs">{crop.variety} - {crop.category}</div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* 구분선 */}
+                          <div className="border-t border-gray-200 my-3"></div>
+
+                          {/* 전체 작물 섹션 (registration 테이블) */}
+                          <div>
+                            <div className="text-sm font-medium text-gray-600 mb-2">전체 작물</div>
+                            {allCrops.map((crop) => (
+                              <button
+                                key={crop.id}
+                                type="button"
+                                className="w-full text-left p-2 hover:bg-gray-100 rounded text-sm"
+                                onClick={() => handleSearchCropSelect(crop)}
+                              >
+                                <div className="font-medium">{crop.품목}</div>
+                                <div className="text-gray-500 text-xs">{crop.품종} - {crop.대분류}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
