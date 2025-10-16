@@ -82,7 +82,7 @@ export default function BatchTaskEditDialog({
 
   // 첫 번째 작업에서 기본 정보 추출
   const firstTask = taskGroup[0];
-  const cropName = firstTask?.title?.split('_')[0] || '';
+  const cropName = firstTask?.title?.split('_')[0] || '작물';
   const farmId = firstTask?.farmId || '';
   const startDate = firstTask?.scheduledDate || '';
   const rowNumber = firstTask?.rowNumber || 1;

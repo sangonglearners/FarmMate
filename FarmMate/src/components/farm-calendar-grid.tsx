@@ -48,7 +48,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
   // 첫 번째 농장을 기본값으로 설정
   useEffect(() => {
-    if (farms.length > 0 && !selectedFarm) {
+    if (farms && farms.length > 0 && !selectedFarm) {
       setSelectedFarm(farms[0]);
     }
   }, [farms, selectedFarm]);
@@ -443,7 +443,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           isFirstDay: true,
           isLastDay: true,
           taskGroupId: taskGroupId,
-          cropName: representativeTask.title.split('_')[0] // "작물명_작업명"에서 작물명 추출
+          cropName: representativeTask.title?.split('_')[0] || '작물' // "작물명_작업명"에서 작물명 추출
         });
         
         // 처리된 작업들을 마킹
@@ -964,7 +964,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       let displayTitle;
                       if (taskGroup.taskGroupId) {
                         // 일괄등록된 작업: 작물명만 표시
-                        displayTitle = taskGroup.cropName || taskGroup.task.title.split('_')[0];
+                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
                       } else if (viewMode === "yearly") {
                         // 연간 뷰: 작물 이름만 표시
                         if (taskGroup.task.title && taskGroup.task.title.includes('_')) {
@@ -1281,7 +1281,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               // 작물 이름 추출
                               let cropName;
                               if (task.title && task.title.includes('_')) {
-                                cropName = task.title.split('_')[0]; // "무_파종" -> "무"
+                                cropName = task.title?.split('_')[0] || '작물'; // "무_파종" -> "무"
                               } else {
                                 cropName = getCropName(task.cropId) || task.title || task.taskType;
                               }
