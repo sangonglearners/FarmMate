@@ -81,7 +81,7 @@ export default function BatchTaskEditDialog({
   const { data: farms = [] } = useFarms();
 
   // 첫 번째 작업에서 기본 정보 추출
-  const firstTask = taskGroup[0];
+  const firstTask = taskGroup?.[0];
   const cropName = firstTask?.title?.split('_')[0] || '작물';
   const farmId = firstTask?.farmId || '';
   const startDate = firstTask?.scheduledDate || '';
@@ -314,7 +314,7 @@ export default function BatchTaskEditDialog({
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       // 기존 작업의 task_group_id 가져오기
-      const existingTaskGroupId = taskGroup[0]?.taskGroupId;
+      const existingTaskGroupId = taskGroup?.[0]?.taskGroupId;
       
       const updateData = data.tasks.map((task, index) => ({
         id: task.id!,
