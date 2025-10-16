@@ -74,7 +74,7 @@ export default function HomePage() {
       console.log("그룹화된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
       setSelectedTask(task);
       setShowBatchEditDialog(true);
-    } else if (task.taskGroupId) {
+    } else if (task.taskGroupId || task.originalTaskGroup) {
       // 일괄등록된 개별 작업의 경우 일괄 수정 다이얼로그 열기
       console.log("일괄등록된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
       setSelectedTask(task);
@@ -149,19 +149,19 @@ export default function HomePage() {
         const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
         const endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
         
-        // 대표 작업 생성 (그룹 정보 포함)
-        const groupRepresentative = {
-          ...representative,
-          isGroup: true,
-          groupTasks: groupTasks,
-          groupStartDate: startDate.toISOString().split('T')[0],
-          groupEndDate: endDate.toISOString().split('T')[0],
-          groupTaskTypes: groupTasks.map(t => t.taskType),
-          // 작물명 추출 (title에서 "작물명_작업명" 형태)
-          cropName: representative.title?.split('_')[0] || '작물'
-        };
-        
-        groupRepresentatives.push(groupRepresentative);
+        // 그룹화된 작업을 개별 작업으로 분리하여 표시
+        groupTasks.forEach(task => {
+          const individualTask = {
+            ...task,
+            isGroup: false, // 개별 작업으로 표시
+            cropName: representative.title?.split('_')[0] || '작물',
+            // 원본 작업 정보 유지
+            originalTaskGroup: groupTasks,
+            groupStartDate: startDate.toISOString().split('T')[0],
+            groupEndDate: endDate.toISOString().split('T')[0],
+          };
+          groupRepresentatives.push(individualTask);
+        });
       }
     });
     
@@ -457,7 +457,7 @@ export default function HomePage() {
             refetchTasks();
           }
         }}
-        task={selectedTask}
+        taskGroup={selectedTask?.groupTasks || selectedTask?.originalTaskGroup || (selectedTask ? [selectedTask] : [])}
       />
     </>
   );
