@@ -13,6 +13,7 @@ interface SupabaseTask {
   farm_id: string | null;
   crop_id: string | null;
   row_number: number | null;
+  task_group_id: string | null;
   completed: number;
   completed_at: string | null;
   created_at: string;
@@ -30,10 +31,11 @@ function toTask(r: SupabaseTask): Task {
     completed: r.completed,
     farmId: r.farm_id || null,
     cropId: r.crop_id || null,
+    rowNumber: r.row_number || null,
+    taskGroupId: r.task_group_id || null,
     userId: r.user_id,
     completedAt: r.completed_at ? new Date(r.completed_at) : null,
     createdAt: new Date(r.created_at),
-    rowNumber: r.row_number || null,
   };
 }
 
@@ -111,6 +113,7 @@ export const taskApi = {
       farm_id: taskData.farmId || null,
       crop_id: taskData.cropId || null,
       row_number: taskData.rowNumber || null,
+      task_group_id: taskData.taskGroupId || null,
       completed: taskData.completed || 0,
     };
 
@@ -154,6 +157,7 @@ export const taskApi = {
         farm_id: taskData.farmId || null,
         crop_id: taskData.cropId || null,
         row_number: taskData.rowNumber || null,
+        task_group_id: taskData.taskGroupId || null,
         completed: taskData.completed || 0,
       })
       .eq('id', id)

@@ -291,19 +291,108 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
     const tasksToCreate: InsertTask[] = [];
 
     if (registrationMode === 'batch') {
-      // 일괄등록: 여러 작업, 시작 날짜만
-      selectedWorks.forEach(work => {
-        selectedRows.forEach(row => {
-          const defaultTitle = `${selectedCrop || '작물'} ${work}`;
+      // 일괄등록: 농작업 계산기에 따라 파종일, 육묘일, 수확일 계산
+      if (!startDate) {
+        toast({
+          title: "시작 날짜를 선택해주세요",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // registration 데이터에서 작물의 총 재배기간 가져오기
+      const cropTotalDuration = targetCrop?.총재배기간 || 70; // 기본값 70일
+      
+      // 농작업별 날짜 계산 (농작업 계산기와 동일한 로직)
+      const taskSchedules: { taskType: string; startDate: Date; endDate: Date }[] = [];
+      let currentDate = new Date(startDate);
+      
+      // 재배 종료일 미리 계산
+      const finalHarvestDate = new Date(startDate);
+      finalHarvestDate.setDate(finalHarvestDate.getDate() + cropTotalDuration - 1);
+      
+      selectedWorks.forEach((work, index) => {
+        let taskDuration = 0;
+        
+        // 수확 작업은 재배 종료일과 동일하게 설정 (1일)
+        if (work === "수확") {
+          taskDuration = 1; // 수확은 1일만
+        } else {
+          // 농작업 계산기와 동일한 비율 계산 (수확 제외)
+          if (selectedWorks.length === 2 && selectedWorks.includes("파종") && selectedWorks.includes("수확")) {
+            // 파종+수확만 있는 경우 (파종작물)
+            if (work === "파종") {
+              taskDuration = cropTotalDuration - 1; // 나머지 기간 (수확 1일 제외)
+            }
+          } else if (selectedWorks.length === 3 && selectedWorks.includes("파종") && selectedWorks.includes("육묘") && selectedWorks.includes("수확")) {
+            // 파종+육묘+수확 모두 있는 경우 (육묘작물)
+            if (work === "파종") {
+              taskDuration = Math.round(cropTotalDuration * 0.15); // 15%
+            } else if (work === "육묘") {
+              taskDuration = Math.round(cropTotalDuration * 0.25); // 25%
+            }
+          } else {
+            // 기타 경우는 기본 비율 사용
+            const defaultRatios = { "파종": 0.2, "육묘": 0.3 };
+            taskDuration = Math.round(cropTotalDuration * (defaultRatios[work as keyof typeof defaultRatios] || 0.2));
+          }
+        }
+        
+        if (taskDuration > 0) {
+          let taskStartDate: Date;
+          let taskEndDate: Date;
+          
+          if (work === "수확") {
+            // 수확일 = 재배 종료일 (동일한 날짜)
+            taskStartDate = new Date(finalHarvestDate);
+            taskEndDate = new Date(finalHarvestDate);
+          } else {
+            // 다른 작업들은 순차적으로 배치
+            taskStartDate = new Date(currentDate);
+            taskEndDate = new Date(currentDate);
+            taskEndDate.setDate(taskEndDate.getDate() + taskDuration - 1);
+            
+            // 다음 작업 시작일 계산
+            currentDate.setDate(currentDate.getDate() + taskDuration);
+          }
+          
+          taskSchedules.push({
+            taskType: work,
+            startDate: taskStartDate,
+            endDate: taskEndDate
+          });
+        }
+      });
+
+      // 각 이랑별로 작업 생성
+      selectedRows.forEach(row => {
+        // 1. 개별 농작업들 (파종, 육묘, 수확)
+        taskSchedules.forEach(schedule => {
+          const defaultTitle = `${selectedCrop || '작물'} ${schedule.taskType}`;
           tasksToCreate.push({
             title: customTitle || defaultTitle,
-            taskType: work,
-            cropId: targetCrop?.id || selectedCrop, // registration 작물의 경우 이름을 ID로 사용
+            taskType: schedule.taskType,
+            cropId: targetCrop?.id || selectedCrop,
             farmId: targetFarm.id,
-            scheduledDate: startDate?.toLocaleDateString('sv-SE') || new Date().toLocaleDateString('sv-SE'),
-            endDate: endDate ? endDate.toLocaleDateString('sv-SE') : null,
+            scheduledDate: schedule.startDate.toLocaleDateString('sv-SE'),
+            endDate: schedule.endDate.toLocaleDateString('sv-SE'),
             description: `이랑: ${row}번`,
           });
+        });
+
+        // 2. 전체 재배 기간을 커버하는 "재배" 작업 (캘린더 연속 박스용)
+        const cropStartDate = new Date(startDate);
+        const cropEndDate = new Date(startDate);
+        cropEndDate.setDate(cropEndDate.getDate() + cropTotalDuration - 1);
+        
+        tasksToCreate.push({
+          title: `${selectedCrop || '작물'} 재배`,
+          taskType: "재배",
+          cropId: targetCrop?.id || selectedCrop,
+          farmId: targetFarm.id,
+          scheduledDate: cropStartDate.toLocaleDateString('sv-SE'),
+          endDate: cropEndDate.toLocaleDateString('sv-SE'),
+          description: `이랑: ${row}번 - ${selectedCrop || '작물'} 재배 기간`,
         });
       });
     } else {

@@ -145,15 +145,19 @@ export default function CalendarGrid({
 
   return (
     <div className="relative">
-      {/* 연속된 일정 박스들 렌더링 - 임시 비활성화 */}
-      {/* {taskGroups.map((taskGroup, groupIndex) => {
-        if (!taskGroup.task.endDate || taskGroup.startDayIndex === taskGroup.endDayIndex) {
+      {/* 연속된 일정 박스들 렌더링 (작물명만 표시) */}
+      {taskGroups.map((taskGroup, groupIndex) => {
+        if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
           // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
           return null;
         }
         
-        const cropName = getCropName(taskGroup.task.cropId);
-        const taskColor = getTaskColor(taskGroup.task.taskType);
+        // taskGroupId가 있으면 작물명만 표시, 없으면 기존 방식
+        const displayName = taskGroup.taskGroupId 
+          ? taskGroup.cropName || getCropName(taskGroup.task.cropId)
+          : `${getCropName(taskGroup.task.cropId)} - ${taskGroup.task.taskType}`;
+        
+        const taskColor = "bg-blue-100 text-blue-700 border-blue-300"; // 기간 박스는 통일된 색상
         
         // 그리드 위치 계산
         const startRow = Math.floor(taskGroup.startDayIndex / 7);
@@ -181,14 +185,14 @@ export default function CalendarGrid({
               zIndex: 10,
               minHeight: '28px'
             }}
-            title={`${cropName} - ${taskGroup.task.taskType}`}
+            title={taskGroup.taskGroupId ? `${displayName} (${taskGroup.tasks.length}개 작업)` : displayName}
           >
             <div className="truncate">
-              {cropName && `${cropName} - `}{taskGroup.task.taskType}
+              {displayName}
             </div>
           </div>
         );
-      })} */}
+      })}
       
       {/* 캘린더 그리드 */}
       <div className="grid grid-cols-7 gap-4">
@@ -203,39 +207,40 @@ export default function CalendarGrid({
         {cells.map((day, idx) => {
           if (day === null) return <div key={`empty-${idx}`} className="min-h-24" />;
 
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(
+            2,
+            "0"
+          )}`;
+          
           const dayTasks = getTasksForDate(day);
           
-          // 모든 일정 표시 (연속된 일정 박스 비활성화로 인해)
-          const singleDayTasks = dayTasks;
+          // 해당 날짜에 정확히 scheduledDate가 일치하는 작업만 마커로 표시
+          const exactDayTasks = dayTasks.filter(task => task.scheduledDate === dateStr);
           
           const isToday =
             new Date().getDate() === day &&
             new Date().getMonth() === month &&
             new Date().getFullYear() === year;
 
-          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(
-            2,
-            "0"
-          )}`;
-
           return (
             <div
               key={dateStr}
-              className={`min-h-28 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 ${
+              className={`min-h-28 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 relative ${
                 isToday ? "bg-primary/5 border-primary" : ""
               } ${dayTasks.length > 0 ? "bg-gray-50" : ""}`}
               onClick={() => onDateClick(dateStr)}
+              style={{ zIndex: 20 }}
             >
               <div className={`text-xs mb-1 ${isToday ? "font-bold text-primary" : "text-gray-900"}`}>
                 {day}
               </div>
 
-              {/* 단일 날짜 일정 표시 */}
+              {/* 작업 마커 표시 (정확히 해당 날짜에 수행되는 작업만) */}
               <div className="space-y-1">
-                {singleDayTasks.slice(0, 2).map((task) => (
+                {exactDayTasks.slice(0, 2).map((task) => (
                   <div
                     key={task.id}
-                    className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(
+                    className={`text-xs px-1 py-0.5 rounded break-words leading-tight font-medium relative ${getTaskColor(
                       (task as any).taskType
                     )}`}
                     style={{
@@ -244,15 +249,16 @@ export default function CalendarGrid({
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
                       wordWrap: 'break-word',
-                      maxHeight: '2.5rem'
+                      maxHeight: '2.5rem',
+                      zIndex: 25
                     }}
-                    title={task.title || `${getCropName(task.cropId)} - ${(task as any).taskType}`}
+                    title={task.title}
                   >
-                    {task.title || `${getCropName(task.cropId)} ${(task as any).taskType}`}
+                    {task.title}
                   </div>
                 ))}
-                {singleDayTasks.length > 2 && (
-                  <div className="text-xs text-gray-500">+{singleDayTasks.length - 2}개 더</div>
+                {exactDayTasks.length > 2 && (
+                  <div className="text-xs text-gray-500">+{exactDayTasks.length - 2}개 더</div>
                 )}
               </div>
             </div>
