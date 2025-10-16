@@ -162,7 +162,7 @@ export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] =
         isFirstDay: true,
         isLastDay: true,
         taskGroupId: taskGroupId,
-        cropName: representativeTask.title.split('_')[0] // "작물명_작업명"에서 작물명 추출
+        cropName: representativeTask.title?.split('_')[0] || '작물' // "작물명_작업명"에서 작물명 추출
       });
     }
   });
