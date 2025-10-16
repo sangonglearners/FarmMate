@@ -434,19 +434,6 @@ export default function AddTaskDialog({
     try {
       console.log('📡 serverRegistrationRepository.searchCrops 호출');
       
-      // 임시 하드코딩 테스트
-      if (searchTerm.includes('결구배추')) {
-        console.log('🧪 하드코딩 테스트 실행');
-        const hardcodedResults = [
-          { id: '1', 대분류: '배추류', 품목: '결구배추', 품종: '개성', 파종육묘구분: '육묘' },
-          { id: '2', 대분류: '배추류', 품목: '결구배추', 품종: '빨강', 파종육묘구분: '육묘' },
-          { id: '3', 대분류: '배추류', 품목: '결구배추', 품종: '속노랑', 파종육묘구분: '육묘' },
-        ];
-        console.log('🧪 하드코딩 결과:', hardcodedResults);
-        setCropSearchResults(hardcodedResults);
-        return;
-      }
-      
       const results = await serverRegistrationRepository.searchCrops(searchTerm);
       console.log('✅ 서버 검색 결과 받음:', results);
       console.log('📊 검색 결과 개수:', results.length);
