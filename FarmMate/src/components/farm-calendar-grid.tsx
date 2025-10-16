@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
@@ -51,6 +52,49 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       setSelectedFarm(farms[0]);
     }
   }, [farms, selectedFarm]);
+
+  const handleExportCsv = () => {
+    try {
+      const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
+      const headers = ["농장", "시작일", "종료일", "이랑", "일"];
+      const filtered = selectedFarm
+        ? memoizedTasks.filter(t => t.farmId === selectedFarm.id)
+        : memoizedTasks;
+      const escapeCsv = (value: unknown): string => {
+        if (value === null || value === undefined) return "";
+        const str = String(value);
+        if (/[",\n]/.test(str)) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      };
+      const rows = filtered.map(t => {
+        const farmName = t.farmId ? farmIdToName.get(t.farmId) ?? "" : "";
+        const cols = [
+          farmName,
+          t.scheduledDate,
+          t.endDate ?? "",
+          t.rowNumber ?? "",
+          t.title,
+        ];
+        return cols.map(escapeCsv).join(",");
+      });
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const todayStr = new Date().toISOString().split("T")[0];
+      link.download = `farmmate-calendar-${todayStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("CSV export failed", e);
+      alert("CSV 내보내기에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    }
+  };
 
   // 연간 뷰에서 현재 월로 스크롤하는 함수
   const scrollToCurrentMonth = () => {
@@ -568,37 +612,48 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
       {/* 컨트롤 */}
       <div className="flex items-center justify-between">
-        {/* 농장 선택 */}
-        {farmsLoading ? (
-          <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
-        ) : farms.length > 0 ? (
-          <Select 
-            value={selectedFarm?.id || "no-farm"} 
-            onValueChange={(value) => {
-              if (value !== "no-farm") {
-                const farm = farms.find(f => f.id === value);
-                if (farm) setSelectedFarm(farm);
-              }
-            }}
+        {/* 좌측: 농장 선택 + 내보내기 아이콘 */}
+        <div className="flex items-center gap-2">
+          {farmsLoading ? (
+            <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
+          ) : farms.length > 0 ? (
+            <Select 
+              value={selectedFarm?.id || "no-farm"} 
+              onValueChange={(value) => {
+                if (value !== "no-farm") {
+                  const farm = farms.find(f => f.id === value);
+                  if (farm) setSelectedFarm(farm);
+                }
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="농장 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {farms.map((farm) => (
+                  <SelectItem key={farm.id} value={farm.id}>
+                    {farm.name} ({farm.environment})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="text-sm text-gray-500">
+              등록된 농장이 없습니다
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            aria-label="CSV로 내보내기"
+            title="CSV로 내보내기"
           >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="농장 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {farms.map((farm) => (
-                <SelectItem key={farm.id} value={farm.id}>
-                  {farm.name} ({farm.environment})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <div className="text-sm text-gray-500">
-            등록된 농장이 없습니다
-          </div>
-        )}
+            <FileDown className="w-4 h-4" />
+          </Button>
+        </div>
 
-        {/* 뷰 모드 선택 */}
+        {/* 우측: 뷰 모드 선택 */}
         <div className="flex space-x-2">
           <Button
             variant={viewMode === "monthly" ? "default" : "outline"}
