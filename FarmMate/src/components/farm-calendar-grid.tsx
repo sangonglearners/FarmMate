@@ -819,6 +819,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         <h2 className="text-lg font-semibold text-gray-900">
           {viewMode === "monthly" 
             ? (() => {
+                if (!currentPeriods || currentPeriods.length === 0) return "농장 달력";
                 const firstDay = currentPeriods[0] as any;
                 const lastDay = currentPeriods[currentPeriods.length - 1] as any;
                 
