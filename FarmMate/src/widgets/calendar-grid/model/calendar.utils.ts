@@ -112,12 +112,21 @@ export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] =
   groupedByTaskGroupId.forEach((groupTasks, taskGroupId) => {
     if (groupTasks.length === 0) return;
     
-    // 그룹 내에서 가장 빠른 날짜와 가장 늦은 날짜 찾기
-    const dates = groupTasks.map(t => new Date(t.scheduledDate));
-    const startDate = new Date(Math.min(...dates.map(d => d.getTime())));
-    const endDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    // 그룹 내에서 가장 빠른 날짜와 가장 늦은 날짜 찾기 (endDate도 고려)
+    const allDates: Date[] = [];
+    groupTasks.forEach(t => {
+      allDates.push(new Date(t.scheduledDate));
+      if (t.endDate) {
+        allDates.push(new Date(t.endDate));
+      }
+    });
+    const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+    const endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
     
-    // 시작일과 끝일이 같으면 그룹화하지 않음
+    // taskGroupId가 있는 작업들은 무조건 연속 박스로 표시
+    // (파종→육묘→수확 등 일괄등록된 작업들을 하나의 박스로 표시)
+    
+    // 단, 모든 작업이 같은 날짜에 있으면 그룹화하지 않음
     if (startDate.getTime() === endDate.getTime()) {
       return;
     }

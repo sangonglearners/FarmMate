@@ -56,6 +56,7 @@ import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { useLocation } from "wouter";
 import { useDeleteTask } from "@/features/task-management";
+import BatchTaskEditDialog from "./batch-task-edit-dialog";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@/shared/api/client";
 
@@ -66,12 +67,11 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { mustOk } from "@/shared/api/mustOk";
 import { useFarms } from "@/features/farm-management";
 import { useCrops } from "@/features/crop-management";
-import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
 
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
 import WorkCalculatorDialog from "@/components/work-calculator-dialog";
-import { registrationData } from "@/shared/data/registration";
+import { registrationData, searchCrops as searchRegistrationCrops } from "@/shared/data/registration";
 import type { RegistrationData } from "@/shared/data/registration";
 
 const formSchema = insertTaskSchema.extend({
@@ -134,9 +134,9 @@ export default function AddTaskDialog({
   const deleteMutation = useDeleteTask();
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
   const [cropSearchTerm, setCropSearchTerm] = useState("");
-  const [cropSearchResults, setCropSearchResults] = useState<CropSearchResult[]>([]);
+  const [cropSearchResults, setCropSearchResults] = useState<RegistrationData[]>([]);
   const [customCropName, setCustomCropName] = useState("");
-  const [showKeyCrops, setShowKeyCrops] = useState(false);
+  const [showKeyCrops, setShowKeyCrops] = useState(true); // 기본적으로 작물 리스트 펼쳐진 상태
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
@@ -146,6 +146,8 @@ export default function AddTaskDialog({
   const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
   const [showRowDuplicateAlert, setShowRowDuplicateAlert] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
+  const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
+  const [taskGroup, setTaskGroup] = useState<Task[]>([]);
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -235,6 +237,21 @@ export default function AddTaskDialog({
     }
   }, [farms, task, open, selectedFarm, form]);
 
+  // 일괄등록된 작업 그룹 찾기
+  const findTaskGroup = (currentTask: Task) => {
+    if (!existingTasks || !currentTask.taskGroupId) return [];
+    
+    return existingTasks.filter(t => 
+      t.taskGroupId === currentTask.taskGroupId && 
+      t.id !== currentTask.id
+    );
+  };
+
+  // 일괄등록된 작업인지 확인
+  const isBatchTask = (currentTask: Task) => {
+    return !!(currentTask.taskGroupId && findTaskGroup(currentTask).length > 0);
+  };
+
   // 수정 모드 초기화
   useEffect(() => {
     console.log("편집 모드 초기화 조건 체크:", { 
@@ -247,6 +264,14 @@ export default function AddTaskDialog({
     
     if (task && open) {
       console.log("편집 모드 초기화 실행");
+      
+      // 일괄등록된 작업인지 확인
+      if (isBatchTask(task)) {
+        const group = findTaskGroup(task);
+        setTaskGroup([task, ...group]);
+        setShowBatchEditDialog(true);
+        return; // 일괄 수정 다이얼로그를 열고 일반 수정은 건너뜀
+      }
       
       // 이랑 번호 추출 (task.rowNumber 우선, 없으면 description에서 파싱)
       let taskRowNumber = (task as any).rowNumber;
@@ -429,19 +454,19 @@ export default function AddTaskDialog({
     }
 
     setIsSearching(true);
-    console.log('⏳ 서버 검색 시작...');
+    console.log('⏳ 로컬 검색 시작...');
     
     try {
-      console.log('📡 serverRegistrationRepository.searchCrops 호출');
+      console.log('📡 searchRegistrationCrops 호출');
       
-      const results = await serverRegistrationRepository.searchCrops(searchTerm);
-      console.log('✅ 서버 검색 결과 받음:', results);
+      const results = searchRegistrationCrops(searchTerm);
+      console.log('✅ 로컬 검색 결과 받음:', results);
       console.log('📊 검색 결과 개수:', results.length);
       console.log('📊 cropSearchResults 상태 업데이트 전:', cropSearchResults);
       setCropSearchResults(results);
       console.log('📊 cropSearchResults 상태 업데이트 후:', results);
     } catch (error) {
-      console.error('❌ 서버 작물 검색 실패:', error);
+      console.error('❌ 로컬 작물 검색 실패:', error);
       console.error('❌ 오류 상세:', error.message);
       toast({
         title: "작물 검색 실패",
@@ -450,7 +475,7 @@ export default function AddTaskDialog({
       });
     } finally {
       setIsSearching(false);
-      console.log('🏁 서버 검색 완료');
+      console.log('🏁 로컬 검색 완료');
     }
   };
 
@@ -510,9 +535,17 @@ export default function AddTaskDialog({
   };
 
   const handleWorkToggle = (work: string) => {
-    setSelectedWorks((prev) =>
-      prev.includes(work) ? prev.filter((w) => w !== work) : [...prev, work]
-    );
+    setSelectedWorks((prev) => {
+      let newWorks = prev.includes(work) ? prev.filter((w) => w !== work) : [...prev, work];
+      
+      // 농작업 순서 보장: 파종 → 육묘 → 수확
+      const taskOrder = ["파종", "육묘", "수확"];
+      return newWorks.sort((a, b) => {
+        const indexA = taskOrder.indexOf(a);
+        const indexB = taskOrder.indexOf(b);
+        return indexA - indexB;
+      });
+    });
   };
 
   const handleCropSelect = (cropId: string) => {
@@ -537,7 +570,7 @@ export default function AddTaskDialog({
     setCustomCropName(cropName);
     setIsCropSelectedFromList(true); // 리스트에서 선택됨을 표시
     
-    // 일괄등록 모드일 때만 농작업 자동 선택 기능 적용
+    // 일괄등록 모드일 때 농작업 자동 선택 기능 적용
     if (registrationMode === 'batch') {
       // 파종/육묘 구분에 따라 농작업 자동 선택
       if (regCrop.파종육묘구분 === '파종') {
@@ -748,11 +781,10 @@ export default function AddTaskDialog({
         completed: (data as any).completed || 0,
       });
     },
-    onSuccess: () => {
-      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
-      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
+    onSuccess: async () => {
+      // 모든 tasks 관련 쿼리를 무효화하고 즉시 재조회
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
 
       toast({
         title: "일정이 수정되었습니다.",
@@ -1809,6 +1841,18 @@ export default function AddTaskDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 일괄 수정 다이얼로그 */}
+      <BatchTaskEditDialog
+        open={showBatchEditDialog}
+        onOpenChange={(open) => {
+          setShowBatchEditDialog(open);
+          if (!open) {
+            onOpenChange(false); // 일괄 수정 다이얼로그가 닫히면 메인 다이얼로그도 닫기
+          }
+        }}
+        taskGroup={taskGroup}
+      />
     </>
   );
 }

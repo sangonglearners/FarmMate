@@ -88,7 +88,10 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           ? taskGroup.cropName || getCropName(crops, taskGroup.task.cropId)
           : `${getCropName(crops, taskGroup.task.cropId)} - ${taskGroup.task.taskType}`;
         
-        const taskColor = "bg-blue-100 text-blue-700 border-blue-300"; // 기간 박스는 통일된 색상
+        // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
+        const taskColor = taskGroup.taskGroupId 
+          ? getTaskColor(taskGroup.task.taskType) // 개별등록과 동일한 색상
+          : "bg-blue-100 text-blue-700 border-blue-300"; // 기존 연속 작업 색상
         
         // 그리드 위치 계산
         const startRow = Math.floor(taskGroup.startDayIndex / 7);
@@ -138,9 +141,11 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           const currentDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
           const dayTasks = getTasksForDate(tasks, currentDate);
           
-          // 해당 날짜에 정확히 scheduledDate가 일치하는 작업만 마커로 표시
+          // 해당 날짜에 정확히 scheduledDate가 일치하는 작업만 마커로 표시 (모든 작업 포함)
           const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-          const exactDayTasks = dayTasks.filter(task => task.scheduledDate === dateStr);
+          const exactDayTasks = dayTasks.filter(task => 
+            task.scheduledDate === dateStr // 모든 작업을 개별 표시
+          );
           
           // 오늘 날짜인지 확인
           const today = new Date();
@@ -175,11 +180,14 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                 <div className="space-y-1">
                   {exactDayTasks.slice(0, 3).map((task, taskIndex) => {
                     const taskColor = getTaskColor(task.taskType);
-                    // task.title이 "작물명_작업명" 형식이므로 그대로 사용
+                    // 파종, 육묘, 수확일은 더 진하게 표시
+                    const isImportantTask = ['파종', '육묘', '수확'].includes(task.taskType);
+                    const fontWeight = isImportantTask ? 'font-bold' : 'font-medium';
+                    
                     return (
                       <div
                         key={taskIndex}
-                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate font-medium relative`}
+                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate ${fontWeight} relative`}
                         style={{ zIndex: 25 }}
                         title={task.title}
                       >

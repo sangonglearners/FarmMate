@@ -364,6 +364,9 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
         }
       });
 
+      // 일괄등록 그룹 ID 생성 (현재 시간 기반)
+      const taskGroupId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       // 각 이랑별로 작업 생성
       selectedRows.forEach(row => {
         // 1. 개별 농작업들 (파종, 육묘, 수확)
@@ -377,6 +380,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
             scheduledDate: schedule.startDate.toLocaleDateString('sv-SE'),
             endDate: schedule.endDate.toLocaleDateString('sv-SE'),
             description: `이랑: ${row}번`,
+            taskGroupId: taskGroupId, // 일괄등록 그룹 ID 추가
           });
         });
 
@@ -396,28 +400,21 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
         });
       });
     } else {
-      // 개별등록: 하나의 작업, 날짜 범위
+      // 개별등록: 하나의 작업만 생성 (날짜 범위로)
       const work = selectedWorks[0];
       if (startDate && endDate) {
-        const currentDate = new Date(startDate);
-        const end = new Date(endDate);
-        
-        while (currentDate <= end) {
-          selectedRows.forEach(row => {
-            const defaultTitle = `${selectedCrop || '작물'} ${work}`;
-            tasksToCreate.push({
+        selectedRows.forEach(row => {
+          const defaultTitle = `${selectedCrop || '작물'} ${work}`;
+          tasksToCreate.push({
             title: customTitle || defaultTitle,
             taskType: work,
-            cropId: targetCrop?.id || selectedCrop, // registration 작물의 경우 이름을 ID로 사용
+            cropId: targetCrop?.id || selectedCrop,
             farmId: targetFarm.id,
-              scheduledDate: currentDate.toLocaleDateString('sv-SE'),
-              endDate: endDate ? endDate.toLocaleDateString('sv-SE') : null,
-              description: `이랑: ${row}번`,
-            });
+            scheduledDate: startDate.toLocaleDateString('sv-SE'),
+            endDate: endDate.toLocaleDateString('sv-SE'),
+            description: `이랑: ${row}번`,
           });
-          
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
+        });
       }
     }
 

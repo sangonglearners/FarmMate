@@ -98,7 +98,13 @@ export default function HomePage() {
   };
 
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
+  // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
   const selectedDateTasks = tasks.filter(task => {
+    // "재배" 유형의 작업은 투두리스트에서 제외
+    if (task.taskType === "재배") {
+      return false;
+    }
+    
     // 정확한 날짜 매칭
     if (task.scheduledDate === selectedDate) {
       return true;
@@ -117,8 +123,14 @@ export default function HomePage() {
   });
   
   // Get upcoming tasks (next 7 days)
+  // "재배" 유형의 작업은 투두리스트에서 제외
   const upcomingTasks = tasks
     .filter(task => {
+      // "재배" 유형의 작업은 투두리스트에서 제외
+      if (task.taskType === "재배") {
+        return false;
+      }
+      
       const taskDate = new Date(task.scheduledDate);
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
@@ -128,7 +140,13 @@ export default function HomePage() {
     .slice(0, 5);
 
   // Get overdue tasks
+  // "재배" 유형의 작업은 투두리스트에서 제외
   const overdueTasks = tasks.filter(task => {
+    // "재배" 유형의 작업은 투두리스트에서 제외
+    if (task.taskType === "재배") {
+      return false;
+    }
+    
     const priority = getTaskPriority(task.scheduledDate);
     return priority === "overdue" && task.completed === 0;
   });

@@ -316,6 +316,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       return taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1);
     });
 
+    // taskGroupId로 작업들을 그룹화 (일괄등록된 작업들)
+    const groupedByTaskGroupId = new Map<string, Task[]>();
+    
+    rowTasks.forEach(task => {
+      if (task.taskGroupId) {
+        const existing = groupedByTaskGroupId.get(task.taskGroupId) || [];
+        existing.push(task);
+        groupedByTaskGroupId.set(task.taskGroupId, existing);
+      }
+    });
+
     // 연속된 일정 그룹화
     const taskGroups: TaskGroup[] = [];
     const processedTasks = new Set<string>();
@@ -325,9 +336,101 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       title: task.title,
       scheduledDate: task.scheduledDate,
       endDate: (task as any).endDate,
-      hasEndDate: !!(task as any).endDate
+      hasEndDate: !!(task as any).endDate,
+      taskGroupId: task.taskGroupId
     })));
+
+    // 일괄등록된 작업들 처리 (taskGroupId가 있는 작업들)
+    groupedByTaskGroupId.forEach((groupTasks, taskGroupId) => {
+      if (groupTasks.length === 0) return;
+      
+      // 그룹 내에서 가장 빠른 날짜와 가장 늦은 날짜 찾기 (endDate도 고려)
+      const allDates: Date[] = [];
+      groupTasks.forEach(t => {
+        allDates.push(new Date(t.scheduledDate));
+        if ((t as any).endDate) {
+          allDates.push(new Date((t as any).endDate));
+        }
+      });
+      const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+      const endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+      
+      // 시작일과 끝일이 같으면 그룹화하지 않음
+      if (startDate.getTime() === endDate.getTime()) {
+        return;
+      }
+      
+      // 현재 표시 중인 기간 범위 내에서의 시작/끝 인덱스 계산
+      let startIndex = -1;
+      let endIndex = -1;
+      
+      if (viewMode === "monthly") {
+        // 월간 뷰: 일 단위로 계산
+        currentPeriods.forEach((dayInfo, index) => {
+          const dayDate = new Date((dayInfo as any).year, (dayInfo as any).month, (dayInfo as any).day);
+          
+          // 날짜를 YYYY-MM-DD 형식으로 정규화하여 정확한 비교
+          const dayDateStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}-${String(dayDate.getDate()).padStart(2, '0')}`;
+          const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+          const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+          
+          // 현재 날짜가 작업 범위 내에 있는지 확인
+          if (dayDateStr >= startDateStr && dayDateStr <= endDateStr) {
+            // 시작 인덱스 찾기 (범위 내 첫 번째 날짜)
+            if (startIndex === -1) {
+              startIndex = index;
+            }
+            // 끝 인덱스 업데이트 (범위 내 마지막 날짜)
+            endIndex = index;
+          }
+        });
+      } else {
+        // 연간 뷰: 월 단위로 계산 (endDate 고려)
+        const startMonth = startDate.getMonth() + 1; // 1-12
+        const endMonth = endDate.getMonth() + 1; // 1-12
+        const startYear = startDate.getFullYear();
+        const endYear = endDate.getFullYear();
+        
+        currentPeriods.forEach((monthInfo, index) => {
+          const month = (monthInfo as any).month; // 1-12
+          const year = currentDate.getFullYear();
+          
+          // 현재 월이 작업 범위 내에 있는지 확인 (endDate까지 포함)
+          const isInRange = (year > startYear || (year === startYear && month >= startMonth)) &&
+                            (year < endYear || (year === endYear && month <= endMonth));
+          
+          if (isInRange) {
+            if (startIndex === -1) {
+              startIndex = index;
+            }
+            endIndex = index;
+          }
+        });
+      }
+      
+      if (startIndex !== -1 && endIndex !== -1) {
+        // 대표 작업 (첫 번째 작업)
+        const representativeTask = groupTasks[0];
+        
+        taskGroups.push({
+          task: representativeTask,
+          tasks: groupTasks,
+          startDate,
+          endDate,
+          startDayIndex: startIndex,
+          endDayIndex: endIndex,
+          isFirstDay: true,
+          isLastDay: true,
+          taskGroupId: taskGroupId,
+          cropName: representativeTask.title.split('_')[0] // "작물명_작업명"에서 작물명 추출
+        });
+        
+        // 처리된 작업들을 마킹
+        groupTasks.forEach(task => processedTasks.add(task.id));
+      }
+    });
     
+    // taskGroupId가 없는 작업들 처리 (기존 방식)
     rowTasks.forEach(task => {
       if (processedTasks.has(task.id)) return;
       
@@ -783,7 +886,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     <div className="absolute left-[61px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) */}
                     {continuousTaskGroups.map((taskGroup, groupIndex) => {
-                      const taskColor = getTaskColor(taskGroup.task);
+                      // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
+                      const taskColor = taskGroup.taskGroupId 
+                        ? getTaskColor(taskGroup.task.taskType) // 개별등록과 동일한 색상
+                        : getTaskColor(taskGroup.task); // 기존 연속 작업 색상
                       
                       // 정확한 그리드 위치 계산
                       const totalUnits = currentPeriods.length; // 총 단위 (날짜/월 개수)
@@ -793,12 +899,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       let leftPosition, boxWidth;
                       
                       if (viewMode === "yearly") {
-                        // 연간 뷰: 고정 너비 (120px per month)
+                        // 연간 뷰: 고정 너비 (120px per month) - 연속된 박스로 표시
                         const cellWidth = 120;
                         leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
-                        // spanUnits만큼의 셀 너비 - 중간 border들 제외
-                        const middleBorders = Math.max(0, spanUnits - 1);
-                        boxWidth = `${spanUnits * cellWidth - middleBorders}px`;
+                        // spanUnits만큼의 셀 너비 - 중간 border들 제외하지 않음 (연속된 박스)
+                        boxWidth = `${spanUnits * cellWidth}px`;
                       } else {
                         // 월간 뷰: flex 기반 계산
                         const startFlexUnits = taskGroup.startDayIndex;
@@ -836,7 +941,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       
                       // 제목 표시 로직
                       let displayTitle;
-                      if (viewMode === "yearly") {
+                      if (taskGroup.taskGroupId) {
+                        // 일괄등록된 작업: 작물명만 표시
+                        displayTitle = taskGroup.cropName || taskGroup.task.title.split('_')[0];
+                      } else if (viewMode === "yearly") {
                         // 연간 뷰: 작물 이름만 표시
                         if (taskGroup.task.title && taskGroup.task.title.includes('_')) {
                           displayTitle = taskGroup.task.title.split('_')[0]; // "무_파종" -> "무"
@@ -954,7 +1062,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             top: '8px', // 상단 여백
                             height: viewMode === "yearly" ? '40px' : '32px', // 연간 뷰는 높이를 더 크게
                             zIndex: 5,
-                            position: 'absolute' // relative positioning for children in yearly view
+                            position: 'absolute', // relative positioning for children in yearly view
+                            maxWidth: viewMode === "yearly" ? '120px' : '100%' // 연간 뷰에서 최대 너비 제한
                           }}
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
@@ -967,40 +1076,96 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             // 연간 뷰: 각 월의 날짜를 해당 위치에 배치
                             <>
                               {/* 작물 이름 - 왼쪽 상단에 고정 */}
-                              <div className="absolute left-2 top-2 text-[11px] font-semibold truncate max-w-[80px]">
+                              <div className={`absolute left-2 top-2 text-[11px] truncate max-w-[80px] ${
+                                ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
+                              }`}
+                              style={{ 
+                                maxWidth: '80px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
                                 {displayTitle}
                               </div>
-                              {/* 각 월의 날짜 범위 - 해당 월 위치에 배치 */}
-                              {Array.isArray(dateRangeText) && dateRangeText.map((dateInfo: any, idx: number) => {
-                                const cellWidth = 120;
-                                // 박스 시작점으로부터 해당 월까지의 거리 계산
-                                const offsetMonths = dateInfo.monthIndex - taskGroup.startDayIndex;
-                                const leftPos = offsetMonths * cellWidth;
+                              {/* 시작 날짜와 종료 날짜 표시 */}
+                              {(() => {
+                                const startDate = taskGroup.startDate;
+                                const endDate = taskGroup.endDate;
+                                const startDay = startDate.getDate();
+                                const endDay = endDate.getDate();
+                                const startMonth = startDate.getMonth() + 1;
+                                const endMonth = endDate.getMonth() + 1;
                                 
-                                return (
-                                  <div
-                                    key={`date-${idx}`}
-                                    className="absolute text-[9px] opacity-75 leading-tight whitespace-nowrap"
-                                    style={{
-                                      left: `${leftPos + 8}px`, // 8px 패딩
-                                      top: '22px', // 작물 이름 아래
-                                      maxWidth: `${cellWidth - 16}px` // 양쪽 패딩 제외
-                                    }}
-                                  >
-                                    {dateInfo.text}
-                                  </div>
-                                );
-                              })}
+                                // 현재 박스가 시작 월인지 종료 월인지 확인
+                                const currentMonth = currentPeriods[taskGroup.startDayIndex] as any;
+                                const isStartMonth = currentMonth && currentMonth.month === startMonth;
+                                const isEndMonth = currentMonth && currentMonth.month === endMonth;
+                                
+                                // 시작 날짜 표시 (시작 월에만)
+                                if (isStartMonth) {
+                                  return (
+                                    <div className="absolute left-2 top-5 text-[9px] opacity-75">
+                                      {startMonth}/{startDay}~
+                                    </div>
+                                  );
+                                }
+                                
+                                // 종료 날짜 표시 (종료 월에만)
+                                if (isEndMonth) {
+                                  return (
+                                    <div className="absolute right-2 top-5 text-[9px] opacity-75">
+                                      ~{endMonth}/{endDay}
+                                    </div>
+                                  );
+                                }
+                                
+                                // 중간 월들 (전체 월 표시)
+                                if (!isStartMonth && !isEndMonth) {
+                                  return (
+                                    <div className="absolute left-2 top-5 text-[9px] opacity-75">
+                                      {currentMonth?.month}월
+                                    </div>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
                             </>
                           ) : (
-                            // 월간 뷰: 기존 방식
+                            // 월간 뷰: 작업이 실제로 끝날 때만 종료 날짜 표시
                             <div className="flex flex-col truncate w-full">
-                              <div className="truncate text-[11px] font-semibold">
+                              <div className={`truncate text-[11px] ${
+                                ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
+                              }`}>
                                 {displayTitle}
                               </div>
-                              <div className="text-[10px] opacity-75 truncate">
-                                {dateRangeText}
-                              </div>
+                              {/* 시작 날짜와 종료 날짜 표시 */}
+                              {(() => {
+                                const startDate = taskGroup.startDate;
+                                const endDate = taskGroup.endDate;
+                                const startDay = startDate.getDate();
+                                const endDay = endDate.getDate();
+                                const startMonth = startDate.getMonth() + 1;
+                                const endMonth = endDate.getMonth() + 1;
+                                
+                                // 시작 날짜와 종료 날짜를 한 줄에 표시
+                                const isActualEnd = taskGroup.endDayIndex === taskGroup.endDayIndex;
+                                if (isActualEnd) {
+                                  return (
+                                    <div className="text-[10px] opacity-75 truncate">
+                                      {startMonth}/{startDay}~{endMonth}/{endDay}
+                                    </div>
+                                  );
+                                } else {
+                                  // 시작 부분에서는 시작 날짜만 표시
+                                  return (
+                                    <div className="text-[10px] opacity-75 truncate">
+                                      {startMonth}/{startDay}~
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                           )}
                         </div>
@@ -1013,8 +1178,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       const periodTasks = getTasksForPeriod(rowNumber, dayInfo);
                       const isTodayCell = isToday(dayInfo);
                       
-                      // 멀티데이 일정은 개별 셀에 표시하지 않음 (연속 박스로 표시됨)
+                      // 멀티데이 일정과 taskGroupId가 있는 작업은 개별 셀에 표시하지 않음 (연속 박스로 표시됨)
                       const displayTasks = periodTasks.filter(task => {
+                        // taskGroupId가 있는 작업은 제외 (연속 박스로 표시됨)
+                        if (task.taskGroupId) return false;
+                        
                         // endDate가 없거나 시작일과 종료일이 같은 경우만 개별 셀에 표시
                         if (!(task as any).endDate || task.scheduledDate === (task as any).endDate) return true;
                         
