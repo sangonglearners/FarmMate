@@ -67,10 +67,10 @@ export class ServerRegistrationRepository {
         대분류: r["대분류"] ?? '',
         품목: r["품목"] ?? '',
         품종: r["품종"] ?? '',
-        파종육묘구분: r["파종 / 육묘 구분"] ?? undefined,
-        총재배기간: r["총 재배기간 (파종 ~ 수확) (단위:일)"] ?? undefined,
-        육묘기간: r["육묘기간 (파종 ~ 정식) (단위:일)"] ?? undefined,
-        생육기간: r["생육 기간 (밭을 사용하는 기간) (단위:일)"] ?? undefined,
+        파종육묘구분: r["파종육묘구분"] ?? undefined,
+        총재배기간: r["총재배기간"] ?? undefined,
+        육묘기간: r["육묘기간"] ?? undefined,
+        생육기간: r["생육기간"] ?? undefined,
       }));
       console.log('✅ Supabase RPC 결과:', mapped.length);
       return mapped;

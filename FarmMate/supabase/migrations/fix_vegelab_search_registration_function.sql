@@ -1,4 +1,8 @@
--- Create vegelab_search_registration RPC function for full-text search
+-- Fix vegelab_search_registration RPC function column names
+-- First drop the existing function
+DROP FUNCTION IF EXISTS public.vegelab_search_registration(text);
+
+-- Then create the new function with corrected column names
 CREATE OR REPLACE FUNCTION public.vegelab_search_registration(query text)
 RETURNS TABLE (
   "작물번호" bigint,
