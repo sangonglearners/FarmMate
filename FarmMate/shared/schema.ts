@@ -45,6 +45,7 @@ export const tasks = pgTable("tasks", {
   scheduledDate: date("scheduled_date").notNull(),
   endDate: date("end_date"),
   rowNumber: integer("row_number"), // 이랑 번호
+  taskGroupId: varchar("task_group_id"), // 작업 그룹 ID (같은 그룹의 작업들을 연결)
   completed: integer("completed").notNull().default(0), // 0: 미완료, 1: 완료
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
