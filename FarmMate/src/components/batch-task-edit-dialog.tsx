@@ -321,7 +321,7 @@ export default function BatchTaskEditDialog({
         data: {
           title: `${data.cropName}_${task.taskType}`,
           taskType: task.taskType,
-          farmId: data.farmId,
+          farmId: data.farmId || null, // undefined 방지
           rowNumber: data.rowNumber,
           scheduledDate: task.startDate,
           endDate: task.endDate,
