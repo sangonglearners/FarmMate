@@ -54,7 +54,7 @@ export class ServerRegistrationRepository {
   async getCropById(cropId: string): Promise<CropSearchResult | null> {
     try {
       const { data, error } = await supabase
-        .from('Vegelab_Calendar.registration')
+        .from('registration')
         .select('id, 대분류, 품목, 품종, 파종육묘구분')
         .eq('id', cropId)
         .limit(1)
@@ -85,7 +85,7 @@ export class ServerRegistrationRepository {
   async getCropsByCategory(category: string): Promise<CropSearchResult[]> {
     try {
       const { data, error } = await supabase
-        .from('Vegelab_Calendar.registration')
+        .from('registration')
         .select('id, 대분류, 품목, 품종, 파종육묘구분')
         .eq('대분류', category)
         .limit(200);
@@ -114,7 +114,7 @@ export class ServerRegistrationRepository {
   async getCategories(): Promise<string[]> {
     try {
       const { data, error } = await supabase
-        .from('Vegelab_Calendar.registration')
+        .from('registration')
         .select('대분류', { count: 'exact', head: false })
         .neq('대분류', '')
         .order('대분류', { ascending: true });
@@ -140,7 +140,7 @@ export class ServerRegistrationRepository {
     console.log('🧪 서버 연결 테스트 시작');
     try {
       const { data, error } = await supabase
-        .from('Vegelab_Calendar.registration')
+        .from('registration')
         .select('id, 대분류, 품목, 품종, 파종육묘구분')
         .limit(5);
       if (error) {
@@ -159,7 +159,7 @@ export class ServerRegistrationRepository {
    */
   async getAllData(): Promise<RegistrationData[]> {
     const { data } = await supabase
-      .from('Vegelab_Calendar.registration')
+      .from('registration')
       .select('id, 대분류, 품목, 품종, 파종육묘구분')
       .limit(1000);
     return (data ?? []) as unknown as RegistrationData[];
