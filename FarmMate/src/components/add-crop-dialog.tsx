@@ -109,7 +109,7 @@ export default function AddCropDialog({ open, onOpenChange, crop }: AddCropDialo
     if (selectedCropData && !crop) {
       form.setValue("category", selectedCropData.category);
       form.setValue("name", selectedCropData.name);
-      form.setValue("variety", selectedCropData.varieties[0]); // Default to first variety
+      form.setValue("variety", selectedCropData.varieties?.[0] || ""); // Default to first variety
     }
   }, [selectedCropData, form, crop]);
 

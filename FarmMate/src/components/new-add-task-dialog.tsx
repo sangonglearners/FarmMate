@@ -401,7 +401,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
       });
     } else {
       // 개별등록: 하나의 작업만 생성 (날짜 범위로)
-      const work = selectedWorks[0];
+      const work = selectedWorks?.[0];
       if (startDate && endDate) {
         selectedRows.forEach(row => {
           const defaultTitle = `${selectedCrop || '작물'} ${work}`;
