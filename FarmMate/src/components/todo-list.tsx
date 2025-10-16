@@ -156,7 +156,8 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
                 <h4 className={`font-medium text-gray-900 transition-all duration-200 ${
                   isCompleted ? 'line-through text-gray-500' : ''
                 }`}>
-                  {task.isGroup ? task.cropName : task.title}
+                  {task.isGroup ? `${task.cropName}_${task.taskType}` : 
+                   task.cropName ? `${task.cropName}_${task.taskType}` : task.title}
                 </h4>
               </div>
               <div className="flex items-center space-x-2 mt-1">
