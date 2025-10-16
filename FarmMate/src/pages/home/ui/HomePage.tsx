@@ -158,7 +158,7 @@ export default function HomePage() {
           groupEndDate: endDate.toISOString().split('T')[0],
           groupTaskTypes: groupTasks.map(t => t.taskType),
           // 작물명 추출 (title에서 "작물명_작업명" 형태)
-          cropName: representative.title ? representative.title.split('_')[0] : '작물'
+          cropName: representative.title?.split('_')[0] || '작물'
         };
         
         groupRepresentatives.push(groupRepresentative);
