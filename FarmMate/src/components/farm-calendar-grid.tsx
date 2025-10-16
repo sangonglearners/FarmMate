@@ -355,6 +355,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
       const endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
       
+      // 디버깅 로그
+      console.log(`[DEBUG] 그룹 ${taskGroupId} 날짜 범위:`, {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        startMonth: startDate.getMonth() + 1,
+        endMonth: endDate.getMonth() + 1,
+        startYear: startDate.getFullYear(),
+        endYear: endDate.getFullYear()
+      });
+      
       // 시작일과 끝일이 같으면 그룹화하지 않음
       if (startDate.getTime() === endDate.getTime()) {
         return;
@@ -393,11 +403,22 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         
         currentPeriods.forEach((monthInfo, index) => {
           const month = (monthInfo as any).month; // 1-12
-          const year = currentDate.getFullYear();
+          const year = currentDate.getFullYear(); // 현재 표시 중인 연도
           
           // 현재 월이 작업 범위 내에 있는지 확인 (endDate까지 포함)
-          const isInRange = (year > startYear || (year === startYear && month >= startMonth)) &&
-                            (year < endYear || (year === endYear && month <= endMonth));
+          // 작업의 연도와 현재 표시 중인 연도가 같은 경우만 고려
+          const isInRange = (year === startYear && year === endYear) &&
+                            (month >= startMonth && month <= endMonth);
+          
+          console.log(`[DEBUG] 월 ${month} 범위 확인:`, {
+            month,
+            year,
+            startYear,
+            endYear,
+            startMonth,
+            endMonth,
+            isInRange
+          });
           
           if (isInRange) {
             if (startIndex === -1) {
@@ -902,7 +923,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         // 연간 뷰: 고정 너비 (120px per month) - 연속된 박스로 표시
                         const cellWidth = 120;
                         leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
-                        // spanUnits만큼의 셀 너비 - 중간 border들 제외하지 않음 (연속된 박스)
+                        // spanUnits만큼의 셀 너비 - 연속된 박스로 표시 (중간 border 제외)
                         boxWidth = `${spanUnits * cellWidth}px`;
                       } else {
                         // 월간 뷰: flex 기반 계산
@@ -1087,7 +1108,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               }}>
                                 {displayTitle}
                               </div>
-                              {/* 시작 날짜와 종료 날짜 표시 */}
+                              {/* 연간 뷰에서 각 월별 날짜 표시 */}
                               {(() => {
                                 const startDate = taskGroup.startDate;
                                 const endDate = taskGroup.endDate;
@@ -1096,39 +1117,47 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                 const startMonth = startDate.getMonth() + 1;
                                 const endMonth = endDate.getMonth() + 1;
                                 
-                                // 현재 박스가 시작 월인지 종료 월인지 확인
-                                const currentMonth = currentPeriods[taskGroup.startDayIndex] as any;
-                                const isStartMonth = currentMonth && currentMonth.month === startMonth;
-                                const isEndMonth = currentMonth && currentMonth.month === endMonth;
+                                // 각 월별로 날짜 표시
+                                const monthDisplays = [];
                                 
-                                // 시작 날짜 표시 (시작 월에만)
-                                if (isStartMonth) {
-                                  return (
-                                    <div className="absolute left-2 top-5 text-[9px] opacity-75">
-                                      {startMonth}/{startDay}~
+                                for (let i = taskGroup.startDayIndex; i <= taskGroup.endDayIndex; i++) {
+                                  const currentMonthInfo = currentPeriods[i] as any;
+                                  const currentMonth = currentMonthInfo?.month;
+                                  
+                                  if (!currentMonth) continue;
+                                  
+                                  let displayText = '';
+                                  let position = 'left-2'; // 기본 위치
+                                  
+                                  if (i === taskGroup.startDayIndex) {
+                                    // 시작 월
+                                    displayText = `${startMonth}/${startDay}~`;
+                                    position = 'left-2';
+                                  } else if (i === taskGroup.endDayIndex) {
+                                    // 종료 월
+                                    displayText = `~${endMonth}/${endDay}`;
+                                    position = 'right-2';
+                                  } else {
+                                    // 중간 월들
+                                    displayText = `${currentMonth}월`;
+                                    position = 'left-2';
+                                  }
+                                  
+                                  // 각 월의 위치 계산 (120px * 월 인덱스)
+                                  const monthLeft = (i - taskGroup.startDayIndex) * 120;
+                                  
+                                  monthDisplays.push(
+                                    <div 
+                                      key={i}
+                                      className="absolute top-5 text-[9px] opacity-75"
+                                      style={{ left: `${monthLeft + 8}px` }}
+                                    >
+                                      {displayText}
                                     </div>
                                   );
                                 }
                                 
-                                // 종료 날짜 표시 (종료 월에만)
-                                if (isEndMonth) {
-                                  return (
-                                    <div className="absolute right-2 top-5 text-[9px] opacity-75">
-                                      ~{endMonth}/{endDay}
-                                    </div>
-                                  );
-                                }
-                                
-                                // 중간 월들 (전체 월 표시)
-                                if (!isStartMonth && !isEndMonth) {
-                                  return (
-                                    <div className="absolute left-2 top-5 text-[9px] opacity-75">
-                                      {currentMonth?.month}월
-                                    </div>
-                                  );
-                                }
-                                
-                                return null;
+                                return monthDisplays;
                               })()}
                             </>
                           ) : (

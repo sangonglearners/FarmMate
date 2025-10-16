@@ -156,19 +156,22 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
                 <h4 className={`font-medium text-gray-900 transition-all duration-200 ${
                   isCompleted ? 'line-through text-gray-500' : ''
                 }`}>
-                  {task.title}
+                  {task.isGroup ? task.cropName : task.title}
                 </h4>
               </div>
               <div className="flex items-center space-x-2 mt-1">
                 <p className={`text-sm transition-all duration-200 ${
                   isCompleted ? 'line-through text-gray-400' : 'text-gray-600'
                 }`}>
-                  {formatDisplayDate(task.scheduledDate)}
+                  {task.isGroup 
+                    ? `${formatDisplayDate(task.groupStartDate)} - ${formatDisplayDate(task.groupEndDate)}`
+                    : formatDisplayDate(task.scheduledDate)
+                  }
                 </p>
                 <div className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
                   isCompleted ? 'bg-gray-200 text-gray-500' : getTaskColor(task.taskType)
                 }`}>
-                  {task.taskType}
+                  {task.isGroup ? task.groupTaskTypes.join(' → ') : task.taskType}
                 </div>
               </div>
             </div>

@@ -146,20 +146,36 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
+    // undefined 값을 null로 변환하여 UUID 오류 방지
+    const updateData: any = {
+      title: taskData.title,
+      description: taskData.description || null,
+      task_type: taskData.taskType,
+      scheduled_date: taskData.scheduledDate,
+      end_date: taskData.endDate || null,
+      row_number: taskData.rowNumber || null,
+      task_group_id: taskData.taskGroupId || null,
+      completed: taskData.completed || 0,
+    };
+
+    // farm_id와 crop_id는 유효한 UUID일 때만 포함
+    if (taskData.farmId && taskData.farmId !== 'undefined' && taskData.farmId !== '') {
+      updateData.farm_id = taskData.farmId;
+    } else {
+      updateData.farm_id = null;
+    }
+
+    if (taskData.cropId && taskData.cropId !== 'undefined' && taskData.cropId !== '') {
+      updateData.crop_id = taskData.cropId;
+    } else {
+      updateData.crop_id = null;
+    }
+
+    console.log('작업 수정 데이터:', updateData);
+
     const { data, error } = await supabase
       .from('tasks_v1')
-      .update({
-        title: taskData.title,
-        description: taskData.description || null,
-        task_type: taskData.taskType,
-        scheduled_date: taskData.scheduledDate,
-        end_date: taskData.endDate || null,
-        farm_id: taskData.farmId || null,
-        crop_id: taskData.cropId || null,
-        row_number: taskData.rowNumber || null,
-        task_group_id: taskData.taskGroupId || null,
-        completed: taskData.completed || 0,
-      })
+      .update(updateData)
       .eq('id', id)
       .eq('user_id', auth.user.id) // 보안: 자신의 작업만 수정 가능
       .select()
