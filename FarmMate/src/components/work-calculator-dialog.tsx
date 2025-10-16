@@ -104,47 +104,56 @@ export default function WorkCalculatorDialog({
     // 총 재배기간이 있으면 이를 기반으로 작업 기간 계산
     const cropTotalDuration = registrationCrop?.총재배기간 || totalDuration;
     
-    // 선택된 작업에 따라 작업 기간 계산
+    // 선택된 작업에 따라 작업 기간 계산 (새로운 로직)
     selectedTasks.forEach((taskType, index) => {
       let taskDuration = 0;
-      const taskInfo = BATCH_TASK_SCHEDULES[taskType as keyof typeof BATCH_TASK_SCHEDULES];
       
       if (selectedTasks.length === 2 && selectedTasks.includes("파종") && selectedTasks.includes("수확")) {
         // 파종+수확만 있는 경우 (파종작물)
         if (taskType === "파종") {
-          taskDuration = Math.round(cropTotalDuration * 0.2); // 20%
+          taskDuration = 1; // 파종: 1일 (10/16~10/16)
         } else if (taskType === "수확") {
-          taskDuration = Math.round(cropTotalDuration * 0.8); // 80%
+          taskDuration = 1; // 수확: 1일 (파종일 + 총기간 - 1일)
         }
       } else if (selectedTasks.length === 3 && selectedTasks.includes("파종") && selectedTasks.includes("육묘") && selectedTasks.includes("수확")) {
         // 파종+육묘+수확 모두 있는 경우 (육묘작물)
         if (taskType === "파종") {
-          taskDuration = Math.round(cropTotalDuration * 0.15); // 15%
+          taskDuration = 1; // 파종: 1일 (10/16~10/16)
         } else if (taskType === "육묘") {
-          taskDuration = Math.round(cropTotalDuration * 0.25); // 25%
+          taskDuration = cropTotalDuration - 2; // 육묘: 총 기간 - 파종(1일) - 수확(1일) (10/17~파종일+총기간-2일)
         } else if (taskType === "수확") {
-          taskDuration = Math.round(cropTotalDuration * 0.6); // 60%
+          taskDuration = 1; // 수확: 1일 (파종일 + 총기간 - 1일)
         }
       } else {
-        // 기타 경우는 기본 비율 사용
-        const defaultRatios = { "파종": 0.2, "육묘": 0.3, "수확": 0.5 };
-        taskDuration = Math.round(cropTotalDuration * (defaultRatios[taskType as keyof typeof defaultRatios] || 0.2));
+        // 기타 경우는 기본값 사용
+        taskDuration = 1; // 기본적으로 1일
       }
       
       if (taskDuration > 0) {
-        const startDate = format(currentDate, "yyyy-MM-dd");
-        const endDate = format(addDays(currentDate, taskDuration - 1), "yyyy-MM-dd");
+        let startDate: string;
+        let endDate: string;
+        
+        if (taskType === "수확") {
+          // 수확 작업은 파종일 + 총기간 - 1일로 계산
+          const harvestDate = addDays(new Date(baseDate), cropTotalDuration - 1);
+          startDate = format(harvestDate, "yyyy-MM-dd");
+          endDate = startDate; // 수확은 1일
+        } else {
+          // 다른 작업들은 순차적으로 계산
+          startDate = format(currentDate, "yyyy-MM-dd");
+          endDate = format(addDays(currentDate, taskDuration - 1), "yyyy-MM-dd");
+          
+          // 다음 작업 시작일 계산 (수확 작업 제외)
+          currentDate = addDays(currentDate, taskDuration);
+        }
         
         schedules.push({
           taskType,
           duration: taskDuration,
           startDate,
           endDate,
-          description: taskInfo?.description || `${taskType} 작업`
+          description: `${taskType} 작업`
         });
-        
-        // 다음 작업 시작일 계산
-        currentDate = addDays(currentDate, taskDuration);
       }
     });
 
@@ -155,11 +164,19 @@ export default function WorkCalculatorDialog({
   }, [baseDate, selectedTasks, customCropName, cropSearchTerm, selectedCrop]);
 
   const handleTaskToggle = (taskType: string) => {
-    setSelectedTasks(prev => 
-      prev.includes(taskType)
+    setSelectedTasks(prev => {
+      let newTasks = prev.includes(taskType)
         ? prev.filter(t => t !== taskType)
-        : [...prev, taskType]
-    );
+        : [...prev, taskType];
+      
+      // 농작업 순서 보장: 파종 → 육묘 → 수확
+      const taskOrder = ["파종", "육묘", "수확"];
+      return newTasks.sort((a, b) => {
+        const indexA = taskOrder.indexOf(a);
+        const indexB = taskOrder.indexOf(b);
+        return indexA - indexB;
+      });
+    });
   };
 
   const handleSave = () => {
@@ -175,6 +192,10 @@ export default function WorkCalculatorDialog({
       });
       return;
     }
+
+    // 작업 그룹을 위한 고유 ID 생성
+    const taskGroupId = `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log("Generated task group ID:", taskGroupId);
 
     const tasks: InsertTask[] = taskSchedules.map(schedule => {
       // 이랑 번호와 설명 설정
@@ -193,15 +214,21 @@ export default function WorkCalculatorDialog({
         최종작물명: cropName
       });
       
+      // 수확일인 경우 재배 종료일과 동일하게 설정
+      const isHarvestTask = schedule.taskType === "수확";
+      const endDate = isHarvestTask ? schedule.endDate : schedule.startDate;
+      
+      // 각 작업은 해당 작업이 수행되는 날짜를 scheduledDate로 가짐
       const task = {
         title: `${cropName}_${schedule.taskType}`,
         description: description,
         taskType: schedule.taskType,
-        scheduledDate: schedule.startDate,
-        endDate: schedule.endDate,
+        scheduledDate: schedule.startDate, // 해당 작업의 시작 날짜
+        endDate: endDate, // 수확일은 재배 종료일과 동일, 다른 작업은 하루만
         farmId: selectedFarm?.id || selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
         rowNumber: rowNumber || undefined,
+        taskGroupId: taskGroupId, // 같은 그룹 ID 부여
         userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
       };
       console.log("Created work calculator task:", task);
@@ -211,6 +238,7 @@ export default function WorkCalculatorDialog({
     });
 
     console.log("Total work calculator tasks to save:", tasks.length);
+    console.log("All tasks have taskGroupId:", taskGroupId);
     onSave(tasks);
     onOpenChange(false);
   };
@@ -304,7 +332,10 @@ export default function WorkCalculatorDialog({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">
-                        {format(new Date(schedule.startDate), "MM/dd", { locale: ko })}
+                        {schedule.startDate === schedule.endDate 
+                          ? format(new Date(schedule.startDate), "MM/dd", { locale: ko })
+                          : `${format(new Date(schedule.startDate), "MM/dd", { locale: ko })}~${format(new Date(schedule.endDate), "MM/dd", { locale: ko })}`
+                        }
                       </span>
                       <CalendarIcon className="w-4 h-4 text-gray-400" />
                     </div>
@@ -327,20 +358,7 @@ export default function WorkCalculatorDialog({
             </Button>
           </div>
 
-          {/* 재배 종료일 */}
-          {taskSchedules.length > 0 && (
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">재배 종료</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {format(addDays(new Date(baseDate), totalDuration), "MM/dd", { locale: ko })}
-                  </span>
-                  <CalendarIcon className="w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 재배 종료일 제거 - 수확 날짜가 종료 날짜가 됨 */}
         </div>
 
         <div className="flex gap-3 pt-4">

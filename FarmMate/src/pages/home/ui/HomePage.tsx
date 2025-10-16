@@ -10,6 +10,7 @@ import { useCrops } from "../../../features/crop-management";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "../../../entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
+import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 
 export default function HomePage() {
@@ -18,6 +19,7 @@ export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
+  const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [, setLocation] = useLocation();
 
@@ -65,8 +67,23 @@ export default function HomePage() {
 
   const handleTaskClick = (task: any) => {
     console.log("편집할 task 데이터:", task);
-    setSelectedTask(task);
-    setShowEditTaskDialog(true);
+    
+    // 그룹화된 작업인지 확인
+    if (task.isGroup) {
+      // 그룹화된 작업의 경우 일괄 수정 다이얼로그 열기
+      console.log("그룹화된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
+      setSelectedTask(task);
+      setShowBatchEditDialog(true);
+    } else if (task.taskGroupId) {
+      // 일괄등록된 개별 작업의 경우 일괄 수정 다이얼로그 열기
+      console.log("일괄등록된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
+      setSelectedTask(task);
+      setShowBatchEditDialog(true);
+    } else {
+      // 개별 작업의 경우 개별 수정 다이얼로그 열기
+      setSelectedTask(task);
+      setShowEditTaskDialog(true);
+    }
   };
 
   const handlePrevious = () => {
@@ -97,8 +114,68 @@ export default function HomePage() {
     }
   };
 
+  // 일괄등록된 작업들을 그룹화하는 함수
+  const groupTasksByGroupId = (tasks: any[]) => {
+    const groupedTasks = new Map<string, any[]>();
+    const individualTasks: any[] = [];
+    
+    tasks.forEach(task => {
+      if (task.taskGroupId) {
+        // 일괄등록된 작업들
+        const existing = groupedTasks.get(task.taskGroupId) || [];
+        existing.push(task);
+        groupedTasks.set(task.taskGroupId, existing);
+      } else {
+        // 개별 작업들
+        individualTasks.push(task);
+      }
+    });
+    
+    // 그룹화된 작업들을 대표 작업으로 변환
+    const groupRepresentatives: any[] = [];
+    groupedTasks.forEach((groupTasks, groupId) => {
+      if (groupTasks.length > 0) {
+        // 그룹의 첫 번째 작업을 대표로 사용
+        const representative = groupTasks[0];
+        
+        // 그룹의 전체 날짜 범위 계산
+        const allDates: Date[] = [];
+        groupTasks.forEach(t => {
+          allDates.push(new Date(t.scheduledDate));
+          if (t.endDate) {
+            allDates.push(new Date(t.endDate));
+          }
+        });
+        const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+        const endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+        
+        // 대표 작업 생성 (그룹 정보 포함)
+        const groupRepresentative = {
+          ...representative,
+          isGroup: true,
+          groupTasks: groupTasks,
+          groupStartDate: startDate.toISOString().split('T')[0],
+          groupEndDate: endDate.toISOString().split('T')[0],
+          groupTaskTypes: groupTasks.map(t => t.taskType),
+          // 작물명 추출 (title에서 "작물명_작업명" 형태)
+          cropName: representative.title ? representative.title.split('_')[0] : '작물'
+        };
+        
+        groupRepresentatives.push(groupRepresentative);
+      }
+    });
+    
+    return [...groupRepresentatives, ...individualTasks];
+  };
+
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
+  // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
   const selectedDateTasks = tasks.filter(task => {
+    // "재배" 유형의 작업은 투두리스트에서 제외
+    if (task.taskType === "재배") {
+      return false;
+    }
+    
     // 정확한 날짜 매칭
     if (task.scheduledDate === selectedDate) {
       return true;
@@ -115,10 +192,19 @@ export default function HomePage() {
     
     return false;
   });
+
+  // 일괄등록된 작업들을 그룹화하여 표시
+  const groupedSelectedDateTasks = groupTasksByGroupId(selectedDateTasks);
   
   // Get upcoming tasks (next 7 days)
+  // "재배" 유형의 작업은 투두리스트에서 제외
   const upcomingTasks = tasks
     .filter(task => {
+      // "재배" 유형의 작업은 투두리스트에서 제외
+      if (task.taskType === "재배") {
+        return false;
+      }
+      
       const taskDate = new Date(task.scheduledDate);
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
@@ -128,7 +214,13 @@ export default function HomePage() {
     .slice(0, 5);
 
   // Get overdue tasks
+  // "재배" 유형의 작업은 투두리스트에서 제외
   const overdueTasks = tasks.filter(task => {
+    // "재배" 유형의 작업은 투두리스트에서 제외
+    if (task.taskType === "재배") {
+      return false;
+    }
+    
     const priority = getTaskPriority(task.scheduledDate);
     return priority === "overdue" && task.completed === 0;
   });
@@ -169,7 +261,14 @@ export default function HomePage() {
       const endDate = new Date(monday);
       endDate.setDate(monday.getDate() + 13);
       
-      return `${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+      // 같은 년도인지 확인
+      if (monday.getFullYear() === endDate.getFullYear()) {
+        // 같은 년도: "2025년 11월 30일 - 12월 10일"
+        return `${monday.getFullYear()}년 ${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+      } else {
+        // 다른 년도: "2025년 11월 30일 - 2026년 1월 10일"
+        return `${monday.getFullYear()}년 ${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getFullYear()}년 ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+      }
     }
   };
 
@@ -303,7 +402,7 @@ export default function HomePage() {
           <CardContent className="p-4 pt-0">
             {selectedDateTasks.length > 0 ? (
               <TodoList 
-                tasks={selectedDateTasks}
+                tasks={groupedSelectedDateTasks}
                 selectedDate={selectedDate}
                 onTaskClick={handleTaskClick}
               />
@@ -346,6 +445,19 @@ export default function HomePage() {
         }}
         task={selectedTask}
         selectedDate={selectedDate}
+      />
+
+      {/* Batch Edit Task Dialog */}
+      <BatchTaskEditDialog
+        open={showBatchEditDialog}
+        onOpenChange={(open) => {
+          setShowBatchEditDialog(open);
+          if (!open) {
+            // 다이얼로그가 닫힐 때 작업 목록 새로고침
+            refetchTasks();
+          }
+        }}
+        task={selectedTask}
       />
     </>
   );

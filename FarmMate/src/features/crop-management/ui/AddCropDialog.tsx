@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient /*, useQuery*/ } from "@tanstack/react-query";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { serverRegistrationRepository, type CropSearchResult } from "@/shared/api/server-registration.repository";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +32,7 @@ import { useCrops as useMyCrops, useCreateCrop, useUpdateCrop } from "../model/c
 import { useFarms } from "@features/farm-management";
 import { z } from "zod";
 import { Search, Check } from "lucide-react";
-import { registrationData } from "@/shared/data/registration";
+import { registrationData, searchCrops } from "@/shared/data/registration";
 import type { RegistrationData } from "@/shared/data/registration";
 
 // 기존 form 스키마(사용자 재배 목록에 실제 추가)는 그대로 유지
@@ -88,8 +87,8 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
   const { data: farms = [] } = showFarmSelect ? useFarms() : { data: [] as any[] } as any;
   const { data: myCrops = [] } = useMyCrops();
 
-  // 서버 검색 관련 상태
-  const [serverSearchResults, setServerSearchResults] = useState<CropSearchResult[]>([]);
+  // 로컬 검색 관련 상태
+  const [serverSearchResults, setServerSearchResults] = useState<RegistrationData[]>([]);
   const [isServerSearching, setIsServerSearching] = useState(false);
 
   // registration 데이터를 사용하여 작물 목록 생성
@@ -139,9 +138,9 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
     [crops, selectedCrop]
   );
 
-  // 서버 검색 함수
-  const searchServerCrops = async (searchTerm: string) => {
-    console.log('🔍 AddCropDialog 서버 검색:', searchTerm);
+  // 로컬 검색 함수
+  const searchLocalCrops = async (searchTerm: string) => {
+    console.log('🔍 AddCropDialog 로컬 검색:', searchTerm);
     
     if (!searchTerm.trim()) {
       setServerSearchResults([]);
@@ -151,22 +150,22 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
     setIsServerSearching(true);
     
     try {
-      const results = await serverRegistrationRepository.searchCrops(searchTerm);
-      console.log('✅ AddCropDialog 서버 검색 결과:', results);
+      const results = searchCrops(searchTerm);
+      console.log('✅ AddCropDialog 로컬 검색 결과:', results);
       setServerSearchResults(results);
     } catch (error) {
-      console.error('❌ AddCropDialog 서버 검색 실패:', error);
+      console.error('❌ AddCropDialog 로컬 검색 실패:', error);
       setServerSearchResults([]);
     } finally {
       setIsServerSearching(false);
     }
   };
 
-  // 서버 검색 디바운스
+  // 로컬 검색 디바운스
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm.trim()) {
-        searchServerCrops(searchTerm);
+        searchLocalCrops(searchTerm);
       } else {
         setServerSearchResults([]);
       }

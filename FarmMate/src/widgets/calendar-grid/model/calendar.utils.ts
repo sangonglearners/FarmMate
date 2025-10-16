@@ -82,26 +82,51 @@ export const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 // 연속된 일정 그룹화를 위한 타입
 export interface TaskGroup {
   task: Task;
+  tasks: Task[]; // 그룹에 속한 모든 작업들
   startDate: Date;
   endDate: Date;
   startDayIndex: number;
   endDayIndex: number;
   isFirstDay: boolean;
   isLastDay: boolean;
+  taskGroupId?: string; // 작업 그룹 ID
+  cropName?: string; // 작물명 (캘린더 박스에 표시)
 }
 
-// 연속된 일정을 그룹화하는 함수
+// 연속된 일정을 그룹화하는 함수 (taskGroupId 기반)
 export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] => {
   const taskGroups: TaskGroup[] = [];
   
-  // endDate가 있는 작업들만 처리
-  const tasksWithEndDate = tasks.filter(task => task.endDate && task.endDate !== task.scheduledDate);
+  // taskGroupId로 작업들을 그룹화
+  const groupedByTaskGroupId = new Map<string, Task[]>();
   
-  tasksWithEndDate.forEach(task => {
-    const startDate = new Date(task.scheduledDate);
-    const endDate = new Date(task.endDate!);
+  tasks.forEach(task => {
+    if (task.taskGroupId) {
+      const existing = groupedByTaskGroupId.get(task.taskGroupId) || [];
+      existing.push(task);
+      groupedByTaskGroupId.set(task.taskGroupId, existing);
+    }
+  });
+  
+  // 각 taskGroupId 그룹을 처리
+  groupedByTaskGroupId.forEach((groupTasks, taskGroupId) => {
+    if (groupTasks.length === 0) return;
     
-    // 연속된 일정이 아닌 경우 (시작일과 끝일이 같은 경우) 그룹화하지 않음
+    // 그룹 내에서 가장 빠른 날짜와 가장 늦은 날짜 찾기 (endDate도 고려)
+    const allDates: Date[] = [];
+    groupTasks.forEach(t => {
+      allDates.push(new Date(t.scheduledDate));
+      if (t.endDate) {
+        allDates.push(new Date(t.endDate));
+      }
+    });
+    const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+    const endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+    
+    // taskGroupId가 있는 작업들은 무조건 연속 박스로 표시
+    // (파종→육묘→수확 등 일괄등록된 작업들을 하나의 박스로 표시)
+    
+    // 단, 모든 작업이 같은 날짜에 있으면 그룹화하지 않음
     if (startDate.getTime() === endDate.getTime()) {
       return;
     }
@@ -123,9 +148,53 @@ export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] =
       }
     });
     
+    if (startDayIndex !== -1 && endDayIndex !== -1) {
+      // 대표 작업 (첫 번째 작업)
+      const representativeTask = groupTasks[0];
+      
+      taskGroups.push({
+        task: representativeTask,
+        tasks: groupTasks,
+        startDate,
+        endDate,
+        startDayIndex,
+        endDayIndex,
+        isFirstDay: true,
+        isLastDay: true,
+        taskGroupId: taskGroupId,
+        cropName: representativeTask.title.split('_')[0] // "작물명_작업명"에서 작물명 추출
+      });
+    }
+  });
+  
+  // taskGroupId가 없는 작업들 중 endDate가 있는 작업도 처리 (기존 방식)
+  const tasksWithoutGroupId = tasks.filter(task => !task.taskGroupId && task.endDate && task.endDate !== task.scheduledDate);
+  
+  tasksWithoutGroupId.forEach(task => {
+    const startDate = new Date(task.scheduledDate);
+    const endDate = new Date(task.endDate!);
+    
+    let startDayIndex = -1;
+    let endDayIndex = -1;
+    
+    calendarDays.forEach((dayInfo, index) => {
+      if (dayInfo.day === null) return;
+      
+      const dayDate = new Date(dayInfo.year, dayInfo.month - 1, dayInfo.day);
+      
+      if (startDayIndex === -1 && dayDate >= startDate && dayDate <= endDate) {
+        startDayIndex = index;
+      }
+      
+      if (dayDate >= startDate && dayDate <= endDate) {
+        endDayIndex = index;
+      }
+    });
+    
     if (startDayIndex !== -1 && endDayIndex !== -1 && startDayIndex !== endDayIndex) {
       taskGroups.push({
         task,
+        tasks: [task],
         startDate,
         endDate,
         startDayIndex,
