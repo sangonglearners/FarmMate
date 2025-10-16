@@ -655,6 +655,7 @@ export default function AddTaskDialog({
       });
       
       // 항상 taskApi.createTask를 사용하여 endDate를 제대로 처리
+      const { taskApi } = await import("@/shared/api/tasks");
       const taskToCreate = {
         title: data.title!,
         description: (data as any).description || "",
@@ -664,6 +665,7 @@ export default function AddTaskDialog({
         farmId: (data as any).farmId || "",
         cropId: finalCropId || "",
         rowNumber: (data as any).rowNumber || null,
+        taskGroupId: (data as any).taskGroupId || null,
         completed: 0,
       };
       console.log("taskApi.createTask에 전달할 데이터:", taskToCreate);
@@ -742,6 +744,7 @@ export default function AddTaskDialog({
         farmId: (data as any).farmId ? (data as any).farmId.toString() : "",
         cropId: finalCropId ? finalCropId.toString() : "",
         rowNumber: rowNumber || null,
+        taskGroupId: (data as any).taskGroupId || null,
         completed: (data as any).completed || 0,
       });
     },
@@ -782,6 +785,7 @@ export default function AddTaskDialog({
           farmId: (task as any).farmId ? (task as any).farmId.toString() : "",
           cropId: (task as any).cropId ? (task as any).cropId.toString() : "",
           rowNumber: (task as any).rowNumber || null,
+          taskGroupId: (task as any).taskGroupId || null,
           completed: 0,
         });
         results.push(result);
@@ -957,6 +961,7 @@ export default function AddTaskDialog({
         
         // endDate가 있는 경우 taskApi.createTask를 직접 사용
         if ((task as any).endDate) {
+          const { taskApi } = await import("@/shared/api/tasks");
           await taskApi.createTask({
             title: task.title,
             description: task.description || "",
@@ -966,6 +971,7 @@ export default function AddTaskDialog({
             farmId: task.farmId || "",
             cropId: task.cropId || "",
             rowNumber: task.rowNumber || null,
+            taskGroupId: (task as any).taskGroupId || null,
             completed: 0,
           });
         } else {
@@ -977,6 +983,7 @@ export default function AddTaskDialog({
             cropId: task.cropId ? task.cropId : undefined,
             taskType: task.taskType,
             rowNumber: task.rowNumber || undefined,
+            taskGroupId: (task as any).taskGroupId || undefined,
           });
         }
       }

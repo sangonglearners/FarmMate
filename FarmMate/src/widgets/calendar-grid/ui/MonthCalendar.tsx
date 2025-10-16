@@ -76,15 +76,19 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
 
   return (
     <div className="relative">
-      {/* 연속된 일정 박스들 렌더링 */}
+      {/* 연속된 일정 박스들 렌더링 (작물명만 표시) */}
       {taskGroups.map((taskGroup, groupIndex) => {
-        if (!taskGroup.task.endDate || taskGroup.startDayIndex === taskGroup.endDayIndex) {
+        if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
           // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
           return null;
         }
         
-        const cropName = getCropName(crops, taskGroup.task.cropId);
-        const taskColor = getTaskColor(taskGroup.task.taskType);
+        // taskGroupId가 있으면 작물명만 표시, 없으면 기존 방식
+        const displayName = taskGroup.taskGroupId 
+          ? taskGroup.cropName || getCropName(crops, taskGroup.task.cropId)
+          : `${getCropName(crops, taskGroup.task.cropId)} - ${taskGroup.task.taskType}`;
+        
+        const taskColor = "bg-blue-100 text-blue-700 border-blue-300"; // 기간 박스는 통일된 색상
         
         // 그리드 위치 계산
         const startRow = Math.floor(taskGroup.startDayIndex / 7);
@@ -111,10 +115,10 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               zIndex: 10,
               minHeight: '20px'
             }}
-            title={`${cropName} - ${taskGroup.task.taskType}`}
+            title={taskGroup.taskGroupId ? `${displayName} (${taskGroup.tasks.length}개 작업)` : displayName}
           >
             <div className="truncate">
-              {cropName && `${cropName} - `}{taskGroup.task.taskType}
+              {displayName}
             </div>
           </div>
         );
@@ -134,8 +138,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           const currentDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
           const dayTasks = getTasksForDate(tasks, currentDate);
           
-          // 홈화면에서는 모든 일정을 개별적으로 표시
-          const singleDayTasks = dayTasks;
+          // 해당 날짜에 정확히 scheduledDate가 일치하는 작업만 마커로 표시
+          const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
+          const exactDayTasks = dayTasks.filter(task => task.scheduledDate === dateStr);
           
           // 오늘 날짜인지 확인
           const today = new Date();
@@ -144,14 +149,12 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
             today.getMonth() === dayInfo.month &&
             today.getFullYear() === dayInfo.year;
             
-          // 날짜 문자열을 직접 생성하여 시간대 문제 방지
-          const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
           const isSelected = selectedDate === dateStr;
 
           return (
             <div
               key={index}
-              className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+              className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors relative ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400 bg-gray-25' : ''
               } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
                 isSelected ? 'bg-blue-50 border-blue-300' : ''
@@ -159,6 +162,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               onClick={() => {
                 onDateClick(dateStr);
               }}
+              style={{ zIndex: 20 }}
             >
               <div className={`text-xs mb-1 ${todayCheck ? 'font-bold text-primary' : ''} ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
@@ -166,25 +170,26 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                 {dayInfo.day}
               </div>
               
-              {/* 단일 날짜 일정 표시 */}
-              {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
+              {/* 작업 마커 표시 (정확히 해당 날짜에 수행되는 작업만) */}
+              {dayInfo.isCurrentMonth && exactDayTasks.length > 0 && (
                 <div className="space-y-1">
-                  {singleDayTasks.slice(0, 2).map((task, taskIndex) => {
-                    const cropName = getCropName(crops, task.cropId);
+                  {exactDayTasks.slice(0, 3).map((task, taskIndex) => {
                     const taskColor = getTaskColor(task.taskType);
+                    // task.title이 "작물명_작업명" 형식이므로 그대로 사용
                     return (
                       <div
                         key={taskIndex}
-                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate`}
-                        title={`${cropName} - ${task.taskType}`}
+                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate font-medium relative`}
+                        style={{ zIndex: 25 }}
+                        title={task.title}
                       >
-                        {cropName && `${cropName} - `}{task.taskType}
+                        {task.title}
                       </div>
                     );
                   })}
-                  {singleDayTasks.length > 2 && (
+                  {exactDayTasks.length > 3 && (
                     <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 2}개 더
+                      +{exactDayTasks.length - 3}개 더
                     </div>
                   )}
                 </div>

@@ -176,6 +176,10 @@ export default function WorkCalculatorDialog({
       return;
     }
 
+    // 작업 그룹을 위한 고유 ID 생성
+    const taskGroupId = `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log("Generated task group ID:", taskGroupId);
+
     const tasks: InsertTask[] = taskSchedules.map(schedule => {
       // 이랑 번호와 설명 설정
       const rowNumber = selectedRowNumber;
@@ -193,15 +197,18 @@ export default function WorkCalculatorDialog({
         최종작물명: cropName
       });
       
+      // 각 작업은 해당 작업이 수행되는 날짜를 scheduledDate로 가짐
+      // endDate는 작업 하나만 있을 때는 startDate와 같음
       const task = {
         title: `${cropName}_${schedule.taskType}`,
         description: description,
         taskType: schedule.taskType,
-        scheduledDate: schedule.startDate,
-        endDate: schedule.endDate,
+        scheduledDate: schedule.startDate, // 해당 작업의 시작 날짜
+        endDate: schedule.startDate, // 개별 작업은 하루만 (파종일, 육묘일, 수확일)
         farmId: selectedFarm?.id || selectedCrop?.farmId || "",
         cropId: selectedCrop?.id || "",
         rowNumber: rowNumber || undefined,
+        taskGroupId: taskGroupId, // 같은 그룹 ID 부여
         userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
       };
       console.log("Created work calculator task:", task);
@@ -211,6 +218,7 @@ export default function WorkCalculatorDialog({
     });
 
     console.log("Total work calculator tasks to save:", tasks.length);
+    console.log("All tasks have taskGroupId:", taskGroupId);
     onSave(tasks);
     onOpenChange(false);
   };
