@@ -1,8 +1,8 @@
--- Create generated tsvector column and GIN index for FTS on Vegelab_Calendar.registration
+-- Create generated tsvector column and GIN index for FTS on public.registration
 DO $$
 BEGIN
   BEGIN
-    ALTER TABLE "Vegelab_Calendar".registration
+    ALTER TABLE public.registration
       ADD COLUMN IF NOT EXISTS fts tsvector GENERATED ALWAYS AS (
         to_tsvector('simple',
           coalesce("대분류", '') || ' ' ||
@@ -18,7 +18,7 @@ BEGIN
 
   BEGIN
     CREATE INDEX IF NOT EXISTS registration_fts_idx
-      ON "Vegelab_Calendar".registration USING gin (fts);
+      ON public.registration USING gin (fts);
   EXCEPTION WHEN undefined_table THEN
     -- table not present; skip
     NULL;
@@ -52,7 +52,7 @@ RETURNS TABLE (
     r."품목",
     r."품종",
     r."파종육묘구분"
-  FROM "Vegelab_Calendar".registration r, ts
+  FROM public.registration r, ts
   WHERE (trim(coalesce(query, '')) <> '')
     AND (
       -- prefer using generated column when present
