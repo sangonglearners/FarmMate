@@ -373,6 +373,32 @@ export default function BatchTaskEditDialog({
     },
   });
 
+  // 일괄 삭제 mutation
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      const promises = taskIds.map(id => taskApi.deleteTask(id));
+      return await Promise.all(promises);
+    },
+    onSuccess: async () => {
+      // 모든 tasks 쿼리를 무효화하고 즉시 재조회
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
+      
+      toast({
+        title: "일정이 삭제되었습니다",
+        description: "모든 작업이 삭제되었습니다.",
+      });
+      onOpenChange(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "삭제 실패",
+        description: error?.message || "작업 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       // 기존 작업의 task_group_id와 cropId 가져오기
@@ -410,6 +436,19 @@ export default function BatchTaskEditDialog({
         description: "작업 수정 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!taskGroup || taskGroup.length === 0) return;
+    
+    if (window.confirm('정말로 이 작업 그룹을 모두 삭제하시겠습니까?')) {
+      try {
+        const taskIds = taskGroup.map(task => task.id).filter(Boolean) as string[];
+        await batchDeleteMutation.mutateAsync(taskIds);
+      } catch (error) {
+        console.error("일괄 삭제 실패:", error);
+      }
     }
   };
 
@@ -769,12 +808,17 @@ export default function BatchTaskEditDialog({
 
             {/* 버튼 */}
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                취소
+              <Button 
+                type="button" 
+                variant="destructive" 
+                onClick={handleDelete}
+                disabled={batchDeleteMutation.isPending || batchUpdateMutation.isPending}
+              >
+                {batchDeleteMutation.isPending ? "삭제 중..." : "삭제"}
               </Button>
               <Button 
                 type="submit" 
-                disabled={batchUpdateMutation.isPending}
+                disabled={batchUpdateMutation.isPending || batchDeleteMutation.isPending}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {batchUpdateMutation.isPending ? "수정 중..." : "수정 완료"}
