@@ -251,20 +251,19 @@ export default function BatchTaskEditDialog({
   // 폼 초기화
   useEffect(() => {
     if (open && taskGroup && taskGroup.length > 0) {
-      const schedules = calculateTaskSchedules(startDate, currentTaskTypes);
-      
+      // 실제 저장된 작업의 날짜를 사용 (계산하지 않음)
       form.reset({
         cropName,
         farmId,
         rowNumber,
         startDate,
         selectedTasks: currentTaskTypes,
-        tasks: schedules.map((schedule, index) => ({
-          id: taskGroup[index]?.id,
-          taskType: schedule.taskType,
-          startDate: schedule.startDate,
-          endDate: schedule.endDate,
-          description: schedule.description,
+        tasks: taskGroup.map((task) => ({
+          id: task.id,
+          taskType: task.taskType || '',
+          startDate: task.scheduledDate || startDate,
+          endDate: task.endDate || task.scheduledDate || startDate,
+          description: getTaskDescription(task.taskType || ''),
         })),
       });
     }
