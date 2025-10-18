@@ -188,6 +188,11 @@ class CropRecommendationEngine {
                     }
                   }
                   if (!isDuplicate) {
+                    // 예상 매출액 계산 (3개 작물의 수익성 합계)
+                    const expectedRevenue = [item1.crop, item2.crop, item3.crop].reduce((sum, crop) => {
+                      return sum + (parseFloat(crop.수익성_사용) || 0);
+                    }, 0);
+                    
                     allCombinations.push({
                       crops: [
                         item1.crop,
@@ -195,7 +200,8 @@ class CropRecommendationEngine {
                         item3.crop
                       ],
                       indices: indices,
-                      totalScore: item1.score + item2.score + item3.score
+                      totalScore: item1.score + item2.score + item3.score,
+                      expectedRevenue: expectedRevenue
                     });
                   }
                 }
@@ -209,8 +215,14 @@ class CropRecommendationEngine {
         console.log(`⚠️ 더 이상 새로운 조합을 찾을 수 없습니다.`);
         break;
       }
-      // 점수가 가장 높은 조합 선택
-      allCombinations.sort((a, b) => b.totalScore - a.totalScore);
+      // 점수가 가장 높은 조합 선택 (점수가 같으면 예상 매출액으로 정렬)
+      allCombinations.sort((a, b) => {
+        // 점수 차이가 미미하면 (거의 같으면) 예상 매출액으로 정렬
+        if (Math.abs(b.totalScore - a.totalScore) < 0.0001) {
+          return b.expectedRevenue - a.expectedRevenue;
+        }
+        return b.totalScore - a.totalScore;
+      });
       const bestCombo = allCombinations[0];
       console.log(`✅ 선택: 인덱스 [${bestCombo.indices.join(', ')}], 점수: ${bestCombo.totalScore.toFixed(3)}`);
       console.log(`   작물: ${bestCombo.crops.map((c) => c.품목).join(', ')}`);

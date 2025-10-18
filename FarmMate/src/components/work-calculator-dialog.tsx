@@ -8,6 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -179,6 +185,50 @@ export default function WorkCalculatorDialog({
     });
   };
 
+  // 개별 작업의 종료일이 변경될 때 다음 작업들의 시작일 조정
+  const handleTaskEndDateChange = (taskIndex: number, newEndDate: string) => {
+    const currentTasks = [...taskSchedules];
+    const originalTasks = [...currentTasks]; // 원본 작업 백업 (기간 계산용)
+    
+    currentTasks[taskIndex].endDate = newEndDate;
+    
+    // 다음 작업들의 시작일을 조정 (수확 작업 제외)
+    for (let i = taskIndex + 1; i < currentTasks.length; i++) {
+      if (currentTasks[i].taskType === "수확") {
+        // 수확 작업은 총 재배기간 기준으로 계산되므로 건너뜀
+        continue;
+      }
+      
+      // 원래 작업 기간 계산 (변경 전 정보 사용)
+      const originalStartDate = new Date(originalTasks[i].startDate);
+      const originalEndDate = new Date(originalTasks[i].endDate);
+      const taskDuration = Math.floor((originalEndDate.getTime() - originalStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      // 새로운 시작일 = 이전 작업의 종료일 + 1일
+      const prevTaskEndDate = new Date(currentTasks[i - 1].endDate);
+      const newStartDate = addDays(prevTaskEndDate, 1);
+      currentTasks[i].startDate = format(newStartDate, "yyyy-MM-dd");
+      
+      // 새로운 종료일 = 새로운 시작일 + 원래 기간 - 1
+      const newEndDateForTask = addDays(newStartDate, taskDuration - 1);
+      currentTasks[i].endDate = format(newEndDateForTask, "yyyy-MM-dd");
+    }
+    
+    setTaskSchedules(currentTasks);
+  };
+
+  const handleTaskStartDateChange = (taskIndex: number, newStartDate: string) => {
+    const currentTasks = [...taskSchedules];
+    const originalStartDate = new Date(currentTasks[taskIndex].startDate);
+    const originalEndDate = new Date(currentTasks[taskIndex].endDate);
+    const taskDuration = Math.floor((originalEndDate.getTime() - originalStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    currentTasks[taskIndex].startDate = newStartDate;
+    currentTasks[taskIndex].endDate = format(addDays(new Date(newStartDate), taskDuration - 1), "yyyy-MM-dd");
+    
+    setTaskSchedules(currentTasks);
+  };
+
   const handleSave = () => {
     console.log("Work calculator handleSave called");
     console.log("Selected tasks:", selectedTasks);
@@ -320,28 +370,80 @@ export default function WorkCalculatorDialog({
           </div>
 
           {/* 작업 일정 */}
-          <div className="space-y-3">
-            <Label>작업 일정</Label>
+          <div className="space-y-4">
+            <Label className="text-base font-medium">작업 일정</Label>
             {taskSchedules.map((schedule, index) => (
-              <Card key={index}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{schedule.taskType}</div>
-                      <div className="text-xs text-gray-500">{schedule.duration} 일</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        {schedule.startDate === schedule.endDate 
-                          ? format(new Date(schedule.startDate), "MM/dd", { locale: ko })
-                          : `${format(new Date(schedule.startDate), "MM/dd", { locale: ko })}~${format(new Date(schedule.endDate), "MM/dd", { locale: ko })}`
-                        }
-                      </span>
-                      <CalendarIcon className="w-4 h-4 text-gray-400" />
-                    </div>
+              <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-lg">{schedule.taskType}</h4>
+                  <div className="text-sm text-gray-500">
+                    {format(new Date(schedule.startDate), "MM/dd")} ~ {format(new Date(schedule.endDate), "MM/dd")}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm text-gray-600">시작일</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(new Date(schedule.startDate), "MM/dd")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={new Date(schedule.startDate)}
+                          onSelect={(date) => {
+                            if (date) {
+                              handleTaskStartDateChange(index, format(date, "yyyy-MM-dd"));
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">종료일</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(new Date(schedule.endDate), "MM/dd")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={new Date(schedule.endDate)}
+                          onSelect={(date) => {
+                            if (date) {
+                              handleTaskEndDateChange(index, format(date, "yyyy-MM-dd"));
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                
+                <div className="mt-3">
+                  <Label className="text-sm text-gray-600">작업 설명</Label>
+                  <div className="text-sm text-gray-700 mt-1 p-2 bg-white rounded border">
+                    {schedule.description}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
 
