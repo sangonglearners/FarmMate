@@ -175,10 +175,11 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                 {dayInfo.day}
               </div>
               
-              {/* 작업 마커 표시 (정확히 해당 날짜에 수행되는 작업만) */}
-              {dayInfo.isCurrentMonth && exactDayTasks.length > 0 && (
-                <div className="space-y-1">
-                  {exactDayTasks.slice(0, 3).map((task, taskIndex) => {
+              {/* 단일 날짜 일정 표시 */}
+              {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
+                <div className="space-y-0.5">
+                  {singleDayTasks.slice(0, 3).map((task, taskIndex) => {
+                    const cropName = getCropName(crops, task.cropId);
                     const taskColor = getTaskColor(task.taskType);
                     // 파종, 육묘, 수확일은 더 진하게 표시
                     const isImportantTask = ['파종', '육묘', '수확'].includes(task.taskType);
@@ -187,17 +188,23 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                     return (
                       <div
                         key={taskIndex}
-                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate ${fontWeight} relative`}
-                        style={{ zIndex: 25 }}
-                        title={task.title}
+                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate`}
+                        style={{
+                          marginBottom: '2px',
+                          maxHeight: '1.25rem',
+                          overflow: 'hidden'
+                        }}
+                        title={`${cropName} - ${task.taskType}`}
                       >
                         {task.title}
                       </div>
                     );
                   })}
-                  {exactDayTasks.length > 3 && (
+                  {singleDayTasks.length > 3 && (
                     <div className="text-xs text-gray-500">
-                      +{exactDayTasks.length - 3}개 더
+                      +{singleDayTasks.length - 3}개 더
+                    </div>
+                  )}
                     </div>
                   )}
                 </div>
