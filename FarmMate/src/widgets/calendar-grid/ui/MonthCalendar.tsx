@@ -141,11 +141,25 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           const currentDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
           const dayTasks = getTasksForDate(tasks, currentDate);
           
-          // 해당 날짜에 정확히 scheduledDate가 일치하는 작업만 마커로 표시 (모든 작업 포함)
+          // 해당 날짜에 포함되는 모든 작업을 개별 박스로 표시
           const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-          const exactDayTasks = dayTasks.filter(task => 
-            task.scheduledDate === dateStr // 모든 작업을 개별 표시
-          );
+          const exactDayTasks = dayTasks.filter(task => {
+            // 정확한 날짜 매칭 또는 날짜 범위 내 포함
+            if (task.scheduledDate === dateStr) {
+              return true;
+            }
+            
+            // 연속된 일정인 경우 해당 날짜가 범위 내에 있는지 확인
+            if ((task as any).endDate && (task as any).endDate !== task.scheduledDate) {
+              const taskStartDate = new Date(task.scheduledDate);
+              const taskEndDate = new Date((task as any).endDate);
+              const currentDate = new Date(dateStr);
+              
+              return currentDate >= taskStartDate && currentDate <= taskEndDate;
+            }
+            
+            return false;
+          });
           
           // 오늘 날짜인지 확인
           const today = new Date();
@@ -176,9 +190,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               </div>
               
               {/* 단일 날짜 일정 표시 */}
-              {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
+              {dayInfo.isCurrentMonth && exactDayTasks.length > 0 && (
                 <div className="space-y-0.5">
-                  {singleDayTasks.slice(0, 3).map((task, taskIndex) => {
+                  {exactDayTasks.slice(0, 3).map((task, taskIndex) => {
                     const cropName = getCropName(crops, task.cropId);
                     const taskColor = getTaskColor(task.taskType);
                     // 파종, 육묘, 수확일은 더 진하게 표시
@@ -202,9 +216,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                       </div>
                     );
                   })}
-                  {singleDayTasks.length > 3 && (
+                  {exactDayTasks.length > 3 && (
                     <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 3}개 더
+                      +{exactDayTasks.length - 3}개 더
                     </div>
                   )}
                 </div>
