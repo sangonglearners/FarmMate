@@ -123,10 +123,16 @@ export default function WorkCalculatorDialog({
         }
       } else if (selectedTasks.length === 3 && selectedTasks.includes("파종") && selectedTasks.includes("육묘") && selectedTasks.includes("수확")) {
         // 파종+육묘+수확 모두 있는 경우 (육묘작물)
+        // 총 소요 기간의 중간 지점을 육묘 시작일로 설정
+        const middlePoint = Math.floor(cropTotalDuration / 2);
+        
         if (taskType === "파종") {
-          taskDuration = 1; // 파종: 1일 (10/16~10/16)
+          taskDuration = 1; // 파종: 1일
         } else if (taskType === "육묘") {
-          taskDuration = cropTotalDuration - 2; // 육묘: 총 기간 - 파종(1일) - 수확(1일) (10/17~파종일+총기간-2일)
+          // 육묘 시작일 = 파종일 + 중간지점 - 1일
+          // 육묘 종료일 = 수확일 - 1일
+          // 육묘 기간 = 수확일 - 육묘시작일
+          taskDuration = cropTotalDuration - middlePoint; // 육묘: 총기간 - 중간지점
         } else if (taskType === "수확") {
           taskDuration = 1; // 수확: 1일 (파종일 + 총기간 - 1일)
         }
@@ -144,6 +150,15 @@ export default function WorkCalculatorDialog({
           const harvestDate = addDays(new Date(baseDate), cropTotalDuration - 1);
           startDate = format(harvestDate, "yyyy-MM-dd");
           endDate = startDate; // 수확은 1일
+        } else if (taskType === "육묘" && selectedTasks.length === 3 && selectedTasks.includes("파종") && selectedTasks.includes("육묘") && selectedTasks.includes("수확")) {
+          // 육묘 작업의 경우 총 소요 기간의 중간 지점을 시작일로 설정
+          const middlePoint = Math.floor(cropTotalDuration / 2);
+          const seedlingStartDate = addDays(new Date(baseDate), middlePoint - 1);
+          startDate = format(seedlingStartDate, "yyyy-MM-dd");
+          endDate = format(addDays(seedlingStartDate, taskDuration - 1), "yyyy-MM-dd");
+          
+          // 육묘 작업 후에는 currentDate를 육묘 종료일 다음으로 설정
+          currentDate = addDays(seedlingStartDate, taskDuration);
         } else {
           // 다른 작업들은 순차적으로 계산
           startDate = format(currentDate, "yyyy-MM-dd");
