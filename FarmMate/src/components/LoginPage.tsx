@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
   const { signInWithGoogle, testLogin, loading } = useAuth()
@@ -29,7 +30,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex justify-center">
-      <div className="w-full max-w-md bg-white min-h-screen shadow-xl flex flex-col justify-center p-6">
+      <div className="w-full bg-white min-h-screen shadow-xl flex flex-col justify-center p-6">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">FarmMate</h1>
           <p className="text-gray-600">농장 관리 시스템에 로그인하세요</p>
