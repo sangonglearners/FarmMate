@@ -3,9 +3,7 @@ import {
   getTaskColor, 
   getTasksForDate, 
   getCropName, 
-  weekDays,
-  getTaskGroups,
-  type TaskGroup
+  weekDays
 } from "../model/calendar.utils";
 
 interface MonthCalendarProps {
@@ -71,61 +69,12 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
     nextDay++;
   }
 
-  // 연속된 일정 그룹화
-  const taskGroups = getTaskGroups(tasks, days);
+  // 홈 캘린더에서는 모든 일정을 개별적으로 표시하므로 연속 일정 박스는 렌더링하지 않음
+  // const taskGroups = getTaskGroups(tasks, days);
 
   return (
     <div className="relative">
-      {/* 연속된 일정 박스들 렌더링 (작물명만 표시) */}
-      {taskGroups.map((taskGroup, groupIndex) => {
-        if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
-          // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
-          return null;
-        }
-        
-        // taskGroupId가 있으면 작물명만 표시, 없으면 기존 방식
-        const displayName = taskGroup.taskGroupId 
-          ? taskGroup.cropName || getCropName(crops, taskGroup.task.cropId)
-          : `${getCropName(crops, taskGroup.task.cropId)} - ${taskGroup.task.taskType}`;
-        
-        // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
-        const taskColor = taskGroup.taskGroupId 
-          ? getTaskColor(taskGroup.task.taskType) // 개별등록과 동일한 색상
-          : "bg-blue-100 text-blue-700 border-blue-300"; // 기존 연속 작업 색상
-        
-        // 그리드 위치 계산
-        const startRow = Math.floor(taskGroup.startDayIndex / 7);
-        const endRow = Math.floor(taskGroup.endDayIndex / 7);
-        const startCol = taskGroup.startDayIndex % 7;
-        const endCol = taskGroup.endDayIndex % 7;
-        
-        // 박스 스타일 계산 (CSS Grid 기반 정확한 계산)
-        const cellWidth = 14.2857; // 100% / 7 ≈ 14.2857%
-        const left = `${startCol * cellWidth}%`;
-        const width = `${(endCol - startCol + 1) * cellWidth}%`;
-        const top = `${startRow * 84 + 40}px`; // min-h-20(80px) + gap + 헤더
-        const height = `${(endRow - startRow + 1) * 84 - 8}px`;
-        
-        return (
-          <div
-            key={`task-${groupIndex}`}
-            className={`absolute ${taskColor} rounded-lg px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden`}
-            style={{
-              left,
-              width,
-              top,
-              height,
-              zIndex: 10,
-              minHeight: '20px'
-            }}
-            title={taskGroup.taskGroupId ? `${displayName} (${taskGroup.tasks.length}개 작업)` : displayName}
-          >
-            <div className="truncate">
-              {displayName}
-            </div>
-          </div>
-        );
-      })}
+      {/* 홈 캘린더에서는 연속된 일정 박스들을 렌더링하지 않음 - 모든 일정을 개별적으로 표시 */}
       
       {/* 캘린더 그리드 */}
       <div className="grid grid-cols-7 gap-1">
@@ -141,25 +90,8 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           const currentDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day);
           const dayTasks = getTasksForDate(tasks, currentDate);
           
-          // 해당 날짜에 포함되는 모든 작업을 개별 박스로 표시
-          const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-          const exactDayTasks = dayTasks.filter(task => {
-            // 정확한 날짜 매칭 또는 날짜 범위 내 포함
-            if (task.scheduledDate === dateStr) {
-              return true;
-            }
-            
-            // 연속된 일정인 경우 해당 날짜가 범위 내에 있는지 확인
-            if ((task as any).endDate && (task as any).endDate !== task.scheduledDate) {
-              const taskStartDate = new Date(task.scheduledDate);
-              const taskEndDate = new Date((task as any).endDate);
-              const currentDate = new Date(dateStr);
-              
-              return currentDate >= taskStartDate && currentDate <= taskEndDate;
-            }
-            
-            return false;
-          });
+          // 홈화면에서는 모든 일정을 개별적으로 표시
+          const singleDayTasks = dayTasks;
           
           // 오늘 날짜인지 확인
           const today = new Date();
@@ -168,12 +100,14 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
             today.getMonth() === dayInfo.month &&
             today.getFullYear() === dayInfo.year;
             
+          // 날짜 문자열을 직접 생성하여 시간대 문제 방지
+          const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
           const isSelected = selectedDate === dateStr;
 
           return (
             <div
               key={index}
-              className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors relative ${
+              className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400 bg-gray-25' : ''
               } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
                 isSelected ? 'bg-blue-50 border-blue-300' : ''
@@ -181,7 +115,6 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               onClick={() => {
                 onDateClick(dateStr);
               }}
-              style={{ zIndex: 20 }}
             >
               <div className={`text-xs mb-1 ${todayCheck ? 'font-bold text-primary' : ''} ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
@@ -189,36 +122,41 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                 {dayInfo.day}
               </div>
               
-              {/* 단일 날짜 일정 표시 */}
-              {dayInfo.isCurrentMonth && exactDayTasks.length > 0 && (
+              {/* 홈 캘린더: 모든 일정을 개별적으로 표시 */}
+              {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
                 <div className="space-y-0.5">
-                  {exactDayTasks.slice(0, 3).map((task, taskIndex) => {
+                  {singleDayTasks.slice(0, 4).map((task, taskIndex) => {
                     const cropName = getCropName(crops, task.cropId);
                     const taskColor = getTaskColor(task.taskType);
-                    // 파종, 육묘, 수확일은 더 진하게 표시
-                    const isImportantTask = ['파종', '육묘', '수확'].includes(task.taskType);
-                    const fontWeight = isImportantTask ? 'font-bold' : 'font-medium';
+                    
+                    // 연속 일정인 경우 날짜 표시 추가
+                    const isMultiDayTask = task.endDate && task.endDate !== task.scheduledDate;
+                    const displayText = isMultiDayTask 
+                      ? `${cropName} - ${task.taskType} (${dayInfo.day}일)`
+                      : `${cropName} - ${task.taskType}`;
                     
                     return (
                       <div
-                        key={taskIndex}
-                        className={`${taskColor} rounded py-0.5 text-xs truncate`}
+                        key={`${task.id}-${dayInfo.day}`}
+                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate cursor-pointer hover:opacity-80 transition-opacity`}
                         style={{
                           marginBottom: '2px',
                           maxHeight: '1.25rem',
-                          overflow: 'hidden',
-                          paddingLeft: '2px',
-                          paddingRight: '4px'
+                          overflow: 'hidden'
                         }}
-                        title={`${cropName} - ${task.taskType}`}
+                        title={`${cropName} - ${task.taskType}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDateClick(dateStr);
+                        }}
                       >
-                        {task.title}
+                        {displayText}
                       </div>
                     );
                   })}
-                  {exactDayTasks.length > 3 && (
+                  {singleDayTasks.length > 4 && (
                     <div className="text-xs text-gray-500">
-                      +{exactDayTasks.length - 3}개 더
+                      +{singleDayTasks.length - 4}개 더
                     </div>
                   )}
                 </div>
