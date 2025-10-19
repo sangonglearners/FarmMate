@@ -205,8 +205,6 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                       +{singleDayTasks.length - 3}개 더
                     </div>
                   )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
