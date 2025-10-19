@@ -231,8 +231,8 @@ export default function CalendarGrid({
               </div>
 
               {/* 단일 날짜 일정 표시 */}
-              <div className="space-y-1">
-                {singleDayTasks.slice(0, 2).map((task) => (
+              <div className="space-y-0.5">
+                {singleDayTasks.slice(0, 3).map((task, taskIndex) => (
                   <div
                     key={task.id}
                     className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(
@@ -240,19 +240,20 @@ export default function CalendarGrid({
                     )}`}
                     style={{
                       display: '-webkit-box',
-                      WebkitLineClamp: 2,
+                      WebkitLineClamp: 1,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
                       wordWrap: 'break-word',
-                      maxHeight: '2.5rem'
+                      maxHeight: '1.25rem',
+                      marginBottom: '2px'
                     }}
                     title={task.title || `${getCropName(task.cropId)} - ${(task as any).taskType}`}
                   >
                     {task.title || `${getCropName(task.cropId)} ${(task as any).taskType}`}
                   </div>
                 ))}
-                {singleDayTasks.length > 2 && (
-                  <div className="text-xs text-gray-500">+{singleDayTasks.length - 2}개 더</div>
+                {singleDayTasks.length > 3 && (
+                  <div className="text-xs text-gray-500">+{singleDayTasks.length - 3}개 더</div>
                 )}
               </div>
             </div>

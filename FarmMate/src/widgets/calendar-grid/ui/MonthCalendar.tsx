@@ -168,23 +168,28 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               
               {/* 단일 날짜 일정 표시 */}
               {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
-                <div className="space-y-1">
-                  {singleDayTasks.slice(0, 2).map((task, taskIndex) => {
+                <div className="space-y-0.5">
+                  {singleDayTasks.slice(0, 3).map((task, taskIndex) => {
                     const cropName = getCropName(crops, task.cropId);
                     const taskColor = getTaskColor(task.taskType);
                     return (
                       <div
                         key={taskIndex}
                         className={`${taskColor} rounded px-1 py-0.5 text-xs truncate`}
+                        style={{
+                          marginBottom: '2px',
+                          maxHeight: '1.25rem',
+                          overflow: 'hidden'
+                        }}
                         title={`${cropName} - ${task.taskType}`}
                       >
                         {cropName && `${cropName} - `}{task.taskType}
                       </div>
                     );
                   })}
-                  {singleDayTasks.length > 2 && (
+                  {singleDayTasks.length > 3 && (
                     <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 2}개 더
+                      +{singleDayTasks.length - 3}개 더
                     </div>
                   )}
                 </div>
