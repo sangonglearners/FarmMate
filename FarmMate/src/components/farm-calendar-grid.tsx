@@ -920,11 +920,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         // spanUnits만큼의 셀 너비 - 양쪽 패딩 제외
                         boxWidth = `${spanUnits * cellWidth - (cellPadding * 2)}px`;
                       } else {
-                        // 월간 뷰: flex 기반 계산
-                        const startFlexUnits = taskGroup.startDayIndex;
+                        // 월간 뷰: 고정 너비 기반 계산 (각 셀은 w-[120px])
+                        const cellWidth = 120; // 각 셀의 고정 너비 (px)
+                        const cellPadding = 8; // p-2 = 8px
+                        const borderWidth = 1; // border-r = 1px
+                        
+                        // 시작 위치: 시작 인덱스 * 셀 너비 + 패딩
+                        leftPosition = `${taskGroup.startDayIndex * cellWidth + cellPadding}px`;
+                        
+                        // 박스 너비: spanUnits * 셀 너비 - 양쪽 패딩 - 중간 경계선들
                         const middleBorders = Math.max(0, spanUnits - 1);
-                        leftPosition = `calc(${startFlexUnits} * 100% / ${totalUnits})`;
-                        boxWidth = `calc(${spanUnits} * 100% / ${totalUnits} - ${middleBorders}px)`;
+                        boxWidth = `${spanUnits * cellWidth - (cellPadding * 2) - (middleBorders * borderWidth)}px`;
                       }
                       
                       // 구글 캘린더 스타일의 둥근 모서리 처리
