@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 export default function RecommendationsLoadingPage() {
   useEffect(() => {
@@ -7,7 +7,7 @@ export default function RecommendationsLoadingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full text-center">
+      <div className="w-full text-center">
         {/* 로딩 애니메이션 */}
         <div className="mb-8">
           <div className="relative inline-flex">
@@ -47,6 +47,3 @@ export default function RecommendationsLoadingPage() {
     </div>
   );
 }
-
-
-
