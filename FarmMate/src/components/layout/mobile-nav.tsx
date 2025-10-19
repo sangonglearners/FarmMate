@@ -1,5 +1,5 @@
-import { Link, useLocation } from "wouter";
-import { Home, Tractor, Sprout, Calendar, User } from "lucide-react";
+import { Calendar, Home, Tractor, User } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
 
 export default function MobileNav() {
   const [location] = useLocation();
@@ -15,7 +15,7 @@ export default function MobileNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-200 z-40">
+    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full bg-white border-t border-gray-200 z-40">
       <div className="grid grid-cols-4 gap-1">
         <Link href="/" className={`flex flex-col items-center py-3 px-1 ${
           isActive("/") ? "text-primary bg-primary/10" : "text-gray-600"

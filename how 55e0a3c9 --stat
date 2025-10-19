@@ -1,0 +1,50 @@
+[33mada14ba1[m remove entire useless `max-w-md`
+[33m7771545b[m Refactor LoginPage and Layout components for improved code consistency and readability by standardizing import statements and removing unnecessary max-width styling.
+[33mf109cd4b[m Merge pull request #46 from sangonglearners/bomi
+[33m55e0a3c9[m [일괄 등록] 일괄등록 수정 창에 삭제 버튼 추가(취소 → 삭제로 변경)
+[33m396bf15d[m [일괄 등록] 일괄 등록 작업 수정 시 수정 창에서 반영 안되는 문제 해결
+[33m314e8a6c[m [일괄 등록] 농작업 계산기 세부 날짜 조정 가능하도록 수정
+[33maf94bcdb[m [추천 함수] 점수 동일할 경우 예상 매출액 기준 내림차순 로직 추가 후 재배포포
+[33mf7976b1e[m Merge pull request #44 from sangonglearners/hyeonuk
+[33mf3d3552f[m 농작업 계산기 로직 재수정
+[33mbb8025ac[m Merge pull request #43 from sangonglearners/hyeonuk
+[33me06f08aa[m vercel 배포 재수정정
+[33m3d0281dd[m Merge pull request #42 from sangonglearners/hyeonuk
+[33m65660fa8[m vercel 배포 해결용
+[33m8e528536[m Merge pull request #41 from sangonglearners/hyeonuk
+[33m31cea426[m .env 파일 수정정
+[33mf98c0184[m prd 수정정
+[33mb94268c9[m Merge pull request #40 from sangonglearners/hyeonuk
+[33me338c9f5[m 연간 캘린더 문제
+[33mbed62f4d[m 일괄등록 수정 UI 변경 및 로직 수정정
+[33mb9246089[m 일괄등록 에러 수정정
+[33m35f0e45c[m 캘린더 export 기능 추가
+[33m5cd4aaeb[m feat(calendar): add CSV export to calendar (button + CSV build)
+[33m7faa1c60[m Merge pull request #38 from sangonglearners/feature/export-csv
+[33m0a6343c3[m Merge branch 'yewon' of https://github.com/sangonglearners/FarmMate into yewon
+[33m3c80a431[m feat(calendar): 캘린더 export 기능 추가 (CSV 형태)
+[33m0e7b75bc[m feat(calendar): add CSV export button next to farm selector and update CSV columns (farm,start,end,row,task); remove top header
+[33mefe3d818[m fix(supabase): use public.registration schema in FTS migration and queries\n\n- replace "Vegelab_Calendar".registration with public.registration in SQL\n- update repository to use registration table without schema prefix\n- addresses schema not found error during migration
+[33m273ba246[m feat(registration): add Supabase FTS RPC and integrate crop search in UI\n\n- create migration for FTS index and RPC on Vegelab_Calendar.registration\n- implement server-registration.repository using Supabase (rpc/select)\n- remove hardcoded search branch in add-task-dialog-improved\n\nrefs: #registration, #fts, #supabase
+[33m6503b7d0[m Merge pull request #37 from sangonglearners/hyeonuk
+[33m0936222e[m 동일 이름 '농장' 등록 불가하도록 수정 전체 이랑 선택지 삭제 동일한 이랑에 작업 등록하면 확인 메시지 송출출
+[33m2c3677a1[m Merge pull request #36 from sangonglearners/hyeonuk
+[33mef0b2df7[m 일정 등록-캘린더 연동 개선선
+[33mba98fa04[m 개별등록 저장하기 버튼 구현 수정정
+[33md586cdd2[m 배포 수정 완료
+[33m9a902d86[m 가즈아
+[33mabd80842[m 가즈아
+[33m30e73098[m Update .gitignore to exclude .env file and add new .env file with Supabase configuration
+[33m41529154[m 수정
+[33m57aa13b7[m meta.env 파일 수정
+[33mf2a1d558[m Merge pull request #35 from sangonglearners/hyeonuk
+[33mf759d168[m supabase lib 파일 수정 및 gitinore 수정
+[33m3ee9fdbf[m Enhance TypeScript configuration and Vite setup with additional path aliases for improved module resolution
+[33m78c3ff94[m Merge pull request #34 from sangonglearners/bomi
+[33m75f67866[m [농작업 계산기] '수확 사이클 추가' 텍스트 오타 수정
+[33m69714540[m Fix individual registration to use original working method - single task with date range
+[33m6a970244[m Fix onSubmit function definition in add-task-dialog-new.tsx for individual registration
+[33mb6cde8ef[m Fix import paths to use absolute paths instead of relative paths
+[33m74553a36[m Fix import path in AuthContext.tsx to use absolute path
+[33m052c5242[m trigger vercel
+[33m4b06b151[m Add vercel.json for SPA routing
