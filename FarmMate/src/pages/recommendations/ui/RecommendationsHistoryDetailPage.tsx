@@ -151,7 +151,7 @@ export default function RecommendationsHistoryDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 max-w-2xl mx-auto">
         <Button
           variant="ghost"
           size="sm"
@@ -167,7 +167,7 @@ export default function RecommendationsHistoryDetailPage() {
         </p>
       </div>
 
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4 max-w-2xl mx-auto">
         {/* 재배 조건 카드 */}
         <Card>
           <CardContent className="p-5">
