@@ -188,11 +188,13 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                     return (
                       <div
                         key={taskIndex}
-                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate`}
+                        className={`${taskColor} rounded py-0.5 text-xs truncate`}
                         style={{
                           marginBottom: '2px',
                           maxHeight: '1.25rem',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          paddingLeft: '2px',
+                          paddingRight: '4px'
                         }}
                         title={`${cropName} - ${task.taskType}`}
                       >
