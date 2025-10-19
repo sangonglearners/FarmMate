@@ -19,6 +19,7 @@ FarmMate is a full-stack farming management application with a React frontend an
 ## Development Commands
 
 ### Primary Development
+
 ```bash
 npm run dev          # Start development server (client + backend) - runs tsx with hot reload
 npm run build        # Build production bundle (Vite + esbuild compilation)
@@ -27,11 +28,13 @@ npm run check        # TypeScript type checking across client, server, shared
 ```
 
 ### Database Operations
+
 ```bash
 npm run db:push      # Push schema changes to database via Drizzle Kit
 ```
 
 ### Environment Setup
+
 - Requires `DATABASE_URL` environment variable for PostgreSQL
 - Requires Firebase service account key in `serviceAccountKey.json` (root directory)
 - Server runs on port from `PORT` env var (default: 5000)
@@ -40,6 +43,7 @@ npm run db:push      # Push schema changes to database via Drizzle Kit
 ## Project Structure
 
 ### Core Architecture
+
 ```
 FarmMate/
 ├── client/src/           # React frontend
@@ -57,6 +61,7 @@ FarmMate/
 ```
 
 ### Database Schema (shared/schema.ts)
+
 - **users**: User authentication data
 - **farms**: User farm definitions (environment, area, rows)
 - **crops**: Crop instances linked to farms (category, name, variety, status)
@@ -64,6 +69,7 @@ FarmMate/
 - **cropRecommendations**: AI-generated crop recommendations with scoring
 
 ### API Architecture
+
 - **Public API**: `/api/*` - Basic CRUD operations (uses hardcoded "user-1" for demo)
 - **Authenticated API**: `/api/auth/*` - Firebase token-protected routes with user isolation
 - **Health Check**: `/health` - Application health monitoring endpoint
@@ -72,12 +78,14 @@ FarmMate/
 ## Authentication System
 
 ### Firebase Integration
+
 - Frontend uses Firebase Auth for Google sign-in
 - Backend validates Firebase ID tokens via Admin SDK
 - Authenticated routes require `Authorization: Bearer <token>` header
 - User data isolated by Firebase UID
 
 ### Key Files
+
 - `client/src/contexts/AuthContext.tsx` - React auth context
 - `server/middleware/auth.ts` - Token validation middleware
 - `server/config/firebase-admin.ts` - Firebase Admin SDK setup
@@ -85,16 +93,18 @@ FarmMate/
 ## Frontend Architecture
 
 ### Mobile-First Design
+
 - Fixed bottom navigation with tab switching
-- Maximum width container (max-w-md) for mobile optimization
 - Uses Wouter for lightweight client-side routing
 
 ### State Management
+
 - TanStack Query for server state caching and synchronization
 - React Context for authentication state
 - Local component state for UI interactions
 
 ### UI Components
+
 - Radix UI primitives with custom styling
 - TailwindCSS for utility-first styling
 - Custom shadcn/ui component library in `components/ui/`
@@ -102,6 +112,7 @@ FarmMate/
 ## Backend Architecture
 
 ### Express Server Structure
+
 - ESM modules with TypeScript compilation throughout
 - Development: tsx for hot reloading server code
 - Production: esbuild bundle compilation to `dist/`
@@ -109,12 +120,14 @@ FarmMate/
 - Single-port deployment architecture (serves both API and static files)
 
 ### Database Layer
+
 - Drizzle ORM with PostgreSQL driver (@neondatabase/serverless)
 - Schema definitions in `shared/schema.ts` with auto-generated types
 - Storage abstraction layer in `server/storage.ts` for all CRUD operations
 - Zod validation schemas generated from Drizzle schemas for request validation
 
 ### Error Handling & Production Features
+
 - Comprehensive error logging with request context and timing
 - Production-safe error responses (no internal details exposed)
 - Graceful shutdown handling for SIGTERM/SIGINT signals
@@ -124,11 +137,13 @@ FarmMate/
 ## Development Patterns
 
 ### Component Organization
+
 - Feature-based components in `client/src/components/`
 - Shared UI components in `client/src/components/ui/`
 - Page components in `client/src/pages/`
 
 ### API Pattern
+
 - RESTful endpoints with proper HTTP methods
 - Zod schema validation for request bodies
 - Consistent error response format
@@ -137,11 +152,13 @@ FarmMate/
 ## Supabase 데이터 접근 가이드라인
 
 ### 공통 모듈 사용 원칙
+
 **⚠️ 중요: 모든 Supabase 데이터 조회/생성/수정/삭제 작업은 반드시 공통 모듈을 사용해야 합니다.**
 
 직접적인 Supabase 클라이언트 사용을 금지하고, 다음 계층 구조를 따라야 합니다:
 
 ### 1. Repository 패턴 (데이터 접근 계층)
+
 **위치**: `src/shared/api/*.repository.ts`
 
 모든 데이터베이스 작업은 Repository 클래스를 통해 수행해야 합니다:
@@ -164,6 +181,7 @@ const { data } = await supabase.from('farms').select('*') // 금지!
 ```
 
 ### 2. API 레이어 (비즈니스 로직 계층)
+
 **위치**: `src/features/*/api/*.api.ts`
 
 Repository를 래핑하여 비즈니스 로직을 처리하는 API 함수들을 제공합니다:
@@ -177,6 +195,7 @@ const newFarm = await farmApi.createFarm(farmData)
 ```
 
 ### 3. 사용 가능한 Repository 클래스들
+
 - `FarmRepository`: 농장 데이터 관리
 - `CropRepository`: 작물 데이터 관리  
 - `TaskRepository`: 작업 데이터 관리
@@ -184,6 +203,7 @@ const newFarm = await farmApi.createFarm(farmData)
 ### 4. Repository 사용 예시
 
 #### 농장 데이터 관리
+
 ```typescript
 import { FarmRepository } from '@/shared/api/farm.repository'
 
@@ -211,6 +231,7 @@ await farmRepo.remove(farmId)
 ```
 
 #### 작물 데이터 관리
+
 ```typescript
 import { CropRepository } from '@/shared/api/crop.repository'
 
@@ -309,6 +330,7 @@ function FarmList() {
 - [ ] 에러 처리가 일관되게 구현되어 있는가?
 
 ### TypeScript Configuration
+
 - Shared types between frontend and backend via `@shared/*` alias
 - Path aliases: `@/*` for client source, `@shared/*` for shared types, `@assets/*` for static assets
 - ESM modules throughout with bundler resolution
@@ -317,18 +339,21 @@ function FarmList() {
 ## Key Architectural Decisions
 
 ### Module Architecture
+
 - **Type Safety**: Shared types and schemas ensure consistency between frontend/backend
 - **Path Aliases**: Clean imports using `@/*` and `@shared/*` conventions
 - **ESM-First**: Full ES modules support throughout the stack
 - **Single Build**: Unified build process for both client and server code
 
 ### Development Workflow
+
 - **Hot Reloading**: Full-stack development with tsx (server) + Vite (client)
 - **Type Checking**: Unified TypeScript checking across all modules
 - **Database Migrations**: Push-based schema updates via Drizzle Kit
 - **Error Boundaries**: Comprehensive error handling at multiple levels
 
 ### Authentication Flow
+
 - **Firebase Auth**: Google OAuth integration with ID token validation
 - **Dual API**: Public routes (demo) + authenticated routes (production)
 - **User Isolation**: All authenticated data scoped by Firebase UID

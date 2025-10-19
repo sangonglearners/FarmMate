@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { Button } from "../../../components/ui/button";
-import { Card, CardContent } from "../../../components/ui/card";
-import { useLocation } from "wouter";
-import { ChevronLeft } from "lucide-react";
-import { saveRecommendationResult, RecommendationResult } from "../../../shared/api/recommendation";
+import { ChevronLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
+
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent } from '../../../components/ui/card';
+import { RecommendationResult, saveRecommendationResult } from '../../../shared/api/recommendation';
 
 // Mock 데이터 (API 응답 형식)
 const mockResult = {
@@ -376,7 +377,7 @@ export default function RecommendationsResultPage() {
             <Button
               variant="outline"
               onClick={handleLoadMore}
-              className="w-full max-w-md"
+              className="w-full"
             >
               더 많은 조합 보기
             </Button>
@@ -413,4 +414,3 @@ export default function RecommendationsResultPage() {
     </div>
   );
 }
-

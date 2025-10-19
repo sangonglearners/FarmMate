@@ -1,5 +1,5 @@
-import { Link, useLocation } from "wouter";
-import { Sprout } from "lucide-react";
+import { Sprout } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
 
 export default function Header() {
   const [location] = useLocation();
@@ -11,7 +11,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50 max-w-md mx-auto">
+    <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50 mx-auto">
       <div className="px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
