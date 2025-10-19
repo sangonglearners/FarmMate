@@ -126,14 +126,20 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
                 <div className="space-y-0.5">
                   {singleDayTasks.slice(0, 4).map((task, taskIndex) => {
-                    const cropName = getCropName(crops, task.cropId);
                     const taskColor = getTaskColor(task.taskType);
+                    
+                    // title 필드에서 작물명과 작업타입을 추출 (2주 플래너와 동일한 방식)
+                    let displayText;
+                    if (task.title && task.title.includes('_')) {
+                      // 이미 작물명_작업타입 형태인 경우 그대로 사용
+                      displayText = task.title;
+                    } else {
+                      // title이 없거나 형태가 다른 경우 작업타입만 표시
+                      displayText = task.taskType || '작업';
+                    }
                     
                     // 연속 일정인 경우 날짜 표시 추가
                     const isMultiDayTask = task.endDate && task.endDate !== task.scheduledDate;
-                    const displayText = isMultiDayTask 
-                      ? `${cropName} - ${task.taskType} (${dayInfo.day}일)`
-                      : `${cropName} - ${task.taskType}`;
                     
                     return (
                       <div
@@ -144,7 +150,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                           maxHeight: '1.25rem',
                           overflow: 'hidden'
                         }}
-                        title={`${cropName} - ${task.taskType}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
+                        title={`${displayText}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onDateClick(dateStr);
