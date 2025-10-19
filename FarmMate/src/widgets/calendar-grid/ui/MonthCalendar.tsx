@@ -3,9 +3,7 @@ import {
   getTaskColor, 
   getTasksForDate, 
   getCropName, 
-  weekDays,
-  getTaskGroups,
-  type TaskGroup
+  weekDays
 } from "../model/calendar.utils";
 
 interface MonthCalendarProps {
@@ -71,54 +69,12 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
     nextDay++;
   }
 
-  // 연속된 일정 그룹화
-  const taskGroups = getTaskGroups(tasks, days);
+  // 홈 캘린더에서는 모든 일정을 개별적으로 표시하므로 연속 일정 박스는 렌더링하지 않음
+  // const taskGroups = getTaskGroups(tasks, days);
 
   return (
     <div className="relative">
-      {/* 연속된 일정 박스들 렌더링 */}
-      {taskGroups.map((taskGroup, groupIndex) => {
-        if (!taskGroup.task.endDate || taskGroup.startDayIndex === taskGroup.endDayIndex) {
-          // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
-          return null;
-        }
-        
-        const cropName = getCropName(crops, taskGroup.task.cropId);
-        const taskColor = getTaskColor(taskGroup.task.taskType);
-        
-        // 그리드 위치 계산
-        const startRow = Math.floor(taskGroup.startDayIndex / 7);
-        const endRow = Math.floor(taskGroup.endDayIndex / 7);
-        const startCol = taskGroup.startDayIndex % 7;
-        const endCol = taskGroup.endDayIndex % 7;
-        
-        // 박스 스타일 계산 (CSS Grid 기반 정확한 계산)
-        const cellWidth = 14.2857; // 100% / 7 ≈ 14.2857%
-        const left = `${startCol * cellWidth}%`;
-        const width = `${(endCol - startCol + 1) * cellWidth}%`;
-        const top = `${startRow * 84 + 40}px`; // min-h-20(80px) + gap + 헤더
-        const height = `${(endRow - startRow + 1) * 84 - 8}px`;
-        
-        return (
-          <div
-            key={`task-${groupIndex}`}
-            className={`absolute ${taskColor} rounded-lg px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden`}
-            style={{
-              left,
-              width,
-              top,
-              height,
-              zIndex: 10,
-              minHeight: '20px'
-            }}
-            title={`${cropName} - ${taskGroup.task.taskType}`}
-          >
-            <div className="truncate">
-              {cropName && `${cropName} - `}{taskGroup.task.taskType}
-            </div>
-          </div>
-        );
-      })}
+      {/* 홈 캘린더에서는 연속된 일정 박스들을 렌더링하지 않음 - 모든 일정을 개별적으로 표시 */}
       
       {/* 캘린더 그리드 */}
       <div className="grid grid-cols-7 gap-1">
@@ -166,30 +122,41 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                 {dayInfo.day}
               </div>
               
-              {/* 단일 날짜 일정 표시 */}
+              {/* 홈 캘린더: 모든 일정을 개별적으로 표시 */}
               {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
                 <div className="space-y-0.5">
-                  {singleDayTasks.slice(0, 3).map((task, taskIndex) => {
+                  {singleDayTasks.slice(0, 4).map((task, taskIndex) => {
                     const cropName = getCropName(crops, task.cropId);
                     const taskColor = getTaskColor(task.taskType);
+                    
+                    // 연속 일정인 경우 날짜 표시 추가
+                    const isMultiDayTask = task.endDate && task.endDate !== task.scheduledDate;
+                    const displayText = isMultiDayTask 
+                      ? `${cropName} - ${task.taskType} (${dayInfo.day}일)`
+                      : `${cropName} - ${task.taskType}`;
+                    
                     return (
                       <div
-                        key={taskIndex}
-                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate`}
+                        key={`${task.id}-${dayInfo.day}`}
+                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate cursor-pointer hover:opacity-80 transition-opacity`}
                         style={{
                           marginBottom: '2px',
                           maxHeight: '1.25rem',
                           overflow: 'hidden'
                         }}
-                        title={`${cropName} - ${task.taskType}`}
+                        title={`${cropName} - ${task.taskType}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDateClick(dateStr);
+                        }}
                       >
-                        {cropName && `${cropName} - `}{task.taskType}
+                        {displayText}
                       </div>
                     );
                   })}
-                  {singleDayTasks.length > 3 && (
+                  {singleDayTasks.length > 4 && (
                     <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 3}개 더
+                      +{singleDayTasks.length - 4}개 더
                     </div>
                   )}
                 </div>
