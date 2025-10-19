@@ -302,12 +302,12 @@ export default function RecommendationsResultPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900">추천 결과</h1>
         <p className="text-gray-600 text-sm mt-1">원하는 작물 조합을 선택해주세요</p>
       </div>
 
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4 max-w-2xl mx-auto">
         {/* Gift Box Cards */}
         {visibleCards.map((card, index) => (
           <Card
