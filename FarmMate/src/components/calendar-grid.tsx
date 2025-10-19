@@ -165,29 +165,30 @@ export default function CalendarGrid({
         const startCol = taskGroup.startDayIndex % 7;
         const endCol = taskGroup.endDayIndex % 7;
         
-        // 박스 스타일 계산 (gap-4를 고려한 정확한 계산)
+        // 박스 스타일 계산 (gap-4를 고려한 정확한 계산) - 시작일 가장 왼쪽, 종료일 가장 오른쪽에 맞춤
         const cellWidth = 14.2857; // 100% / 7 ≈ 14.2857%
-        const cellGap = 1; // gap-4 = 1rem ≈ 1%
-        const left = `${startCol * cellWidth + cellGap}%`;
-        const width = `${(endCol - startCol + 1) * cellWidth - cellGap}%`;
+        const left = `${startCol * cellWidth}%`; // 시작일의 가장 왼쪽에 맞춤
+        const width = `${(endCol - startCol + 1) * cellWidth}%`; // 종료일의 가장 오른쪽에 맞춤
         const top = `${startRow * 120 + 40}px`; // min-h-28(112px) + gap + 헤더
-        const height = `${(endRow - startRow + 1) * 120 - 16}px`;
+        const height = `${(endRow - startRow + 1) * 120}px`;
         
         return (
           <div
             key={`task-${groupIndex}`}
-            className={`absolute ${taskColor} rounded-lg px-2 py-1 text-xs font-medium border border-opacity-50 overflow-hidden`}
+            className={`absolute ${taskColor} rounded-lg text-xs font-medium overflow-hidden`}
             style={{
               left,
               width,
               top,
               height,
               zIndex: 10,
-              minHeight: '28px'
+              minHeight: '28px',
+              boxSizing: 'border-box',
+              border: '1px solid rgba(0, 0, 0, 0.1)'
             }}
             title={taskGroup.taskGroupId ? `${displayName} (${taskGroup.tasks.length}개 작업)` : displayName}
           >
-            <div className="truncate">
+            <div className="truncate px-1 py-1">
               {displayName}
             </div>
           </div>

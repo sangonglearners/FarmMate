@@ -897,7 +897,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     </div>
 
                     {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
-                    <div className="absolute left-[61px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
+                    <div className="absolute left-[60px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 3개까지만 표시 */}
                     {continuousTaskGroups.slice(0, 3).map((taskGroup, groupIndex) => {
                       // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
@@ -913,24 +913,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       let leftPosition, boxWidth;
                       
                       if (viewMode === "yearly") {
-                        // 연간 뷰: 고정 너비 (100px per month) + 패딩 고려
+                        // 연간 뷰: 월간 뷰와 동일한 방식으로 셀을 완전히 채우도록 패딩 제거
                         const cellWidth = 100;
-                        const cellPadding = 12; // p-3 = 12px
-                        leftPosition = `${taskGroup.startDayIndex * cellWidth + cellPadding}px`;
-                        // spanUnits만큼의 셀 너비 - 양쪽 패딩 제외
-                        boxWidth = `${spanUnits * cellWidth - (cellPadding * 2)}px`;
+                        leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
+                        boxWidth = `${spanUnits * cellWidth}px`;
                       } else {
-                        // 월간 뷰: 고정 너비 기반 계산 (각 셀은 w-[120px])
-                        const cellWidth = 120; // 각 셀의 고정 너비 (px)
-                        const cellPadding = 8; // p-2 = 8px
-                        const borderWidth = 1; // border-r = 1px
-                        
-                        // 시작 위치: 시작 인덱스 * 셀 너비 + 패딩
-                        leftPosition = `${taskGroup.startDayIndex * cellWidth + cellPadding}px`;
-                        
-                        // 박스 너비: spanUnits * 셀 너비 - 양쪽 패딩 - 중간 경계선들
-                        const middleBorders = Math.max(0, spanUnits - 1);
-                        boxWidth = `${spanUnits * cellWidth - (cellPadding * 2) - (middleBorders * borderWidth)}px`;
+                        // 월간 뷰: 셀을 완전히 채우도록 패딩 제거
+                        const cellWidth = 120;
+                        leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
+                        boxWidth = `${spanUnits * cellWidth}px`;
                       }
                       
                       // 구글 캘린더 스타일의 둥근 모서리 처리
@@ -1046,7 +1037,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={`continuous-task-${rowNumber}-${groupIndex}`}
-                          className={`absolute ${taskColor} ${borderRadiusClass} ${viewMode === "yearly" ? "" : "px-2 py-1"} text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity ${viewMode === "yearly" ? "" : "flex items-center"} shadow-sm pointer-events-auto`}
+                          className={`absolute ${taskColor} ${borderRadiusClass} text-xs font-medium border border-opacity-50 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm pointer-events-auto`}
                           style={{
                             left: leftPosition,
                             width: boxWidth,
@@ -1054,7 +1045,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             height: `${boxHeight}px`, // 연간 뷰는 높이를 더 크게
                             zIndex: 5,
                             position: 'absolute', // relative positioning for children in yearly view
-                            maxWidth: viewMode === "yearly" ? '120px' : '100%' // 연간 뷰에서 최대 너비 제한
+                            maxWidth: '100%' // 모든 뷰에서 최대 너비 제한 제거
                           }}
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
@@ -1064,28 +1055,20 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }}
                         >
                           {viewMode === "yearly" ? (
-                            // 연간 뷰: 각 월의 날짜를 해당 위치에 배치
-                            <>
-                              {/* 작물 이름 - 왼쪽 상단에 고정 */}
-                              <div className={`absolute left-2 top-2 text-[11px] truncate max-w-[80px] ${
+                            // 연간 뷰: 월간 뷰와 동일한 방식으로 텍스트 렌더링
+                            <div className="flex flex-col truncate w-full px-1 py-1">
+                              <div className={`truncate text-[11px] ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
-                              }`}
-                              style={{ 
-                                maxWidth: '80px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              }`}>
                                 {displayTitle}
                               </div>
-                              {/* 날짜 범위 - 작물 이름 아래에 표시 */}
-                              <div className="absolute left-2 top-5 text-[9px] opacity-75 leading-tight whitespace-nowrap">
-                                {dateRangeText}
+                              <div className="text-[10px] opacity-75 truncate">
+                                {typeof dateRangeText === 'string' ? dateRangeText : ''}
                               </div>
-                            </>
+                            </div>
                           ) : (
                             // 월간 뷰: 작업이 실제로 끝날 때만 종료 날짜 표시
-                            <div className="flex flex-col truncate w-full">
+                            <div className="flex flex-col truncate w-full px-1 py-1">
                               <div className={`truncate text-[11px] ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
                               }`}>
