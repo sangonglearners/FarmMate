@@ -168,11 +168,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return Array.from({ length: 12 }, (_, i) => i + 1); // 1-12월
   };
 
-  // 특정 날짜/월의 작업 가져오기
+  // 특정 날짜/월의 작업 가져오기 (모든 이랑의 일정 표시)
   const getTasksForPeriod = (rowNumber: number, dayInfo: any) => {
     if (viewMode === "monthly") {
       const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-      
       
       const filteredTasks = memoizedTasks.filter(task => {
         // 날짜 매칭 로직: 정확한 날짜 매칭 또는 날짜 범위 내 포함
@@ -188,27 +187,21 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           const currentDate = new Date(dateStr);
           
           isDateMatch = currentDate >= taskStartDate && currentDate <= taskEndDate;
-          
         }
         
         if (!isDateMatch) return false;
         if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
         
-        // 이랑 번호 매칭 로직 개선
-        if (task.rowNumber) {
-          // rowNumber가 있으면 정확히 매칭
-          return task.rowNumber === rowNumber;
-        } else {
-          // rowNumber가 없으면 description에서 파싱하여 매칭
+        // 이랑 번호 매칭 로직 복원
+        const taskRowNumber = task.rowNumber || (() => {
           if (task.description && task.description.includes("이랑:")) {
             const match = task.description.match(/이랑:\s*(\d+)번/);
-            if (match) {
-              return parseInt(match[1]) === rowNumber;
-            }
+            return match ? parseInt(match[1]) : null;
           }
-          // 둘 다 없으면 첫 번째 이랑(rowNumber === 1)에 표시
-          return rowNumber === 1;
-        }
+          return null;
+        })();
+        
+        return taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1);
       });
       
       return filteredTasks;
@@ -218,15 +211,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       return memoizedTasks.filter(task => {
         if (!task.scheduledDate) return false;
         if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
-        
-        // 이랑 번호 매칭 로직 개선
-        let taskRowNumber = task.rowNumber;
-        if (!taskRowNumber && task.description && task.description.includes("이랑:")) {
-          const match = task.description.match(/이랑:\s*(\d+)번/);
-          if (match) {
-            taskRowNumber = parseInt(match[1]);
-          }
-        }
         
         // 월 매칭 로직: 시작일 또는 종료일이 해당 월에 포함되는지 확인
         const taskStartDate = new Date(task.scheduledDate);
@@ -253,6 +237,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             isMonthMatch = true;
           }
         }
+        
+        // 이랑 번호 매칭 로직 복원
+        const taskRowNumber = task.rowNumber || (() => {
+          if (task.description && task.description.includes("이랑:")) {
+            const match = task.description.match(/이랑:\s*(\d+)번/);
+            return match ? parseInt(match[1]) : null;
+          }
+          return null;
+        })();
         
         return isMonthMatch && 
                (taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1));
@@ -305,6 +298,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       // 선택된 농장의 작업만 필터링
       if (task.farmId !== selectedFarm?.id) return false;
       
+      // 이랑 번호 매칭 로직 복원
       const taskRowNumber = task.rowNumber || (() => {
         if (task.description && task.description.includes("이랑:")) {
           const match = task.description.match(/이랑:\s*(\d+)번/);
@@ -781,8 +775,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
                     {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
                     <div className="absolute left-[61px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
-                    {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) */}
-                    {continuousTaskGroups.map((taskGroup, groupIndex) => {
+                    {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 3개까지만 표시 */}
+                    {continuousTaskGroups.slice(0, 3).map((taskGroup, groupIndex) => {
                       const taskColor = getTaskColor(taskGroup.task);
                       
                       // 정확한 그리드 위치 계산
@@ -944,6 +938,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         calculatedWidth: boxWidth
                       });
                       
+                      // 겹치지 않도록 top 위치 계산
+                      const boxHeight = viewMode === "yearly" ? 40 : 32;
+                      const boxSpacing = 4; // 박스 간 간격
+                      const topOffset = 8; // 상단 여백
+                      const calculatedTop = topOffset + (groupIndex * (boxHeight + boxSpacing));
+                      
                       return (
                         <div
                           key={`continuous-task-${rowNumber}-${groupIndex}`}
@@ -951,8 +951,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           style={{
                             left: leftPosition,
                             width: boxWidth,
-                            top: '8px', // 상단 여백
-                            height: viewMode === "yearly" ? '40px' : '32px', // 연간 뷰는 높이를 더 크게
+                            top: `${calculatedTop}px`, // 겹치지 않도록 계산된 위치
+                            height: `${boxHeight}px`, // 연간 뷰는 높이를 더 크게
                             zIndex: 5,
                             position: 'absolute' // relative positioning for children in yearly view
                           }}
@@ -999,13 +999,33 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                 {displayTitle}
                               </div>
                               <div className="text-[10px] opacity-75 truncate">
-                                {dateRangeText}
+                                {typeof dateRangeText === 'string' ? dateRangeText : ''}
                               </div>
                             </div>
                           )}
                         </div>
                       );
                     })}
+                    
+                    {/* 3개 초과 시 더보기 표시 - 각 날짜별로 표시 */}
+                    {continuousTaskGroups.length > 3 && (
+                      <div
+                        className="absolute bg-red-100 text-red-600 text-xs px-2 py-1 rounded border border-red-300 cursor-pointer hover:bg-red-200 transition-colors pointer-events-auto font-bold"
+                        style={{
+                          left: '8px',
+                          right: '8px', // 전체 너비 사용
+                          top: `${8 + (3 * (32 + 4))}px`, // 3개 박스 아래 위치
+                          height: '32px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          zIndex: 20
+                        }}
+                        title={`+${continuousTaskGroups.length - 3}개 더`}
+                      >
+                        +{continuousTaskGroups.length - 3}개 더
+                      </div>
+                    )}
                     </div>
 
                     {/* 각 날짜/월의 작업 */}
@@ -1041,8 +1061,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         <div className="space-y-1">
                           {viewMode === "monthly" ? (
                             <>
-                              {/* 월간 뷰: 작물명과 작업 표시 (연속된 일정 제외) */}
-                              {displayTasks.map((task) => {
+                              {/* 월간 뷰: 작물명과 작업 표시 (연속된 일정 제외) - 최대 3개까지만 */}
+                              {displayTasks.slice(0, 3).map((task) => {
                               const cropName = getCropName(task.cropId);
                               return (
                                 <div 
@@ -1077,6 +1097,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                 </div>
                               );
                             })}
+                            
+                            {/* 개별 셀에서 3개 초과 시 더보기 표시 */}
+                            {displayTasks.length > 3 && (
+                              <div 
+                                className="text-xs text-red-600 text-center py-1 cursor-pointer hover:text-red-700 bg-red-100 rounded px-2 font-bold border border-red-300"
+                                title={`+${displayTasks.length - 3}개 더`}
+                              >
+                                +{displayTasks.length - 3}개 더
+                              </div>
+                            )}
                             </>
                           ) : (
                             // 연간 뷰: 단일 날짜 작업만 표시 (멀티데이 작업은 박스로 표시됨)
