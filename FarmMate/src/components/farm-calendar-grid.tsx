@@ -168,7 +168,99 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return Array.from({ length: 12 }, (_, i) => i + 1); // 1-12월
   };
 
-  // 특정 날짜/월의 작업 가져오기 (모든 이랑의 일정 표시)
+  // 연간 뷰에서 연속된 일정을 그룹화하는 새로운 함수
+  const getYearlyTaskGroups = (rowNumber: number) => {
+    // 해당 이랑의 모든 작업 가져오기
+    const rowTasks = memoizedTasks.filter(task => {
+      if (!task.scheduledDate) return false;
+      if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
+      
+      // 이랑 번호 매칭 로직
+      const taskRowNumber = task.rowNumber || (() => {
+        if (task.description && task.description.includes("이랑:")) {
+          const match = task.description.match(/이랑:\s*(\d+)번/);
+          return match ? parseInt(match[1]) : null;
+        }
+        return null;
+      })();
+      
+      return taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1);
+    });
+
+    const taskGroups: TaskGroup[] = [];
+    const year = currentDate.getFullYear();
+    
+    console.log(`[DEBUG] 이랑 ${rowNumber}의 모든 작업 (연간 뷰):`, rowTasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      scheduledDate: task.scheduledDate,
+      endDate: (task as any).endDate,
+      hasEndDate: !!(task as any).endDate
+    })));
+    
+    rowTasks.forEach(task => {
+      const startDate = new Date(task.scheduledDate);
+      const endDate = (task as any).endDate ? new Date((task as any).endDate) : startDate;
+      
+      // 작업이 현재 년도에 포함되는지 확인
+      if (startDate.getFullYear() === year || endDate.getFullYear() === year) {
+        const startMonth = startDate.getMonth() + 1; // 1-12
+        const endMonth = endDate.getMonth() + 1; // 1-12
+        
+        console.log(`[DEBUG] 연간 뷰 작업 처리:`, {
+          taskId: task.id,
+          title: task.title,
+          startMonth,
+          endMonth,
+          startDate: task.scheduledDate,
+          endDate: (task as any).endDate
+        });
+        
+        // 현재 표시 중인 월들 중에서 작업이 걸쳐있는 월들 찾기
+        const affectedMonths: number[] = [];
+        
+        for (let month = 1; month <= 12; month++) {
+          // 작업이 이 월에 걸쳐있는지 확인
+          const isInRange = (month >= startMonth && month <= endMonth) ||
+                           (startMonth > endMonth && (month >= startMonth || month <= endMonth)); // 년도를 넘나드는 경우
+          
+          if (isInRange) {
+            affectedMonths.push(month);
+          }
+        }
+        
+        console.log(`[DEBUG] 영향받는 월들:`, affectedMonths);
+        
+        if (affectedMonths.length > 0) {
+          // 연속된 월들을 하나의 박스로 표시
+          const startIndex = affectedMonths[0] - 1; // 0-based index
+          const endIndex = affectedMonths[affectedMonths.length - 1] - 1; // 0-based index
+          
+          taskGroups.push({
+            task,
+            startDate: startDate,
+            endDate: endDate,
+            startDayIndex: startIndex,
+            endDayIndex: endIndex,
+            isFirstDay: true,
+            isLastDay: true
+          });
+          
+          console.log(`[DEBUG] 연간 뷰 박스 생성:`, {
+            taskId: task.id,
+            title: task.title,
+            startIndex,
+            endIndex,
+            spanMonths: endIndex - startIndex + 1
+          });
+        }
+      }
+    });
+    
+    return taskGroups;
+  };
+
+  // 특정 날짜/월의 작업 가져오기 (월간 뷰용)
   const getTasksForPeriod = (rowNumber: number, dayInfo: any) => {
     if (viewMode === "monthly") {
       const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
@@ -206,50 +298,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       
       return filteredTasks;
     } else {
-      // 연간 뷰: 해당 월의 모든 작업 (날짜 범위 고려)
-      const year = currentDate.getFullYear();
-      return memoizedTasks.filter(task => {
-        if (!task.scheduledDate) return false;
-        if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
-        
-        // 월 매칭 로직: 시작일 또는 종료일이 해당 월에 포함되는지 확인
-        const taskStartDate = new Date(task.scheduledDate);
-        const isStartMonthMatch = taskStartDate.getFullYear() === year && 
-                                 taskStartDate.getMonth() + 1 === dayInfo.month;
-        
-        let isEndMonthMatch = false;
-        if ((task as any).endDate) {
-          const taskEndDate = new Date((task as any).endDate);
-          isEndMonthMatch = taskEndDate.getFullYear() === year && 
-                           taskEndDate.getMonth() + 1 === dayInfo.month;
-        }
-        
-        // 시작일 또는 종료일이 해당 월에 포함되면 표시
-        let isMonthMatch = isStartMonthMatch || isEndMonthMatch;
-        
-        // 같은 월 내에서 날짜 범위가 있는 경우, 해당 월의 모든 날짜에 표시
-        if (isStartMonthMatch && (task as any).endDate) {
-          const taskEndDate = new Date((task as any).endDate);
-          const isEndInSameMonth = taskEndDate.getFullYear() === year && 
-                                 taskEndDate.getMonth() + 1 === dayInfo.month;
-          if (isEndInSameMonth) {
-            // 같은 월 내에서 시작일과 종료일이 모두 있는 경우, 해당 월의 모든 날짜에 표시
-            isMonthMatch = true;
-          }
-        }
-        
-        // 이랑 번호 매칭 로직 복원
-        const taskRowNumber = task.rowNumber || (() => {
-          if (task.description && task.description.includes("이랑:")) {
-            const match = task.description.match(/이랑:\s*(\d+)번/);
-            return match ? parseInt(match[1]) : null;
-          }
-          return null;
-        })();
-        
-        return isMonthMatch && 
-               (taskRowNumber === rowNumber || (!taskRowNumber && rowNumber === 1));
-      });
+      // 연간 뷰: 빈 배열 반환 (getYearlyTaskGroups에서 처리)
+      return [];
     }
   };
 
@@ -889,7 +939,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             {/* 이랑별 데이터 */}
             <div>
               {rowNumbers.map((rowNumber) => {
-                const continuousTaskGroups = getContinuousTaskGroups(rowNumber);
+                const continuousTaskGroups = viewMode === "yearly" 
+                  ? getYearlyTaskGroups(rowNumber)
+                  : getContinuousTaskGroups(rowNumber);
                 
                 return (
                   <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
