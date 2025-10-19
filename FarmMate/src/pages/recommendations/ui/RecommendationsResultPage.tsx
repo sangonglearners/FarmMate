@@ -204,6 +204,9 @@ export default function RecommendationsResultPage() {
   const [visibleCount, setVisibleCount] = useState(3); // 처음엔 3개만 표시
 
   useEffect(() => {
+    // 페이지 로드 시 스크롤을 맨 위로
+    window.scrollTo(0, 0);
+    
     // 로컬 스토리지에서 결과 가져오기
     const storedData = localStorage.getItem('recommendation_result');
     if (storedData) {
@@ -266,7 +269,9 @@ export default function RecommendationsResultPage() {
       alert("추천 결과가 저장되었습니다!");
       // 로컬 스토리지 정리
       localStorage.removeItem('recommendation_result');
-      setLocation("/");
+      // 페이지 이동 전 스크롤을 맨 위로
+      window.scrollTo(0, 0);
+      setLocation("/recommendations/history");
     } catch (error) {
       console.error('저장 오류:', error);
       alert("저장 중 오류가 발생했습니다. 다시 시도해주세요.");

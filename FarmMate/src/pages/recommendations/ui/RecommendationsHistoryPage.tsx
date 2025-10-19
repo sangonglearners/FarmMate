@@ -21,6 +21,9 @@ export default function RecommendationsHistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // 페이지 로드 시 스크롤을 맨 위로
+    window.scrollTo(0, 0);
+    
     const fetchHistory = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
