@@ -100,7 +100,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const scrollToCurrentMonth = () => {
     if (viewMode === "yearly" && scrollContainerRef.current) {
       const currentMonth = today.getMonth() + 1; // 1-12 (9월 = 9)
-      const cellWidth = 120; // w-[120px]
+      const cellWidth = viewMode === "yearly" ? 100 : 120; // 연간 뷰: 100px, 월간 뷰: 120px
       
       // 현재 월(9월)이 딱 왼쪽에 붙도록 계산
       // 9월이 첫 번째로 보이도록 8개월만큼 스크롤 (1월~8월까지 스크롤)
@@ -719,7 +719,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           ref={scrollContainerRef} 
           className="overflow-auto max-h-[700px]"
         >
-          <div className="min-w-[1500px]">
+          <div className="min-w-[1300px]">
             {/* 헤더 */}
             <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30">
               <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50">
@@ -741,7 +741,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {currentPeriods.map((dayInfo, index) => (
                 <div 
                   key={viewMode === "monthly" ? `${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : (dayInfo as any).month}
-                  className={`w-[120px] flex-shrink-0 p-3 text-center font-medium border-r border-gray-200 last:border-r-0 ${
+                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[120px]"} flex-shrink-0 p-3 text-center font-medium border-r border-gray-200 last:border-r-0 ${
                     isToday(dayInfo) 
                       ? "bg-green-100 text-green-800 font-bold" 
                       : "text-gray-600"
@@ -794,8 +794,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       let leftPosition, boxWidth;
                       
                       if (viewMode === "yearly") {
-                        // 연간 뷰: 고정 너비 (120px per month)
-                        const cellWidth = 120;
+                        // 연간 뷰: 고정 너비 (100px per month)
+                        const cellWidth = 100;
                         leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
                         // spanUnits만큼의 셀 너비 - 중간 border들 제외
                         const middleBorders = Math.max(0, spanUnits - 1);
@@ -979,7 +979,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               </div>
                               {/* 각 월의 날짜 범위 - 해당 월 위치에 배치 */}
                               {Array.isArray(dateRangeText) && dateRangeText.map((dateInfo: any, idx: number) => {
-                                const cellWidth = 120;
+                                const cellWidth = 100;
                                 // 박스 시작점으로부터 해당 월까지의 거리 계산
                                 const offsetMonths = dateInfo.monthIndex - taskGroup.startDayIndex;
                                 const leftPos = offsetMonths * cellWidth;
@@ -1059,7 +1059,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`w-[120px] flex-shrink-0 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[120px]"} flex-shrink-0 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
