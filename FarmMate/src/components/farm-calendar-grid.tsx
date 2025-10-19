@@ -238,6 +238,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           
           taskGroups.push({
             task,
+            tasks: [task],
             startDate: startDate,
             endDate: endDate,
             startDayIndex: startIndex,
@@ -587,6 +588,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             if (startMonthIndex !== -1 && endMonthIndex !== -1) {
               taskGroups.push({
                 task,
+                tasks: [task],
                 startDate: startDate,
                 endDate: endDate,
                 startDayIndex: startMonthIndex,
@@ -604,6 +606,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               // 같은 월 내에서만 표시되는 경우
               taskGroups.push({
                 task,
+                tasks: [task],
                 startDate,
                 endDate,
                 startDayIndex: startIndex,
@@ -612,75 +615,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 isLastDay: true
               });
             } else {
-            // 월을 넘나드는 경우 각 월별로 별도 박스 생성
-            // 실제 작업의 월 범위를 계산하여 각 월별로 처리
-            const taskStartMonth = startDate.getMonth();
-            const taskEndMonth = endDate.getMonth();
-            const taskStartYear = startDate.getFullYear();
-            const taskEndYear = endDate.getFullYear();
-            
-            // 작업이 걸쳐있는 모든 월에 대해 박스 생성
-            let currentYear = taskStartYear;
-            let currentMonth = taskStartMonth;
-            
-            while (currentYear < taskEndYear || (currentYear === taskEndYear && currentMonth <= taskEndMonth)) {
-              // 현재 월에서의 시작일과 종료일 계산
-              let monthStartDay, monthEndDay;
-              
-              if (currentYear === taskStartYear && currentMonth === taskStartMonth) {
-                // 첫 번째 월: 작업 시작일부터 월의 마지막 날까지
-                monthStartDay = startDate.getDate();
-                monthEndDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-              } else if (currentYear === taskEndYear && currentMonth === taskEndMonth) {
-                // 마지막 월: 월의 첫 날부터 작업 종료일까지
-                monthStartDay = 1;
-                monthEndDay = endDate.getDate();
-              } else {
-                // 중간 월: 월의 첫 날부터 마지막 날까지
-                monthStartDay = 1;
-                monthEndDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-              }
-              
-              // 현재 표시 중인 10일 범위에서 이 월의 날짜들이 포함되는지 확인
-              const monthStartDate = new Date(currentYear, currentMonth, monthStartDay);
-              const monthEndDate = new Date(currentYear, currentMonth, monthEndDay);
-              
-              let monthStartIndex = -1;
-              let monthEndIndex = -1;
-              
-              currentPeriods.forEach((dayInfo, index) => {
-                const dayDate = new Date((dayInfo as any).year, (dayInfo as any).month, (dayInfo as any).day);
-                
-                // 현재 날짜가 이 월의 범위 내에 있는지 확인
-                if (dayDate >= monthStartDate && dayDate <= monthEndDate) {
-                  if (monthStartIndex === -1) {
-                    monthStartIndex = index;
-                  }
-                  monthEndIndex = index;
-                }
+              // 월을 넘나드는 경우 하나의 연속된 박스로 표시
+              // 현재 표시 중인 10일 범위에서 작업이 걸쳐있는 전체 범위를 하나의 박스로 처리
+              taskGroups.push({
+                task,
+                tasks: [task],
+                startDate,
+                endDate,
+                startDayIndex: startIndex,
+                endDayIndex: endIndex,
+                isFirstDay: true,
+                isLastDay: true
               });
-              
-              // 이 월의 날짜가 현재 표시 범위에 포함되는 경우 박스 생성
-              if (monthStartIndex !== -1 && monthEndIndex !== -1) {
-                taskGroups.push({
-                  task,
-                  startDate: monthStartDate,
-                  endDate: monthEndDate,
-                  startDayIndex: monthStartIndex,
-                  endDayIndex: monthEndIndex,
-                  isFirstDay: currentYear === taskStartYear && currentMonth === taskStartMonth,
-                  isLastDay: currentYear === taskEndYear && currentMonth === taskEndMonth
-                });
-              }
-              
-              // 다음 월로 이동
-              if (currentMonth === 11) {
-                currentMonth = 0;
-                currentYear++;
-              } else {
-                currentMonth++;
-              }
-            }
             }
           }
           
@@ -956,7 +902,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     {continuousTaskGroups.slice(0, 3).map((taskGroup, groupIndex) => {
                       // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
                       const taskColor = taskGroup.taskGroupId 
-                        ? getTaskColor(taskGroup.task.taskType) // 개별등록과 동일한 색상
+                        ? getTaskColor(taskGroup.task) // 개별등록과 동일한 색상
                         : getTaskColor(taskGroup.task); // 기존 연속 작업 색상
                       
                       // 정확한 그리드 위치 계산
@@ -967,11 +913,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       let leftPosition, boxWidth;
                       
                       if (viewMode === "yearly") {
-                        // 연간 뷰: 고정 너비 (100px per month)
+                        // 연간 뷰: 고정 너비 (100px per month) + 패딩 고려
                         const cellWidth = 100;
-                        leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
-                        // spanUnits만큼의 셀 너비 - 연속된 박스로 표시 (중간 border 제외)
-                        boxWidth = `${spanUnits * cellWidth}px`;
+                        const cellPadding = 12; // p-3 = 12px
+                        leftPosition = `${taskGroup.startDayIndex * cellWidth + cellPadding}px`;
+                        // spanUnits만큼의 셀 너비 - 양쪽 패딩 제외
+                        boxWidth = `${spanUnits * cellWidth - (cellPadding * 2)}px`;
                       } else {
                         // 월간 뷰: flex 기반 계산
                         const startFlexUnits = taskGroup.startDayIndex;
