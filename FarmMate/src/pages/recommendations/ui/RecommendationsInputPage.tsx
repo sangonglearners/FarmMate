@@ -116,7 +116,7 @@ export default function RecommendationsInputPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 pb-72">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <Button
             variant="ghost"
@@ -138,7 +138,7 @@ export default function RecommendationsInputPage() {
         <p className="text-gray-600 text-sm mt-1 text-center">재배 조건을 입력해주세요</p>
       </div>
 
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4 max-w-2xl mx-auto">
         {/* 재배 위치 선택 */}
         <Card>
           <CardHeader>
