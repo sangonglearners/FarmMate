@@ -719,7 +719,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           ref={scrollContainerRef} 
           className="overflow-auto max-h-[700px]"
         >
-          <div className={viewMode === "yearly" ? "min-w-[1500px]" : "min-w-[700px]"}>
+          <div className="min-w-[1500px]">
             {/* 헤더 */}
             <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30">
               <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50">
@@ -741,7 +741,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {currentPeriods.map((dayInfo, index) => (
                 <div 
                   key={viewMode === "monthly" ? `${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : (dayInfo as any).month}
-                  className={`${viewMode === "yearly" ? "w-[120px] flex-shrink-0" : "flex-1"} p-3 text-center font-medium border-r border-gray-200 last:border-r-0 ${
+                  className={`w-[120px] flex-shrink-0 p-3 text-center font-medium border-r border-gray-200 last:border-r-0 ${
                     isToday(dayInfo) 
                       ? "bg-green-100 text-green-800 font-bold" 
                       : "text-gray-600"
@@ -776,7 +776,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
                     <div className="absolute left-[61px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 3개까지만 표시 */}
-                    {continuousTaskGroups.slice(0, 3).map((taskGroup, groupIndex) => {
+                    {(() => {
+                      console.log(`[DEBUG] 이랑 ${rowNumber}의 연속된 일정 그룹:`, {
+                        totalGroups: continuousTaskGroups.length,
+                        showingGroups: Math.min(continuousTaskGroups.length, 3),
+                        groups: continuousTaskGroups.map(g => ({ id: g.task.id, title: g.task.title }))
+                      });
+                      return continuousTaskGroups.slice(0, 3);
+                    })().map((taskGroup, groupIndex) => {
                       const taskColor = getTaskColor(taskGroup.task);
                       
                       // 정확한 그리드 위치 계산
@@ -1007,19 +1014,26 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       );
                     })}
                     
-                    {/* 3개 초과 시 더보기 표시 - 각 날짜별로 표시 */}
-                    {continuousTaskGroups.length > 3 && (
+                    {/* 3개 초과 시 더보기 표시 */}
+                    {(() => {
+                      const shouldShowMore = continuousTaskGroups.length > 3;
+                      console.log(`[DEBUG] 이랑 ${rowNumber} 더보기 표시:`, {
+                        totalGroups: continuousTaskGroups.length,
+                        shouldShowMore,
+                        moreCount: continuousTaskGroups.length - 3
+                      });
+                      return shouldShowMore;
+                    })() && (
                       <div
-                        className="absolute bg-red-100 text-red-600 text-xs px-2 py-1 rounded border border-red-300 cursor-pointer hover:bg-red-200 transition-colors pointer-events-auto font-bold"
+                        className="absolute bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-300 cursor-pointer hover:bg-gray-200 transition-colors pointer-events-auto"
                         style={{
                           left: '8px',
-                          right: '8px', // 전체 너비 사용
                           top: `${8 + (3 * (32 + 4))}px`, // 3개 박스 아래 위치
                           height: '32px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          zIndex: 20
+                          minWidth: '60px'
                         }}
                         title={`+${continuousTaskGroups.length - 3}개 더`}
                       >
@@ -1045,7 +1059,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[120px] flex-shrink-0" : "flex-1"} p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`w-[120px] flex-shrink-0 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
@@ -1062,7 +1076,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           {viewMode === "monthly" ? (
                             <>
                               {/* 월간 뷰: 작물명과 작업 표시 (연속된 일정 제외) - 최대 3개까지만 */}
-                              {displayTasks.slice(0, 3).map((task) => {
+                              {(() => {
+                                console.log(`[DEBUG] 이랑 ${rowNumber} 날짜 ${(dayInfo as any).day} 개별 셀:`, {
+                                  totalTasks: displayTasks.length,
+                                  showingTasks: Math.min(displayTasks.length, 3),
+                                  tasks: displayTasks.map(t => ({ id: t.id, title: t.title }))
+                                });
+                                return displayTasks.slice(0, 3);
+                              })().map((task) => {
                               const cropName = getCropName(task.cropId);
                               return (
                                 <div 
@@ -1099,9 +1120,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             })}
                             
                             {/* 개별 셀에서 3개 초과 시 더보기 표시 */}
-                            {displayTasks.length > 3 && (
+                            {(() => {
+                              const shouldShowMore = displayTasks.length > 3;
+                              console.log(`[DEBUG] 이랑 ${rowNumber} 날짜 ${(dayInfo as any).day} 개별 셀 더보기:`, {
+                                totalTasks: displayTasks.length,
+                                shouldShowMore,
+                                moreCount: displayTasks.length - 3
+                              });
+                              return shouldShowMore;
+                            })() && (
                               <div 
-                                className="text-xs text-red-600 text-center py-1 cursor-pointer hover:text-red-700 bg-red-100 rounded px-2 font-bold border border-red-300"
+                                className="text-xs text-gray-500 text-center py-1 cursor-pointer hover:text-gray-700"
                                 title={`+${displayTasks.length - 3}개 더`}
                               >
                                 +{displayTasks.length - 3}개 더
