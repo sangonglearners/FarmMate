@@ -198,63 +198,95 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       hasEndDate: !!(task as any).endDate
     })));
     
+    // 작물별로 작업들을 그룹화
+    const cropGroups = new Map<string, Task[]>();
+    
     rowTasks.forEach(task => {
-      const startDate = new Date(task.scheduledDate);
-      const endDate = (task as any).endDate ? new Date((task as any).endDate) : startDate;
+      // 작물명 추출 (title에서 작물명 부분만 가져오기)
+      const cropName = task.title?.split('_')[0] || task.title || '작물';
       
-      // 작업이 현재 년도에 포함되는지 확인
-      if (startDate.getFullYear() === year || endDate.getFullYear() === year) {
-        const startMonth = startDate.getMonth() + 1; // 1-12
-        const endMonth = endDate.getMonth() + 1; // 1-12
+      if (!cropGroups.has(cropName)) {
+        cropGroups.set(cropName, []);
+      }
+      cropGroups.get(cropName)!.push(task);
+    });
+    
+    // 각 작물 그룹별로 처리
+    cropGroups.forEach((cropTasks, cropName) => {
+      // 해당 작물의 모든 작업이 현재 년도에 포함되는지 확인
+      const validTasks = cropTasks.filter(task => {
+        const startDate = new Date(task.scheduledDate);
+        const endDate = (task as any).endDate ? new Date((task as any).endDate) : startDate;
+        return startDate.getFullYear() === year || endDate.getFullYear() === year;
+      });
+      
+      if (validTasks.length === 0) return;
+      
+      // 해당 작물의 전체 기간 계산 (파종부터 수확까지)
+      const allDates: Date[] = [];
+      validTasks.forEach(task => {
+        allDates.push(new Date(task.scheduledDate));
+        if ((task as any).endDate) {
+          allDates.push(new Date((task as any).endDate));
+        }
+      });
+      
+      const overallStartDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+      const overallEndDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+      
+      const startMonth = overallStartDate.getMonth() + 1; // 1-12
+      const endMonth = overallEndDate.getMonth() + 1; // 1-12
+      
+      console.log(`[DEBUG] 작물 ${cropName} 통합 처리:`, {
+        tasks: validTasks.map(t => ({ id: t.id, title: t.title, scheduledDate: t.scheduledDate })),
+        startMonth,
+        endMonth,
+        overallStartDate: overallStartDate.toISOString().split('T')[0],
+        overallEndDate: overallEndDate.toISOString().split('T')[0]
+      });
+      
+      // 현재 표시 중인 월들 중에서 작업이 걸쳐있는 월들 찾기
+      const affectedMonths: number[] = [];
+      
+      for (let month = 1; month <= 12; month++) {
+        // 작업이 이 월에 걸쳐있는지 확인
+        const isInRange = (month >= startMonth && month <= endMonth) ||
+                         (startMonth > endMonth && (month >= startMonth || month <= endMonth)); // 년도를 넘나드는 경우
         
-        console.log(`[DEBUG] 연간 뷰 작업 처리:`, {
-          taskId: task.id,
-          title: task.title,
-          startMonth,
-          endMonth,
-          startDate: task.scheduledDate,
-          endDate: (task as any).endDate
+        if (isInRange) {
+          affectedMonths.push(month);
+        }
+      }
+      
+      console.log(`[DEBUG] 작물 ${cropName} 영향받는 월들:`, affectedMonths);
+      
+      if (affectedMonths.length > 0) {
+        // 연속된 월들을 하나의 박스로 표시
+        const startIndex = affectedMonths[0] - 1; // 0-based index
+        const endIndex = affectedMonths[affectedMonths.length - 1] - 1; // 0-based index
+        
+        // 대표 작업 (첫 번째 작업)
+        const representativeTask = validTasks[0];
+        
+        taskGroups.push({
+          task: representativeTask,
+          tasks: validTasks, // 해당 작물의 모든 작업 포함
+          startDate: overallStartDate,
+          endDate: overallEndDate,
+          startDayIndex: startIndex,
+          endDayIndex: endIndex,
+          isFirstDay: true,
+          isLastDay: true,
+          cropName: cropName // 작물명 추가
         });
         
-        // 현재 표시 중인 월들 중에서 작업이 걸쳐있는 월들 찾기
-        const affectedMonths: number[] = [];
-        
-        for (let month = 1; month <= 12; month++) {
-          // 작업이 이 월에 걸쳐있는지 확인
-          const isInRange = (month >= startMonth && month <= endMonth) ||
-                           (startMonth > endMonth && (month >= startMonth || month <= endMonth)); // 년도를 넘나드는 경우
-          
-          if (isInRange) {
-            affectedMonths.push(month);
-          }
-        }
-        
-        console.log(`[DEBUG] 영향받는 월들:`, affectedMonths);
-        
-        if (affectedMonths.length > 0) {
-          // 연속된 월들을 하나의 박스로 표시
-          const startIndex = affectedMonths[0] - 1; // 0-based index
-          const endIndex = affectedMonths[affectedMonths.length - 1] - 1; // 0-based index
-          
-          taskGroups.push({
-            task,
-            tasks: [task],
-            startDate: startDate,
-            endDate: endDate,
-            startDayIndex: startIndex,
-            endDayIndex: endIndex,
-            isFirstDay: true,
-            isLastDay: true
-          });
-          
-          console.log(`[DEBUG] 연간 뷰 박스 생성:`, {
-            taskId: task.id,
-            title: task.title,
-            startIndex,
-            endIndex,
-            spanMonths: endIndex - startIndex + 1
-          });
-        }
+        console.log(`[DEBUG] 작물 ${cropName} 통합 박스 생성:`, {
+          cropName,
+          startIndex,
+          endIndex,
+          spanMonths: endIndex - startIndex + 1,
+          taskCount: validTasks.length
+        });
       }
     });
     
@@ -957,14 +989,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         // 일괄등록된 작업: 작물명만 표시
                         displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
                       } else if (viewMode === "yearly") {
-                        // 연간 뷰: 작물 이름만 표시
-                        if (taskGroup.task.title && taskGroup.task.title.includes('_')) {
-                          displayTitle = taskGroup.task.title.split('_')[0]; // "무_파종" -> "무"
-                        } else {
-                          // cropId로 작물명 가져오기
-                          const cropName = getCropName(taskGroup.task.cropId);
-                          displayTitle = cropName || taskGroup.task.title || taskGroup.task.taskType;
-                        }
+                        // 연간 뷰: 작물명만 표시 (작업 유형 제외)
+                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
                       } else {
                         // 월간 뷰: 전체 제목 표시
                         displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
