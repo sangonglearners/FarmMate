@@ -1029,7 +1029,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       // 날짜 표시 로직
                       const formatDateRange = (startDate: Date, endDate: Date) => {
                         if (viewMode === "yearly") {
-                          // 연간 뷰: 각 월의 날짜 범위를 객체 배열로 반환
+                          // 연간 뷰: 연속된 날짜 범위를 하나의 문자열로 표시
                           const startMonth = startDate.getMonth() + 1;
                           const startDay = startDate.getDate();
                           const endMonth = endDate.getMonth() + 1;
@@ -1037,52 +1037,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           
                           // 같은 날짜인 경우
                           if (startDate.getTime() === endDate.getTime()) {
-                            return [{
-                              month: startMonth,
-                              text: `${startMonth}/${startDay}`,
-                              monthIndex: taskGroup.startDayIndex
-                            }];
+                            return `${startMonth}/${startDay}`;
                           }
                           
                           // 같은 월인 경우
                           if (startMonth === endMonth) {
-                            return [{
-                              month: startMonth,
-                              text: `${startMonth}/${startDay}~${endDay}`,
-                              monthIndex: taskGroup.startDayIndex
-                            }];
+                            return `${startMonth}/${startDay}~${endDay}`;
                           }
                           
-                          // 다른 월인 경우: 각 월의 날짜 범위를 배열로
-                          const parts = [];
-                          
-                          // 시작 월의 날짜 범위 (종료일 생략)
-                          const startMonthIndex = currentPeriods.findIndex(p => (p as any).month === startMonth);
-                          parts.push({
-                            month: startMonth,
-                            text: `${startMonth}/${startDay}~`, // 10/29~
-                            monthIndex: startMonthIndex
-                          });
-                          
-                          // 중간 월들 (있다면) - 전체 월
-                          for (let month = startMonth + 1; month < endMonth; month++) {
-                            const monthIndex = currentPeriods.findIndex(p => (p as any).month === month);
-                            parts.push({
-                              month: month,
-                              text: `${month}월`, // 전체 월 표시
-                              monthIndex: monthIndex
-                            });
-                          }
-                          
-                          // 종료 월의 날짜 범위 (시작일 생략)
-                          const endMonthIndex = currentPeriods.findIndex(p => (p as any).month === endMonth);
-                          parts.push({
-                            month: endMonth,
-                            text: `~${endMonth}/${endDay}`, // ~11/3
-                            monthIndex: endMonthIndex
-                          });
-                          
-                          return parts;
+                          // 다른 월인 경우: 연속된 날짜 범위로 표시
+                          return `${startMonth}/${startDay}~${endMonth}/${endDay}`;
                         } else {
                           // 월간 뷰: 월/일 표시
                           const startMonth = startDate.getMonth() + 1;
@@ -1161,27 +1125,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               }}>
                                 {displayTitle}
                               </div>
-                              {/* 각 월의 날짜 범위 - 해당 월 위치에 배치 */}
-                              {Array.isArray(dateRangeText) && dateRangeText.map((dateInfo: any, idx: number) => {
-                                const cellWidth = 100;
-                                // 박스 시작점으로부터 해당 월까지의 거리 계산
-                                const offsetMonths = dateInfo.monthIndex - taskGroup.startDayIndex;
-                                const leftPos = offsetMonths * cellWidth;
-                                
-                                return (
-                                  <div
-                                    key={`date-${idx}`}
-                                    className="absolute text-[9px] opacity-75 leading-tight whitespace-nowrap"
-                                    style={{
-                                      left: `${leftPos + 8}px`, // 8px 패딩
-                                      top: '22px', // 작물 이름 아래
-                                      maxWidth: `${cellWidth - 16}px` // 양쪽 패딩 제외
-                                    }}
-                                  >
-                                    {dateInfo.text}
-                                  </div>
-                                );
-                              })}
+                              {/* 날짜 범위 - 작물 이름 아래에 표시 */}
+                              <div className="absolute left-2 top-5 text-[9px] opacity-75 leading-tight whitespace-nowrap">
+                                {dateRangeText}
+                              </div>
                             </>
                           ) : (
                             // 월간 뷰: 작업이 실제로 끝날 때만 종료 날짜 표시
