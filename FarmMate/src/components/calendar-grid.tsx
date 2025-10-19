@@ -235,9 +235,9 @@ export default function CalendarGrid({
                 {day}
               </div>
 
-              {/* 작업 마커 표시 (정확히 해당 날짜에 수행되는 작업만) */}
-              <div className="space-y-1">
-                {exactDayTasks.slice(0, 2).map((task) => (
+              {/* 단일 날짜 일정 표시 */}
+              <div className="space-y-0.5">
+                {singleDayTasks.slice(0, 3).map((task, taskIndex) => (
                   <div
                     key={task.id}
                     className={`text-xs px-1 py-0.5 rounded break-words leading-tight font-medium relative ${getTaskColor(
@@ -245,20 +245,21 @@ export default function CalendarGrid({
                     )}`}
                     style={{
                       display: '-webkit-box',
-                      WebkitLineClamp: 2,
+                      WebkitLineClamp: 1,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
                       wordWrap: 'break-word',
-                      maxHeight: '2.5rem',
-                      zIndex: 25
+                      maxHeight: '1.25rem',
+                      marginBottom: '2px'
                     }}
                     title={task.title}
                   >
                     {task.title}
                   </div>
                 ))}
-                {exactDayTasks.length > 2 && (
-                  <div className="text-xs text-gray-500">+{exactDayTasks.length - 2}개 더</div>
+                {singleDayTasks.length > 3 && (
+                  <div className="text-xs text-gray-500">+{singleDayTasks.length - 3}개 더</div>
+                )}
                 )}
               </div>
             </div>

@@ -25,7 +25,7 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
   // 연속된 일정 그룹화 (14일 주간 뷰용)
   const calendarDaysData = days.map((dayInfo, index) => ({
     day: dayInfo.day,
-    isCurrentMonth: true,
+    isCurrentMonth: dayInfo.date.getMonth() === currentDate.getMonth(),
     month: dayInfo.date.getMonth(),
     year: dayInfo.date.getFullYear()
   }));
@@ -119,34 +119,31 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
               </div>
               
               {/* 단일 날짜 일정 표시 */}
-              {isSelected && singleDayTasks.length > 0 ? (
+              {singleDayTasks.length > 0 ? (
                 <div className="space-y-0.5">
-                  {singleDayTasks.slice(0, 2).map((task: Task) => (
+                  {singleDayTasks.slice(0, 3).map((task: Task) => (
                     <div
                       key={task.id}
                       className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(task.taskType)}`}
                       style={{
                         display: '-webkit-box',
-                        WebkitLineClamp: 2,
+                        WebkitLineClamp: 1,
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden',
                         wordWrap: 'break-word',
-                        maxHeight: '2.5rem'
+                        maxHeight: '1.25rem',
+                        marginBottom: '2px'
                       }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
                     >
                       {task.title || `${getCropName(crops, task.cropId)} ${task.taskType}`}
                     </div>
                   ))}
-                  {singleDayTasks.length > 2 && (
+                  {singleDayTasks.length > 3 && (
                     <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 2}개
+                      +{singleDayTasks.length - 3}개
                     </div>
                   )}
-                </div>
-              ) : singleDayTasks.length > 0 ? (
-                <div className="text-xs text-gray-500 text-center">
-                  {singleDayTasks.length}개
                 </div>
               ) : null}
             </div>
