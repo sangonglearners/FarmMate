@@ -82,7 +82,7 @@ export default function RecommendationsHistoryPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 max-w-2xl mx-auto">
         <Button
           variant="ghost"
           size="sm"
@@ -102,7 +102,7 @@ export default function RecommendationsHistoryPage() {
         </div>
       </div>
 
-      <div className="space-y-3 max-w-2xl">
+      <div className="space-y-3 max-w-2xl mx-auto">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="text-center">
@@ -201,7 +201,7 @@ export default function RecommendationsHistoryPage() {
 
       {/* 새 추천 받기 버튼 */}
       {history.length > 0 && (
-        <div className="mt-6 max-w-2xl">
+        <div className="mt-6 max-w-2xl mx-auto">
           <Button
             variant="outline"
             onClick={() => setLocation('/recommendations/input')}
