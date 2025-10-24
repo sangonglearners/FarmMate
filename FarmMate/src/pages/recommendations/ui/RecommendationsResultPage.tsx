@@ -291,6 +291,13 @@ export default function RecommendationsResultPage() {
 
   const { cards } = result;
 
+  // 최고 수익 카드 인덱스 찾기
+  const highestRevenueIndex = cards.reduce((maxIdx, card, idx, arr) => {
+    const currentRevenue = parseInt(card.expected_revenue.replace(/,/g, ''));
+    const maxRevenue = parseInt(arr[maxIdx].expected_revenue.replace(/,/g, ''));
+    return currentRevenue > maxRevenue ? idx : maxIdx;
+  }, 0);
+
   // 더보기 핸들러: 모든 카드 표시
   const handleLoadMore = () => {
     setVisibleCount(cards.length);
@@ -333,8 +340,20 @@ export default function RecommendationsResultPage() {
                     onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex items-center justify-center px-2.5 h-7 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                    Plan {['A', 'B', 'C'][index]}
+                    Plan {['A', 'B', 'C', 'D', 'E', 'F'][index] || index + 1}
                   </div>
+                  
+                  {/* 뱃지 */}
+                  {index === 0 && (
+                    <div className="flex items-center justify-center px-2.5 h-6 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold shadow-sm">
+                      ⭐ 종합 추천
+                    </div>
+                  )}
+                  {index === highestRevenueIndex && (
+                    <div className="flex items-center justify-center px-2.5 h-6 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-sm">
+                      💰 최고 수익
+                    </div>
+                  )}
                 </div>
                 
                 {/* 예상 매출액 */}
