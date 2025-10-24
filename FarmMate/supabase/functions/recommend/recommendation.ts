@@ -109,24 +109,45 @@ class CropRecommendationEngine {
     // 2~5 범위를 0~1로 매핑: (x - 2) / (5 - 2)
     return (value - 2) / 3;
   }
-  // 수익성 점수 변환 (log1p + MinMaxScaling → [0,1])
+  // 수익성 점수 변환 (MinMaxScaling → [0,1])
+  // ⚠️ BACKUP: log1p 포함 버전 (되돌리려면 이 함수를 위의 함수와 교체)
+  // calculateProfitScores_WITH_LOG1P(profitValues) {
+  //   // 1. log1p 변환
+  //   const logTransformed = this.log1p(profitValues);
+  //   // 2. 유효한 값들만 필터링
+  //   const validValues = logTransformed.filter((x) => !isNaN(x) && x != null);
+  //   if (validValues.length === 0) {
+  //     return profitValues.map(() => NaN);
+  //   }
+  //   // 3. Min-Max 값 찾기
+  //   const minValue = Math.min(...validValues);
+  //   const maxValue = Math.max(...validValues);
+  //   // Min과 Max가 같으면 모든 값을 0.5로 설정
+  //   if (maxValue === minValue) {
+  //     return logTransformed.map((x) => isNaN(x) || x == null ? NaN : 0.5);
+  //   }
+  //   // 4. MinMaxScaling: (x - min) / (max - min)
+  //   return logTransformed.map((x) => {
+  //     if (isNaN(x) || x == null) return NaN;
+  //     return (x - minValue) / (maxValue - minValue);
+  //   });
+  // }
+  
   calculateProfitScores(profitValues) {
-    // 1. log1p 변환
-    const logTransformed = this.log1p(profitValues);
-    // 2. 유효한 값들만 필터링
-    const validValues = logTransformed.filter((x) => !isNaN(x) && x != null);
+    // 1. 유효한 값들만 필터링 (log1p 제거)
+    const validValues = profitValues.filter((x) => !isNaN(x) && x != null);
     if (validValues.length === 0) {
       return profitValues.map(() => NaN);
     }
-    // 3. Min-Max 값 찾기
+    // 2. Min-Max 값 찾기
     const minValue = Math.min(...validValues);
     const maxValue = Math.max(...validValues);
     // Min과 Max가 같으면 모든 값을 0.5로 설정
     if (maxValue === minValue) {
-      return logTransformed.map((x) => isNaN(x) || x == null ? NaN : 0.5);
+      return profitValues.map((x) => isNaN(x) || x == null ? NaN : 0.5);
     }
-    // 4. MinMaxScaling: (x - min) / (max - min)
-    return logTransformed.map((x) => {
+    // 3. MinMaxScaling만 적용: (x - min) / (max - min)
+    return profitValues.map((x) => {
       if (isNaN(x) || x == null) return NaN;
       return (x - minValue) / (maxValue - minValue);
     });
@@ -278,7 +299,7 @@ class CropRecommendationEngine {
           error: "추천 가능한 작물이 3개 미만입니다. 재배 시기를 조정해주세요."
         };
       }
-      // 4. 수익성 점수 계산 (log1p + MinMaxScaling → [0,1])
+      // 4. 수익성 점수 계산 (MinMaxScaling → [0,1])
       const profitValues = filteredCrops.map((crop) => parseFloat(crop.수익성_사용) || NaN);
       const profitScores = this.calculateProfitScores(profitValues);
       console.log(`💰 수익성 점수 범위: ${Math.min(...profitScores.filter((s) => !isNaN(s)))} ~ ${Math.max(...profitScores.filter((s) => !isNaN(s)))}`);
