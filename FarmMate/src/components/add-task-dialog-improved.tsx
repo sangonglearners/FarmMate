@@ -109,6 +109,7 @@ const individualTaskTypes = [
   "고르기",
   "수확",
   "저장-포장",
+  "기타",
 ];
 
 interface AddTaskDialogProps {
@@ -148,6 +149,7 @@ export default function AddTaskDialog({
   const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [taskGroup, setTaskGroup] = useState<Task[]>([]);
+  const [customTaskType, setCustomTaskType] = useState("");
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -185,15 +187,19 @@ export default function AddTaskDialog({
       cropSearchTerm,
       cropName,
       taskType,
+      customTaskType,
       현재제목: form.getValues("title")
     });
     
     if (cropName && taskType) {
-      const newTitle = `${cropName}_${taskType}`;
-      console.log("제목 자동 설정:", { cropName, taskType, newTitle });
-      form.setValue("title", newTitle);
+      const finalTaskType = taskType === "기타" ? customTaskType : taskType;
+      if (finalTaskType) {
+        const newTitle = `${cropName}_${finalTaskType}`;
+        console.log("제목 자동 설정:", { cropName, taskType, finalTaskType, newTitle });
+        form.setValue("title", newTitle);
+      }
     }
-  }, [cropSearchTerm, customCropName, form]);
+  }, [cropSearchTerm, customCropName, customTaskType, form]);
 
   // 작물 정보가 변경될 때 제목 업데이트
   useEffect(() => {
@@ -202,29 +208,43 @@ export default function AddTaskDialog({
     const cropName = customCropName || cropSearchTerm;
     
     if (cropName && taskType) {
-      const expectedTitle = `${cropName}_${taskType}`;
-      if (currentTitle !== expectedTitle) {
-        console.log("작물 정보 변경으로 제목 업데이트:", {
-          currentTitle,
-          expectedTitle,
-          cropName,
-          taskType
-        });
-        form.setValue("title", expectedTitle);
+      const finalTaskType = taskType === "기타" ? customTaskType : taskType;
+      if (finalTaskType) {
+        const expectedTitle = `${cropName}_${finalTaskType}`;
+        if (currentTitle !== expectedTitle) {
+          console.log("작물 정보 변경으로 제목 업데이트:", {
+            currentTitle,
+            expectedTitle,
+            cropName,
+            taskType,
+            finalTaskType
+          });
+          form.setValue("title", expectedTitle);
+        }
       }
     }
-  }, [customCropName, cropSearchTerm, form]);
+  }, [customCropName, cropSearchTerm, customTaskType, form]);
 
   // taskType 변경시 제목 갱신 (편집 모드에서도 작동)
   useEffect(() => {
     const taskType = form.watch("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
-      const newTitle = `${cropName}_${taskType}`;
-      console.log("taskType 변경으로 인한 제목 갱신:", { cropName, taskType, newTitle });
-      form.setValue("title", newTitle);
+      const finalTaskType = taskType === "기타" ? customTaskType : taskType;
+      if (finalTaskType) {
+        const newTitle = `${cropName}_${finalTaskType}`;
+        console.log("taskType 변경으로 인한 제목 갱신:", { cropName, taskType, finalTaskType, newTitle });
+        form.setValue("title", newTitle);
+      }
     }
-  }, [form.watch("taskType"), customCropName, cropSearchTerm, form]);
+  }, [form.watch("taskType"), customCropName, cropSearchTerm, customTaskType, form]);
+
+  // 다이얼로그가 열릴 때 상태 초기화
+  useEffect(() => {
+    if (open) {
+      setCustomTaskType("");
+    }
+  }, [open]);
 
   // 첫 번째 농장을 기본값으로 설정
   useEffect(() => {
@@ -467,10 +487,11 @@ export default function AddTaskDialog({
       console.log('📊 cropSearchResults 상태 업데이트 후:', results);
     } catch (error) {
       console.error('❌ 로컬 작물 검색 실패:', error);
-      console.error('❌ 오류 상세:', error.message);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      console.error('❌ 오류 상세:', errorMessage);
       toast({
         title: "작물 검색 실패",
-        description: `오류: ${error.message}`,
+        description: `오류: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -633,7 +654,6 @@ export default function AddTaskDialog({
     setCustomCropName(cropName);
     setCropSearchTerm(cropName);
     form.setValue("cropId", "");
-    setSelectedSearchCrop(null); // 검색 작물 선택 해제
     
     console.log("작물 입력 처리 완료:", {
       새로운CustomCropName: cropName,
@@ -643,7 +663,7 @@ export default function AddTaskDialog({
   };
 
   // 검색된 작물 선택 핸들러
-  const handleSearchCropSelect = (searchCrop: CropSearchResult) => {
+  const handleSearchCropSelect = (searchCrop: RegistrationData) => {
     const displayName = `${searchCrop.품목} > ${searchCrop.품종}`;
     console.log("검색 작물 선택:", {
       searchCrop,
@@ -654,7 +674,6 @@ export default function AddTaskDialog({
     
     setCropSearchTerm(displayName);
     setCustomCropName(displayName);
-    setSelectedSearchCrop(searchCrop);
     form.setValue("cropId", ""); // 커스텀 작물
     setCropSearchResults([]); // 검색 결과 숨기기
     
@@ -960,10 +979,13 @@ export default function AddTaskDialog({
       }
       
       // 하나의 작업만 생성 (날짜 범위)
+      const finalTaskType = work === "기타" ? customTaskType : work;
+      const finalTitle = form.getValues("title") || `${cropName}_${finalTaskType}`;
+      
       const task: InsertTask = {
-        title: form.getValues("title") || `${cropName}_${work}`,
+        title: finalTitle,
         description: form.getValues("description") || "", // 메모 자동 문구 제거: 사용자가 입력한 값만 사용
-        taskType: work,
+        taskType: finalTaskType,
         scheduledDate: startDate,
         endDate: endDate, // 종료일도 함께 저장
         farmId: form.getValues("farmId") || "",
@@ -1063,6 +1085,16 @@ export default function AddTaskDialog({
       form.setError("rowNumber", {
         type: "manual",
         message: "이랑 번호를 선택해주세요",
+      });
+      return;
+    }
+
+    // 개별등록에서 기타 옵션 선택 시 텍스트 입력 검증
+    if (!task && registrationMode === "individual" && data.taskType === "기타" && !customTaskType.trim()) {
+      toast({
+        title: "기타 농작업명을 입력해주세요",
+        description: "기타를 선택했을 때는 농작업명을 직접 입력해야 합니다.",
+        variant: "destructive",
       });
       return;
     }
@@ -1504,30 +1536,44 @@ export default function AddTaskDialog({
                   )}
                 </div>
               ) : (
-                <FormField
-                  control={form.control}
-                  name="taskType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>농작업 *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="작업 유형을 선택해주세요" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {individualTaskTypes.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                <div className="space-y-3">
+                  <FormField
+                    control={form.control}
+                    name="taskType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>농작업 *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="작업 유형을 선택해주세요" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {individualTaskTypes.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* 기타 옵션 선택 시 텍스트 입력 필드 */}
+                  {form.watch("taskType") === "기타" && (
+                    <div className="space-y-2">
+                      <Label>농작업명 입력 *</Label>
+                      <Input
+                        placeholder="농작업명을 입력하세요"
+                        value={customTaskType}
+                        onChange={(e) => setCustomTaskType(e.target.value)}
+                      />
+                    </div>
                   )}
-                />
+                </div>
               )}
 
               {/* 이랑 선택 - selectedFarm이 있거나 farmId가 설정된 경우 표시 */}
