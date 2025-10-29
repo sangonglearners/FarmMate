@@ -107,3 +107,11 @@ export const useSharedCalendars = () => {
   });
 };
 
+export const useFarmOwner = (farmId: string) => {
+  return useQuery<SharedUser | null>({
+    queryKey: ["/api/farm-owner", farmId],
+    queryFn: () => calendarShareApi.getFarmOwner(farmId),
+    enabled: !!farmId,
+  });
+};
+

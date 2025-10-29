@@ -119,6 +119,37 @@ export class CalendarShareRepository extends BaseRepository {
   }
 
   /**
+   * 농장의 소유주 정보 조회
+   */
+  async getFarmOwner(farmId: string): Promise<SharedUser | null> {
+    // 농장 정보 조회하여 소유주 찾기
+    const { data: farm, error: farmError } = await this.supabase
+      .from('farms')
+      .select('user_id')
+      .eq('id', farmId)
+      .single()
+    
+    if (farmError || !farm) return null
+    
+    // 소유주 프로필 조회
+    const { data: profile, error: profileError } = await this.supabase
+      .from('user_profiles')
+      .select('id, email, display_name')
+      .eq('id', farm.user_id)
+      .single()
+    
+    if (profileError || !profile) return null
+    
+    return {
+      shareId: '', // 소유주는 shareId 없음
+      userId: profile.id,
+      email: profile.email || '',
+      displayName: profile.display_name || undefined,
+      role: 'owner' as any, // 소유주 표시용
+    }
+  }
+
+  /**
    * 농장의 공유된 사용자 목록 조회
    */
   async getSharedUsers(farmId: string): Promise<SharedUser[]> {
