@@ -13,6 +13,13 @@ interface TodoItem {
   scheduledDate: string;
   completed: number; // 0: 미완료, 1: 완료
   completedAt?: string;
+  farmId?: string; // 권한 확인용
+  userId?: string; // 권한 확인용
+  isGroup?: boolean; // 그룹화된 작업 여부
+  cropName?: string; // 작물 이름
+  groupStartDate?: string; // 그룹 시작 날짜
+  groupEndDate?: string; // 그룹 종료 날짜
+  groupTaskTypes?: string[]; // 그룹 작업 유형 목록
 }
 
 interface TodoListProps {
@@ -164,7 +171,7 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
                 <p className={`text-sm transition-all duration-200 ${
                   isCompleted ? 'line-through text-gray-400' : 'text-gray-600'
                 }`}>
-                  {task.isGroup 
+                  {task.isGroup && task.groupStartDate && task.groupEndDate
                     ? `${formatDisplayDate(task.groupStartDate)} - ${formatDisplayDate(task.groupEndDate)}`
                     : formatDisplayDate(task.scheduledDate)
                   }
@@ -172,7 +179,9 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
                 <div className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
                   isCompleted ? 'bg-gray-200 text-gray-500' : getTaskColor(task.taskType)
                 }`}>
-                  {task.isGroup ? task.groupTaskTypes.join(' → ') : task.taskType}
+                  {task.isGroup && task.groupTaskTypes 
+                    ? task.groupTaskTypes.join(' → ') 
+                    : task.taskType}
                 </div>
               </div>
             </div>
