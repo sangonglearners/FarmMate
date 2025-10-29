@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Share2 } from "lucide-react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,9 @@ import type { Task, Crop } from "@shared/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
+import { CalendarShareDialog } from "@/features/calendar-share/ui";
+import { useUserRoleForCalendar } from "@/features/calendar-share";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -25,6 +28,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
   
+  // 공유 다이얼로그 상태
+  const [showShareDialog, setShowShareDialog] = useState(false);
   
   // 농장 데이터 가져오기
   const { data: farms = [], isLoading: farmsLoading } = useFarms();
@@ -32,6 +37,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // 현재 사용자 정보 가져오기
+  const { user } = useAuth();
+  
+  // 선택된 농장의 권한 확인 (작업 등록 가능 여부 확인용)
+  const { data: userRole } = useUserRoleForCalendar(selectedFarm?.id || "");
+  
+  // 작업 등록 가능 여부 확인: 소유주 또는 editor 권한만 가능
+  const canCreateTask = selectedFarm 
+    ? (selectedFarm.userId === user?.id || userRole === 'editor')
+    : true; // 농장이 선택되지 않은 경우는 기본적으로 가능
   
   // 월간과 연간 뷰의 날짜 상태를 분리
   const today = new Date();
@@ -799,32 +815,45 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           </Button>
         </div>
 
-        {/* 우측: 뷰 모드 선택 */}
-        <div className="flex space-x-2">
+        {/* 우측: 공유 버튼 + 뷰 모드 선택 */}
+        <div className="flex items-center gap-2">
           <Button
-            variant={viewMode === "monthly" ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            onClick={() => {
-              setViewMode("monthly");
-              // 월간 뷰로 전환 시 오늘 날짜로 리셋
-              const newMonthlyDate = new Date(today.getFullYear(), today.getMonth(), 1);
-              setMonthlyDate(newMonthlyDate);
-              setMonthlyOffset(Math.floor((today.getDate() - 1) / 5));
-            }}
+            onClick={() => setShowShareDialog(true)}
+            aria-label="캘린더 공유"
+            title="캘린더 공유"
           >
-            월간
+            <Share2 className="w-4 h-4" />
           </Button>
-          <Button
-            variant={viewMode === "yearly" ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setViewMode("yearly");
-              // 연간 뷰로 전환 시 현재 년도로 리셋
-              setYearlyDate(new Date(today.getFullYear(), 0, 1));
-            }}
-          >
-            연간
-          </Button>
+
+          {/* 뷰 모드 선택 */}
+          <div className="flex space-x-2">
+            <Button
+              variant={viewMode === "monthly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setViewMode("monthly");
+                // 월간 뷰로 전환 시 오늘 날짜로 리셋
+                const newMonthlyDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                setMonthlyDate(newMonthlyDate);
+                setMonthlyOffset(Math.floor((today.getDate() - 1) / 5));
+              }}
+            >
+              월간
+            </Button>
+            <Button
+              variant={viewMode === "yearly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setViewMode("yearly");
+                // 연간 뷰로 전환 시 현재 년도로 리셋
+                setYearlyDate(new Date(today.getFullYear(), 0, 1));
+              }}
+            >
+              연간
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1292,6 +1321,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 setSelectedDateForTask(selectedCellDate);
                 setShowAddTaskDialog(true);
               }}
+              disabled={!canCreateTask}
+              title={!canCreateTask ? "읽기 권한만 있어 작업을 추가할 수 없습니다" : ""}
             >
               <Plus className="w-4 h-4" />
               <span>작업 추가</span>
@@ -1378,6 +1409,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           setSelectedTask(task);
                           setIsEditDialogOpen(true);
                         }}
+                        disabled={!canCreateTask || task.userId !== user?.id}
+                        title={!canCreateTask ? "읽기 권한만 있어 작업을 수정할 수 없습니다" : task.userId !== user?.id ? "본인이 등록한 작업만 수정할 수 있습니다" : ""}
                       >
                         수정
                       </Button>
@@ -1391,6 +1424,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             )}
           </div>
         </div>
+      )}
+
+      {/* Share Dialog */}
+      {user && selectedFarm && (
+        <CalendarShareDialog 
+          open={showShareDialog} 
+          onOpenChange={setShowShareDialog}
+          farmId={selectedFarm.id}
+        />
       )}
 
       {/* Add Task Dialog */}
