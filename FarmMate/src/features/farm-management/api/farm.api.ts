@@ -9,6 +9,16 @@ export const farmApi = {
     return await repo.list();
   },
 
+  getOwnFarms: async (): Promise<FarmEntity[]> => {
+    const repo = new FarmRepository();
+    return await repo.listOwn();
+  },
+
+  getSharedFarms: async (): Promise<FarmEntity[]> => {
+    const repo = new FarmRepository();
+    return await repo.listShared();
+  },
+
   createFarm: async (farmData: InsertFarm): Promise<FarmEntity> => {
     const repo = new FarmRepository();
     return await repo.create({

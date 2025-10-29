@@ -39,7 +39,7 @@ export class CropRepository extends BaseRepository {
   async listByFarm(farmId?: string): Promise<CropEntity[]> {
     const userId = await this.withUserId()
     // RLS 정책이 자동으로 처리하므로 user_id 필터링 제거
-    // RLS 정책에 따라 본인의 작물과 공유받은 농장의 작물이 모두 반환됨
+    // 작물은 공유되지 않음 - RLS 정책에 따라 본인의 작물만 반환됨
     let q = this.supabase.from('crops').select('*')
     if (farmId) q = q.eq('farm_id', farmId)
     const { data, error } = await q.order('created_at', { ascending: false })
