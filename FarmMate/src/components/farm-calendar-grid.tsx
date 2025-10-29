@@ -9,6 +9,7 @@ import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
 import { CalendarShareDialog } from "@/features/calendar-share/ui";
+import { useUserRoleForCalendar } from "@/features/calendar-share";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface FarmCalendarGridProps {
@@ -39,6 +40,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   
   // 현재 사용자 정보 가져오기
   const { user } = useAuth();
+  
+  // 선택된 농장의 권한 확인 (작업 등록 가능 여부 확인용)
+  const { data: userRole } = useUserRoleForCalendar(selectedFarm?.id || "");
+  
+  // 작업 등록 가능 여부 확인: 소유주 또는 editor 권한만 가능
+  const canCreateTask = selectedFarm 
+    ? (selectedFarm.userId === user?.id || userRole === 'editor')
+    : true; // 농장이 선택되지 않은 경우는 기본적으로 가능
   
   // 월간과 연간 뷰의 날짜 상태를 분리
   const today = new Date();
@@ -1312,6 +1321,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 setSelectedDateForTask(selectedCellDate);
                 setShowAddTaskDialog(true);
               }}
+              disabled={!canCreateTask}
+              title={!canCreateTask ? "읽기 권한만 있어 작업을 추가할 수 없습니다" : ""}
             >
               <Plus className="w-4 h-4" />
               <span>작업 추가</span>
@@ -1398,6 +1409,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           setSelectedTask(task);
                           setIsEditDialogOpen(true);
                         }}
+                        disabled={!canCreateTask || task.userId !== user?.id}
+                        title={!canCreateTask ? "읽기 권한만 있어 작업을 수정할 수 없습니다" : task.userId !== user?.id ? "본인이 등록한 작업만 수정할 수 있습니다" : ""}
                       >
                         수정
                       </Button>
