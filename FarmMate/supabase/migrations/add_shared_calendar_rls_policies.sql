@@ -93,7 +93,8 @@ USING (
   )
 );
 
--- 작업 등록: 자신의 ID로 등록하거나, 공유받은 농장에 등록 가능
+-- 작업 등록: 자신의 ID로 등록하거나, 공유받은 농장에 편집 권한(editor)이 있는 경우만 가능
+-- viewer는 읽기만 가능하므로 작업 등록 불가
 CREATE POLICY "Users can insert own tasks v1"
 ON tasks_v1 FOR INSERT
 WITH CHECK (
@@ -103,7 +104,7 @@ WITH CHECK (
     INNER JOIN farms f ON cs.calendar_id::text = f.id::text
     WHERE f.id::text = tasks_v1.farm_id::text
     AND cs.shared_user_id::text = auth.uid()::text
-    AND cs.role IN ('editor', 'commenter', 'viewer')
+    AND cs.role = 'editor'  -- editor만 작업 등록 가능
   )
 );
 
