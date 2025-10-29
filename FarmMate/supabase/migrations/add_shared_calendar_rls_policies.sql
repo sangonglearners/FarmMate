@@ -49,23 +49,28 @@ USING (user_id::text = auth.uid()::text);
 
 -- ============================================================================
 -- TASKS_V1 TABLE
--- tasks_v1.farm_id is TEXT, farms.id is UUID
+-- tasks_v1.farm_id is TEXT, farms.id is TEXT (varchar)
+-- 작업 조회 정책:
+-- 1. 자신이 등록한 작업 (user_id = auth.uid())
+-- 2. 공유받은 농장의 모든 작업 (farm_id가 공유된 농장에 속함)
+-- 3. 자신이 소유한 농장의 모든 작업 (farm_id가 자신의 농장에 속함)
 -- ============================================================================
 
 ALTER TABLE tasks_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own tasks v1" ON tasks_v1;
 DROP POLICY IF EXISTS "Users can view shared tasks v1" ON tasks_v1;
+DROP POLICY IF EXISTS "Users can view farm owner tasks v1" ON tasks_v1;
 DROP POLICY IF EXISTS "Users can insert own tasks v1" ON tasks_v1;
 DROP POLICY IF EXISTS "Users can update own tasks v1" ON tasks_v1;
 DROP POLICY IF EXISTS "Users can delete own tasks v1" ON tasks_v1;
 
+-- 자신이 등록한 작업
 CREATE POLICY "Users can view own tasks v1"
 ON tasks_v1 FOR SELECT
 USING (user_id::text = auth.uid()::text);
 
--- tasks_v1.farm_id is TEXT, farms.id is TEXT (varchar)
--- Connect tasks through farms
+-- 공유받은 농장의 모든 작업 (공유받은 사용자가 볼 수 있음)
 CREATE POLICY "Users can view shared tasks v1"
 ON tasks_v1 FOR SELECT
 USING (
@@ -77,10 +82,32 @@ USING (
   )
 );
 
+-- 자신이 소유한 농장의 모든 작업 (소유주가 공유받은 사용자가 등록한 작업도 볼 수 있음)
+CREATE POLICY "Users can view farm owner tasks v1"
+ON tasks_v1 FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM farms f
+    WHERE f.id::text = tasks_v1.farm_id::text
+    AND f.user_id::text = auth.uid()::text
+  )
+);
+
+-- 작업 등록: 자신의 ID로 등록하거나, 공유받은 농장에 등록 가능
 CREATE POLICY "Users can insert own tasks v1"
 ON tasks_v1 FOR INSERT
-WITH CHECK (user_id::text = auth.uid()::text);
+WITH CHECK (
+  user_id::text = auth.uid()::text
+  OR EXISTS (
+    SELECT 1 FROM calendar_shares cs
+    INNER JOIN farms f ON cs.calendar_id::text = f.id::text
+    WHERE f.id::text = tasks_v1.farm_id::text
+    AND cs.shared_user_id::text = auth.uid()::text
+    AND cs.role IN ('editor', 'commenter', 'viewer')
+  )
+);
 
+-- 작업 수정/삭제: 자신이 등록한 작업만 가능
 CREATE POLICY "Users can update own tasks v1"
 ON tasks_v1 FOR UPDATE
 USING (user_id::text = auth.uid()::text);

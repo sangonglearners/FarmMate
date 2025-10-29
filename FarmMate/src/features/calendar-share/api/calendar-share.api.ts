@@ -44,4 +44,9 @@ export const calendarShareApi = {
     const repo = new CalendarShareRepository();
     return repo.getSharedCalendars();
   },
+
+  getFarmOwner: async (farmId: string): Promise<SharedUser | null> => {
+    const repo = new CalendarShareRepository();
+    return repo.getFarmOwner(farmId);
+  },
 };

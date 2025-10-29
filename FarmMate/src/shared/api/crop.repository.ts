@@ -38,9 +38,12 @@ function mapCropRowToEntity(row: CropRow): CropEntity {
 export class CropRepository extends BaseRepository {
   async listByFarm(farmId?: string): Promise<CropEntity[]> {
     const userId = await this.withUserId()
-    // RLS 정책이 자동으로 처리하므로 user_id 필터링 제거
-    // 작물은 공유되지 않음 - RLS 정책에 따라 본인의 작물만 반환됨
-    let q = this.supabase.from('crops').select('*')
+    // 작물은 절대 공유되지 않음 - 본인의 작물만 조회
+    // RLS 정책과 명시적 필터 모두 적용하여 확실히 차단
+    let q = this.supabase
+      .from('crops')
+      .select('*')
+      .eq('user_id', userId) // 명시적으로 본인의 작물만 필터링
     if (farmId) q = q.eq('farm_id', farmId)
     const { data, error } = await q.order('created_at', { ascending: false })
     if (error) throw new Error(error.message)
