@@ -150,6 +150,72 @@ export class CalendarShareRepository extends BaseRepository {
   }
 
   /**
+   * 여러 농장이 공유되고 있는지 확인 (배치 조회)
+   */
+  async getSharedFarmIds(farmIds: string[]): Promise<Set<string>> {
+    if (farmIds.length === 0) return new Set()
+    
+    const { data, error } = await this.supabase
+      .from('calendar_shares')
+      .select('calendar_id')
+      .in('calendar_id', farmIds)
+    
+    if (error) {
+      console.warn('공유 농장 조회 실패:', error)
+      return new Set()
+    }
+    
+    return new Set((data || []).map((row: any) => row.calendar_id.toString()))
+  }
+
+  /**
+   * 여러 농장의 소유주 정보 조회 (배치 조회)
+   */
+  async getFarmOwners(farmIds: string[]): Promise<Map<string, SharedUser>> {
+    if (farmIds.length === 0) return new Map()
+    
+    // 농장 정보 조회
+    const { data: farms, error: farmsError } = await this.supabase
+      .from('farms')
+      .select('id, user_id')
+      .in('id', farmIds)
+    
+    if (farmsError || !farms || farms.length === 0) return new Map()
+    
+    // 소유주 ID 수집
+    const ownerIds = [...new Set(farms.map((f: any) => f.user_id))]
+    
+    // 소유주 프로필 조회
+    const { data: profiles, error: profilesError } = await this.supabase
+      .from('user_profiles')
+      .select('id, email, display_name')
+      .in('id', ownerIds)
+    
+    if (profilesError) {
+      console.warn('프로필 조회 실패:', profilesError)
+      return new Map()
+    }
+    
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
+    const ownerMap = new Map<string, SharedUser>()
+    
+    farms.forEach((farm: any) => {
+      const profile = profileMap.get(farm.user_id)
+      if (profile) {
+        ownerMap.set(farm.id, {
+          shareId: '',
+          userId: profile.id,
+          email: profile.email || '',
+          displayName: profile.display_name || undefined,
+          role: 'owner' as any,
+        })
+      }
+    })
+    
+    return ownerMap
+  }
+
+  /**
    * 농장의 공유된 사용자 목록 조회
    */
   async getSharedUsers(farmId: string): Promise<SharedUser[]> {

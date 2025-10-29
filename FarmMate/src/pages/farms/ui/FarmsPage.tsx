@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Plus, Sprout, MapPin, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddFarmDialog, useOwnFarms, useSharedFarms, useDeleteFarm } from "@features/farm-management";
 import { AddCropDialog, useCrops, useDeleteCrop } from "@features/crop-management";
+import { useSharedFarmIds, useFarmOwners } from "@features/calendar-share";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,14 @@ export default function FarmsPage() {
   
   // 모든 농장을 합쳐서 작물 표시용으로 사용 (작물은 자신의 것만 보이므로 주로 ownFarms에 있을 것)
   const allFarms = [...ownFarms, ...sharedFarms];
+  
+  // 공유되고 있는 농장 ID 목록 조회 (내 농장 목록용)
+  const ownFarmIds = useMemo(() => ownFarms.map(f => f.id), [ownFarms]);
+  const { data: sharedFarmIds = new Set<string>() } = useSharedFarmIds(ownFarmIds);
+  
+  // 친구 농장의 소유주 정보 조회
+  const sharedFarmIdsForOwners = useMemo(() => sharedFarms.map(f => f.id), [sharedFarms]);
+  const { data: farmOwners = new Map<string, any>() } = useFarmOwners(sharedFarmIdsForOwners);
 
   // Open dialogs when query params are present (e.g., /farms?add=farm or ?add=crop)
   useEffect(() => {
@@ -82,14 +91,15 @@ export default function FarmsPage() {
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {ownFarms.map((farm) => {
               const farmCrops = getFarmCrops(farm.id);
+              const isShared = sharedFarmIds.has(farm.id);
               
               return (
-                <Card key={farm.id}>
+                <Card key={farm.id} className={isShared ? "border-blue-200 bg-blue-50/30" : ""}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <MapPin className="w-4 h-4 text-gray-500" />
+                          <MapPin className={`w-4 h-4 ${isShared ? "text-blue-500" : "text-gray-500"}`} />
                           <h3 className="font-medium text-gray-900">{farm.name}</h3>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
@@ -154,6 +164,8 @@ export default function FarmsPage() {
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {sharedFarms.map((farm) => {
               const farmCrops = getFarmCrops(farm.id);
+              const owner = farmOwners.get(farm.id);
+              const ownerName = owner?.displayName || owner?.email?.split('@')[0] || '알 수 없음';
               
               return (
                 <Card key={farm.id} className="border-blue-200 bg-blue-50/30">
@@ -163,6 +175,7 @@ export default function FarmsPage() {
                         <div className="flex items-center space-x-2 mb-1">
                           <MapPin className="w-4 h-4 text-blue-500" />
                           <h3 className="font-medium text-gray-900">{farm.name}</h3>
+                          <span className="text-xs text-gray-500">({ownerName})</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                           {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount} | 작물 {farmCrops.length}종

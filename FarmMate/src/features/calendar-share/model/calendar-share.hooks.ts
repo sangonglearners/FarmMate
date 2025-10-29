@@ -115,3 +115,19 @@ export const useFarmOwner = (farmId: string) => {
   });
 };
 
+export const useSharedFarmIds = (farmIds: string[]) => {
+  return useQuery<Set<string>>({
+    queryKey: ["/api/shared-farm-ids", farmIds.sort().join(",")],
+    queryFn: () => calendarShareApi.getSharedFarmIds(farmIds),
+    enabled: farmIds.length > 0,
+  });
+};
+
+export const useFarmOwners = (farmIds: string[]) => {
+  return useQuery<Map<string, SharedUser>>({
+    queryKey: ["/api/farm-owners", farmIds.sort().join(",")],
+    queryFn: () => calendarShareApi.getFarmOwners(farmIds),
+    enabled: farmIds.length > 0,
+  });
+};
+
