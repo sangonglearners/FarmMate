@@ -35,6 +35,18 @@ function mapFarmRowToEntity(row: FarmRow): FarmEntity {
 export class FarmRepository extends BaseRepository {
   async list(): Promise<FarmEntity[]> {
     const userId = await this.withUserId()
+    // RLS가 자동으로 처리하므로 단순히 select만 하면 됨
+    // RLS 정책에 따라 본인의 농장과 공유받은 농장이 모두 반환됨
+    const { data, error } = await this.supabase
+      .from('farms')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(error.message)
+    return (data as FarmRow[]).map(mapFarmRowToEntity)
+  }
+
+  async listOwn(): Promise<FarmEntity[]> {
+    const userId = await this.withUserId()
     const { data, error } = await this.supabase
       .from('farms')
       .select('*')
@@ -42,6 +54,28 @@ export class FarmRepository extends BaseRepository {
       .order('created_at', { ascending: false })
     if (error) throw new Error(error.message)
     return (data as FarmRow[]).map(mapFarmRowToEntity)
+  }
+
+  async listShared(): Promise<FarmEntity[]> {
+    const userId = await this.withUserId()
+    const { data, error } = await this.supabase
+      .from('farms')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(error.message)
+    
+    // 공유받은 농장만 필터링
+    const { data: sharedCalendars } = await this.supabase
+      .from('calendar_shares')
+      .select('calendar_id')
+      .eq('shared_user_id', userId)
+    
+    const sharedFarmIds = new Set(
+      (sharedCalendars || []).map((cs: any) => cs.calendar_id.toString())
+    )
+    
+    const allFarms = (data as FarmRow[]).map(mapFarmRowToEntity)
+    return allFarms.filter((farm) => sharedFarmIds.has(farm.id))
   }
 
   async create(input: { name: string; environment: string; rowCount: number; area: number }): Promise<FarmEntity> {
