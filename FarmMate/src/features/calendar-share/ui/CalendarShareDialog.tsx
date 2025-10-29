@@ -206,12 +206,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{farmOwner.email}</p>
-                          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
-                            소유주
-                          </Badge>
-                        </div>
+                        <p className="text-sm font-medium truncate">{farmOwner.email}</p>
                         {farmOwner.displayName && (
                           <p className="text-xs text-gray-500 truncate">{farmOwner.displayName}</p>
                         )}
