@@ -9,7 +9,7 @@ import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
 import { CalendarShareDialog } from "@/features/calendar-share/ui";
-import { useUserRoleForCalendar } from "@/features/calendar-share";
+import { useUserRoleForCalendar, useSharedFarmIds } from "@/features/calendar-share";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarCommentsPanel } from "@/features/calendar-comments";
 
@@ -32,15 +32,23 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 공유 다이얼로그 상태
   const [showShareDialog, setShowShareDialog] = useState(false);
   
+  // 현재 사용자 정보 가져오기 (먼저 선언)
+  const { user } = useAuth();
+  
   // 농장 데이터 가져오기
   const { data: farms = [], isLoading: farmsLoading } = useFarms();
+  
+  // 내 농장과 친구 농장 분리
+  const myFarms = farms.filter(farm => farm.userId === user?.id);
+  const friendFarms = farms.filter(farm => farm.userId !== user?.id);
+  
+  // 공유받은 농장 아이디 체크
+  const { data: sharedFarmIds = new Set<string>() } = useSharedFarmIds(friendFarms.map(f => f.id));
+  
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
-  // 현재 사용자 정보 가져오기
-  const { user } = useAuth();
   
   // 선택된 농장의 권한 확인 (작업 등록 가능 여부 확인용)
   const { data: userRole } = useUserRoleForCalendar(selectedFarm?.id || "");
@@ -63,12 +71,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 현재 뷰 모드에 따른 날짜
   const currentDate = viewMode === "monthly" ? monthlyDate : yearlyDate;
 
-  // 첫 번째 농장을 기본값으로 설정
+  // 첫 번째 내 농장을 기본값으로 설정
   useEffect(() => {
-    if (farms && farms.length > 0 && !selectedFarm) {
-      setSelectedFarm(farms[0]);
+    if (myFarms.length > 0 && !selectedFarm) {
+      setSelectedFarm(myFarms[0]);
+    } else if (myFarms.length === 0 && friendFarms.length > 0 && !selectedFarm) {
+      setSelectedFarm(friendFarms[0]);
     }
-  }, [farms, selectedFarm]);
+  }, [myFarms, friendFarms, selectedFarm]);
 
   const handleExportCsv = () => {
     try {
@@ -793,11 +803,32 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 <SelectValue placeholder="농장 선택" />
               </SelectTrigger>
               <SelectContent>
-                {farms.map((farm) => (
-                  <SelectItem key={farm.id} value={farm.id}>
-                    {farm.name} ({farm.environment})
-                  </SelectItem>
-                ))}
+                {/* 내 농장 섹션 */}
+                {myFarms.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">내 농장</div>
+                    {myFarms.map((farm) => (
+                      <SelectItem key={farm.id} value={farm.id}>
+                        {farm.name} ({farm.environment})
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+                
+                {/* 친구 농장 섹션 */}
+                {friendFarms.length > 0 && myFarms.length > 0 && (
+                  <div className="h-px bg-gray-200 my-1" />
+                )}
+                {friendFarms.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">친구 농장</div>
+                    {friendFarms.map((farm) => (
+                      <SelectItem key={farm.id} value={farm.id}>
+                        {farm.name} ({farm.environment})
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           ) : (
