@@ -226,8 +226,18 @@ export class CalendarShareRepository extends BaseRepository {
     
     if (error) throw new Error(error.message)
     
-    // user_profiles를 별도로 조회
-    const userIds = (data || []).map((row: any) => row.shared_user_id)
+    // 소유주 조회
+    const { data: farm, error: farmError } = await this.supabase
+      .from('farms')
+      .select('user_id')
+      .eq('id', farmId)
+      .single()
+    const ownerId: string | null = (!farmError && farm) ? farm.user_id : null
+    
+    // user_profiles를 별도로 조회 (공유 사용자 + 소유주)
+    const userIds = [
+      ...new Set([...(data || []).map((row: any) => row.shared_user_id), ...(ownerId ? [ownerId] : [])])
+    ]
     if (userIds.length === 0) return []
     
     const { data: profiles, error: profilesError } = await this.supabase
@@ -241,13 +251,34 @@ export class CalendarShareRepository extends BaseRepository {
     
     const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
     
-    return (data || []).map((row: any) => ({
+    const sharedUsers: SharedUser[] = (data || []).map((row: any) => ({
       shareId: row.id,
       userId: row.shared_user_id,
       email: profileMap.get(row.shared_user_id)?.email || '',
       displayName: profileMap.get(row.shared_user_id)?.display_name || undefined,
       role: row.role,
     }))
+    
+    // 소유주를 포함 (맨 앞에 추가). shareId는 빈 문자열로 표기
+    const ownerUser: SharedUser | null = ownerId && profileMap.get(ownerId)
+      ? {
+          shareId: '',
+          userId: ownerId,
+          email: profileMap.get(ownerId)?.email || '',
+          displayName: profileMap.get(ownerId)?.display_name || undefined,
+          role: 'owner' as any,
+        }
+      : null
+    
+    const result = ownerUser ? [ownerUser, ...sharedUsers] : sharedUsers
+    
+    // 중복 제거 (userId 기준)
+    const seen = new Set<string>()
+    return result.filter(u => {
+      if (seen.has(u.userId)) return false
+      seen.add(u.userId)
+      return true
+    })
   }
 
   /**
