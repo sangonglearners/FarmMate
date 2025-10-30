@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Settings, Camera } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
-import { useFarms, useDeleteFarm } from '@features/farm-management';
+import { useOwnFarms, useDeleteFarm } from '@features/farm-management';
 import { useCrops, useDeleteCrop } from '@features/crop-management';
 import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
@@ -26,7 +26,7 @@ export default function MyPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [, setLocation] = useLocation();
-  const { data: farms } = useFarms();
+  const { data: farms } = useOwnFarms();
   const deleteFarm = useDeleteFarm();
   const { data: crops } = useCrops();
   const deleteCrop = useDeleteCrop();
