@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSearchUserByEmail, useShareCalendarWithUser, useSharedUsers, useUpdateUserPermission, useRemoveSharedUser, useFarmOwner } from "../model";
+import { useSearchUserByEmail, useShareCalendarWithUser, useSharedUsers, useUpdateUserPermission, useRemoveSharedUser, useFarmOwner, useUserRoleForCalendar } from "../model";
 import type { SharedUser, SearchableUser } from "@/shared/api/calendar-share.repository";
 import { X, Search, Loader2, Crown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -34,6 +34,8 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
 
   const { data: sharedUsers = [], isLoading: sharedUsersLoading, refetch } = useSharedUsers(farmId);
   const { data: farmOwner, isLoading: ownerLoading } = useFarmOwner(farmId);
+  const { data: userRole } = useUserRoleForCalendar(farmId);
+  const canManagePermissions = userRole === 'owner' || userRole === 'editor';
   const searchUserMutation = useSearchUserByEmail();
   const shareMutation = useShareCalendarWithUser();
   const updatePermissionMutation = useUpdateUserPermission();
@@ -58,6 +60,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
   };
 
   const handleInvite = async () => {
+    if (!canManagePermissions) return;
     if (!selectedUser) return;
 
     try {
@@ -77,6 +80,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
   };
 
   const handleRoleChange = async (shareId: string, newRole: 'editor' | 'commenter' | 'viewer') => {
+    if (!canManagePermissions) return;
     try {
       await updatePermissionMutation.mutateAsync({ shareId, role: newRole });
       refetch();
@@ -86,6 +90,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
   };
 
   const handleRemove = async (shareId: string) => {
+    if (!canManagePermissions) return;
     try {
       await removeUserMutation.mutateAsync(shareId);
       refetch();
@@ -118,11 +123,12 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
           {/* 사용자 초대 영역 */}
           <div className="space-y-2">
             <p className="text-sm text-gray-600">캘린더를 다른 사람과 공유하세요</p>
-            <div className="flex gap-2">
+                <div className="flex gap-2">
               <Input
                 placeholder="이메일 입력"
                 value={searchEmail}
-                onChange={(e) => setSearchEmail(e.target.value)}
+                    onChange={(e) => setSearchEmail(e.target.value)}
+                    disabled={!canManagePermissions}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleSearch();
@@ -131,7 +137,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
               />
               <Button 
                 onClick={handleSearch}
-                disabled={searchUserMutation.isPending || !searchEmail.trim()}
+                    disabled={!canManagePermissions || searchUserMutation.isPending || !searchEmail.trim()}
                 size="icon"
               >
                 {searchUserMutation.isPending ? (
@@ -159,7 +165,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                   </div>
                 </div>
                 <div className="mt-3 space-y-2">
-                  <Select value={role} onValueChange={(value) => setRole(value as 'editor' | 'commenter' | 'viewer')}>
+                  <Select value={role} onValueChange={(value) => setRole(value as 'editor' | 'commenter' | 'viewer')} disabled={!canManagePermissions}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -172,7 +178,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                   <Button 
                     onClick={handleInvite} 
                     className="w-full"
-                    disabled={shareMutation.isPending}
+                    disabled={!canManagePermissions || shareMutation.isPending}
                   >
                     {shareMutation.isPending ? "초대 중..." : "초대"}
                   </Button>
@@ -243,8 +249,9 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                         <Select
                           value={user.role}
                           onValueChange={(value) => handleRoleChange(user.shareId, value as 'editor' | 'commenter' | 'viewer')}
+                          disabled={!canManagePermissions}
                         >
-                          <SelectTrigger className="w-[140px]">
+                          <SelectTrigger className="w-[140px]" disabled={!canManagePermissions}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -257,7 +264,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                           variant="ghost"
                           size="icon"
                           onClick={() => handleRemove(user.shareId)}
-                          disabled={removeUserMutation.isPending}
+                          disabled={!canManagePermissions || removeUserMutation.isPending}
                         >
                           <X className="h-4 w-4" />
                         </Button>
