@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSearchUserByEmail, useShareCalendarWithUser, useSharedUsers, useUpdateUserPermission, useRemoveSharedUser, useFarmOwner, useUserRoleForCalendar } from "../model";
+import { useSearchUserByEmail, useShareCalendarWithUser, useSharedUsers, useUpdateUserPermission, useRemoveSharedUser, useUserRoleForCalendar } from "../model";
 import type { SharedUser, SearchableUser } from "@/shared/api/calendar-share.repository";
 import { X, Search, Loader2, Crown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,7 +33,6 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   const { data: sharedUsers = [], isLoading: sharedUsersLoading, refetch } = useSharedUsers(farmId);
-  const { data: farmOwner, isLoading: ownerLoading } = useFarmOwner(farmId);
   const { data: userRole } = useUserRoleForCalendar(farmId);
   const canManagePermissions = userRole === 'owner' || userRole === 'editor';
   const searchUserMutation = useSearchUserByEmail();
@@ -196,44 +195,20 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
           {/* 공유된 사용자 리스트 */}
           <div className="space-y-2">
             <h3 className="text-sm font-medium">공유된 사용자</h3>
-            {(sharedUsersLoading || ownerLoading) ? (
+            {sharedUsersLoading ? (
               <div className="flex items-center justify-center p-8">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
             ) : (
               <div className="space-y-2">
-                {/* 소유주 표시 (맨 위) */}
-                {farmOwner && (
-                  <div className="border-2 border-amber-200 rounded-lg p-3 bg-amber-50/50 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Avatar className="ring-2 ring-amber-400">
-                        <AvatarFallback className="bg-amber-100 text-amber-700">
-                          <Crown className="w-4 h-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{farmOwner.email}</p>
-                        {farmOwner.displayName && (
-                          <p className="text-xs text-gray-500 truncate">{farmOwner.displayName}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="w-[140px] justify-center bg-amber-50 text-amber-700 border-amber-300">
-                        소유주
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-                
-                {/* 공유된 사용자들 */}
-                {sharedUsers.length === 0 && !farmOwner ? (
+                {/* 공유된 사용자들 (소유주 포함) */}
+                {sharedUsers.length === 0 ? (
                   <div className="border rounded-lg p-8 text-center text-sm text-gray-500">
                     공유된 사용자가 없습니다.
                   </div>
                 ) : (
                   sharedUsers.map((user: SharedUser) => (
-                    <div key={user.shareId} className="border rounded-lg p-3 flex items-center justify-between gap-3">
+                    <div key={user.shareId || user.userId} className="border rounded-lg p-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <Avatar>
                           <AvatarFallback>{user.email.charAt(0).toUpperCase()}</AvatarFallback>
@@ -246,28 +221,36 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => handleRoleChange(user.shareId, value as 'editor' | 'commenter' | 'viewer')}
-                          disabled={!canManagePermissions}
-                        >
-                          <SelectTrigger className="w-[140px]" disabled={!canManagePermissions}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="editor">전체 허용</SelectItem>
-                            <SelectItem value="commenter">댓글 허용</SelectItem>
-                            <SelectItem value="viewer">읽기 허용</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemove(user.shareId)}
-                          disabled={!canManagePermissions || removeUserMutation.isPending}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        {user.role === 'owner' ? (
+                          <Badge variant="outline" className="w-[140px] justify-center bg-amber-50 text-amber-700 border-amber-300">
+                            소유주
+                          </Badge>
+                        ) : (
+                          <>
+                            <Select
+                              value={user.role}
+                              onValueChange={(value) => handleRoleChange(user.shareId, value as 'editor' | 'commenter' | 'viewer')}
+                              disabled={!canManagePermissions}
+                            >
+                              <SelectTrigger className="w-[140px]" disabled={!canManagePermissions}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="editor">전체 허용</SelectItem>
+                                <SelectItem value="commenter">댓글 허용</SelectItem>
+                                <SelectItem value="viewer">읽기 허용</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemove(user.shareId)}
+                              disabled={!canManagePermissions || removeUserMutation.isPending}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))
