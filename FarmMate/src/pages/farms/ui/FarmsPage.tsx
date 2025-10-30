@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Plus, Sprout, MapPin, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { AddFarmDialog, useOwnFarms, useSharedFarms, useDeleteFarm } from "@features/farm-management";
+import { AddFarmDialog, useFarms, useDeleteFarm } from "@features/farm-management";
+import { useAuth } from "@/contexts/AuthContext";
 import { AddCropDialog, useCrops, useDeleteCrop } from "@features/crop-management";
 import { useSharedFarmIds, useFarmOwners } from "@features/calendar-share";
 import {
@@ -21,16 +22,24 @@ export default function FarmsPage() {
   const [editingFarm, setEditingFarm] = useState<FarmEntity | null>(null);
   const [editingCrop, setEditingCrop] = useState<Crop | null>(null);
   
-  const { data: ownFarms = [], isLoading: ownFarmsLoading } = useOwnFarms();
-  const { data: sharedFarms = [], isLoading: sharedFarmsLoading } = useSharedFarms();
+  // 현재 사용자 정보 가져오기
+  const { user } = useAuth();
+  
+  // 농장 데이터 가져오기 (내 농장과 친구 농장을 userId로 분리)
+  const { data: farms = [], isLoading: farmsLoading } = useFarms();
+  
+  // 내 농장과 친구 농장 분리
+  const ownFarms = farms.filter(farm => farm.userId === user?.id);
+  const sharedFarms = farms.filter(farm => farm.userId !== user?.id);
+  
   const { data: crops } = useCrops();
   const deleteFarm = useDeleteFarm();
   
-  const isLoading = ownFarmsLoading || sharedFarmsLoading;
+  const isLoading = farmsLoading;
   const deleteCrop = useDeleteCrop();
   
-  // 모든 농장을 합쳐서 작물 표시용으로 사용 (작물은 자신의 것만 보이므로 주로 ownFarms에 있을 것)
-  const allFarms = [...ownFarms, ...sharedFarms];
+  // 모든 농장을 합쳐서 작물 표시용으로 사용
+  const allFarms = farms;
   
   // 공유되고 있는 농장 ID 목록 조회 (내 농장 목록용)
   const ownFarmIds = useMemo(() => ownFarms.map(f => f.id), [ownFarms]);
