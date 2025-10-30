@@ -22,6 +22,8 @@ export default function MyPage() {
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showClearData, setShowClearData] = useState(false);
   const [userName, setUserName] = useState<string>('사용자');
+  const [tempUserName, setTempUserName] = useState<string>('사용자');
+  const [isSaving, setIsSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [, setLocation] = useLocation();
   const { data: farms } = useFarms();
@@ -48,19 +50,25 @@ export default function MyPage() {
           
           if (!error && data?.display_name) {
             setUserName(data.display_name);
+            setTempUserName(data.display_name);
             localStorage.setItem('fm_user_name', data.display_name);
           } else {
             // 기존 로직대로
             setUserName(user.user_metadata?.full_name || user.email || '사용자');
+            setTempUserName(user.user_metadata?.full_name || user.email || '사용자');
           }
         } catch (error) {
           console.error('Failed to load user profile:', error);
           setUserName(user.user_metadata?.full_name || user.email || '사용자');
+          setTempUserName(user.user_metadata?.full_name || user.email || '사용자');
         }
       } else {
         const savedName = localStorage.getItem('fm_user_name');
         const savedAvatar = localStorage.getItem('fm_user_avatar');
-        if (savedName) setUserName(savedName);
+        if (savedName) {
+          setUserName(savedName);
+          setTempUserName(savedName);
+        }
         if (savedAvatar) setAvatarUrl(savedAvatar);
       }
     };
@@ -68,25 +76,38 @@ export default function MyPage() {
     loadUserProfile();
   }, [user]);
 
-  const handleNameChange = async (value: string) => {
-    setUserName(value);
-    localStorage.setItem('fm_user_name', value);
+  const handleNameChange = (value: string) => {
+    setTempUserName(value);
+  };
+
+  const handleSaveName = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    setUserName(tempUserName);
+    localStorage.setItem('fm_user_name', tempUserName);
     
     // user_profiles 테이블도 업데이트
     if (user?.id) {
       try {
         const { error } = await getSupabaseClient()
           .from('user_profiles')
-          .update({ display_name: value })
+          .update({ display_name: tempUserName })
           .eq('id', user.id);
         
         if (error) {
           console.error('Display name update error:', error);
+          alert('이름 저장에 실패했습니다.');
+        } else {
+          alert('이름이 저장되었습니다.');
         }
       } catch (error) {
         console.error('Failed to update display name:', error);
+        alert('이름 저장에 실패했습니다.');
       }
     }
+    
+    setIsSaving(false);
   };
 
   const handleAvatarChange = (file: File | null) => {
@@ -174,8 +195,11 @@ export default function MyPage() {
             className="absolute inset-0 opacity-0"
           />
         </label>
-        <div className="flex-1">
-          <Input value={userName} onChange={(e) => handleNameChange(e.target.value)} />
+        <div className="flex-1 flex gap-2">
+          <Input value={tempUserName} onChange={(e) => handleNameChange(e.target.value)} />
+          <Button onClick={handleSaveName} disabled={isSaving}>
+            {isSaving ? '저장 중...' : '저장'}
+          </Button>
         </div>
       </div>
 

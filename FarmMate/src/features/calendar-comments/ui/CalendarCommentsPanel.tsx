@@ -147,12 +147,10 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
                             const year = date.getFullYear().toString().slice(-2);
                             const month = String(date.getMonth() + 1).padStart(2, '0');
                             const day = String(date.getDate()).padStart(2, '0');
-                            const hour = date.getHours();
+                            const hour = String(date.getHours()).padStart(2, '0');
                             const minute = String(date.getMinutes()).padStart(2, '0');
-                            const period = hour >= 12 ? 'p.m.' : 'a.m.';
-                            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
                             
-                            return `${year}.${month}.${day} ${String(displayHour).padStart(2, '0')}:${minute}${period}`;
+                            return `${year}.${month}.${day} ${hour}:${minute}`;
                           })()}
                         </span>
                       </div>
