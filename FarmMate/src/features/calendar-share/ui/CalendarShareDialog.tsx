@@ -153,13 +153,13 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Avatar>
-                      <AvatarFallback>{selectedUser.email.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>
+                        {(selectedUser.displayName || selectedUser.email).charAt(0).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="text-sm font-medium">{selectedUser.email}</p>
-                      {selectedUser.displayName && (
-                        <p className="text-xs text-gray-500">{selectedUser.displayName}</p>
-                      )}
+                      <p className="text-sm font-medium">{selectedUser.displayName || selectedUser.email}</p>
+                      <p className="text-xs text-gray-500">{selectedUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -211,13 +211,13 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                     <div key={user.shareId || user.userId} className="border rounded-lg p-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <Avatar>
-                          <AvatarFallback>{user.email.charAt(0).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback>
+                            {(user.displayName || user.email).charAt(0).toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{user.email}</p>
-                          {user.displayName && (
-                            <p className="text-xs text-gray-500 truncate">{user.displayName}</p>
-                          )}
+                          <p className="text-sm font-medium truncate">{user.displayName || user.email}</p>
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

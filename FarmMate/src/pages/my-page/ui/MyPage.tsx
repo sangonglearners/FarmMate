@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
 import { clearCurrentUserTaskData, clearAllFrontendData } from '../../../shared/api/clearAllData';
 import { Separator } from '@/components/ui/separator';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);
@@ -35,23 +36,57 @@ export default function MyPage() {
   const { signOut, user } = useAuth();
 
   useEffect(() => {
-    // 실제 사용자 정보 우선, 없으면 로컬 스토리지에서 가져오기
-    if (user) {
-      setUserName(user.user_metadata?.full_name || user.email || '사용자');
-      if (user.user_metadata?.avatar_url) {
-        setAvatarUrl(user.user_metadata.avatar_url);
+    // user_profiles에서 display_name 가져오기
+    const loadUserProfile = async () => {
+      if (user?.id) {
+        try {
+          const { data, error } = await getSupabaseClient()
+            .from('user_profiles')
+            .select('display_name')
+            .eq('id', user.id)
+            .single();
+          
+          if (!error && data?.display_name) {
+            setUserName(data.display_name);
+            localStorage.setItem('fm_user_name', data.display_name);
+          } else {
+            // 기존 로직대로
+            setUserName(user.user_metadata?.full_name || user.email || '사용자');
+          }
+        } catch (error) {
+          console.error('Failed to load user profile:', error);
+          setUserName(user.user_metadata?.full_name || user.email || '사용자');
+        }
+      } else {
+        const savedName = localStorage.getItem('fm_user_name');
+        const savedAvatar = localStorage.getItem('fm_user_avatar');
+        if (savedName) setUserName(savedName);
+        if (savedAvatar) setAvatarUrl(savedAvatar);
       }
-    } else {
-      const savedName = localStorage.getItem('fm_user_name');
-      const savedAvatar = localStorage.getItem('fm_user_avatar');
-      if (savedName) setUserName(savedName);
-      if (savedAvatar) setAvatarUrl(savedAvatar);
-    }
+    };
+
+    loadUserProfile();
   }, [user]);
 
-  const handleNameChange = (value: string) => {
+  const handleNameChange = async (value: string) => {
     setUserName(value);
     localStorage.setItem('fm_user_name', value);
+    
+    // user_profiles 테이블도 업데이트
+    if (user?.id) {
+      try {
+        const { error } = await getSupabaseClient()
+          .from('user_profiles')
+          .update({ display_name: value })
+          .eq('id', user.id);
+        
+        if (error) {
+          console.error('Display name update error:', error);
+        }
+      } catch (error) {
+        console.error('Failed to update display name:', error);
+      }
+    }
   };
 
   const handleAvatarChange = (file: File | null) => {

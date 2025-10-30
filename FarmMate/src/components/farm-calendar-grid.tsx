@@ -11,6 +11,7 @@ import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/cal
 import { CalendarShareDialog } from "@/features/calendar-share/ui";
 import { useUserRoleForCalendar } from "@/features/calendar-share";
 import { useAuth } from "@/contexts/AuthContext";
+import { CalendarCommentsPanel } from "@/features/calendar-comments";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -815,7 +816,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           </Button>
         </div>
 
-        {/* 우측: 공유 버튼 + 뷰 모드 선택 */}
+        {/* 우측: 공유 버튼 + 댓글 버튼 + 뷰 모드 선택 */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -826,6 +827,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           >
             <Share2 className="w-4 h-4" />
           </Button>
+
+          {/* 댓글 패널 */}
+          {selectedFarm && user && (
+            <CalendarCommentsPanel calendarId={selectedFarm.id} userRole={userRole || null} />
+          )}
 
           {/* 뷰 모드 선택 */}
           <div className="flex space-x-2">
