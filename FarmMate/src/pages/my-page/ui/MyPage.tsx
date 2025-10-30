@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Settings, Camera } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
-import { useOwnFarms, useDeleteFarm } from '@features/farm-management';
+import { useFarms, useDeleteFarm } from '@features/farm-management';
 import { useCrops, useDeleteCrop } from '@features/crop-management';
 import { AddFarmDialog } from '@features/farm-management';
 import { AddCropDialog } from '@features/crop-management';
@@ -26,7 +26,12 @@ export default function MyPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [, setLocation] = useLocation();
-  const { data: farms } = useOwnFarms();
+  const queryClient = useQueryClient();
+  const { signOut, user } = useAuth();
+  
+  const { data: allFarms } = useFarms();
+  // 내 농장만 필터링
+  const farms = allFarms?.filter(farm => farm.userId === user?.id) || [];
   const deleteFarm = useDeleteFarm();
   const { data: crops } = useCrops();
   const deleteCrop = useDeleteCrop();
@@ -34,8 +39,6 @@ export default function MyPage() {
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
   const [editingFarm, setEditingFarm] = useState<any | null>(null);
   const [editingCrop, setEditingCrop] = useState<any | null>(null);
-  const queryClient = useQueryClient();
-  const { signOut, user } = useAuth();
 
   useEffect(() => {
     // user_profiles에서 display_name 가져오기
