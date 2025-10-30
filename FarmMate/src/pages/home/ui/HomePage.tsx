@@ -69,6 +69,12 @@ export default function HomePage() {
   const handleFullViewClick = () => {
     setShowMonthView(!showMonthView);
   };
+  // 홈 화면 플래너(주/월)에서도 viewer 공유 작업은 제외하여 전달
+  const plannerTasks = tasks.filter((task: any) => {
+    if (task.farmId && viewerFarmIdSet.has(task.farmId)) return false;
+    return true;
+  });
+
 
   const handleAddTaskClick = () => {
     setShowAddTaskDialog(true);
@@ -382,7 +388,7 @@ export default function HomePage() {
               {showMonthView ? (
                 <MonthCalendar
                   currentDate={currentDate}
-                  tasks={tasks}
+                  tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
                   selectedDate={selectedDate}
@@ -390,7 +396,7 @@ export default function HomePage() {
               ) : (
                 <CalendarGrid
                   currentDate={currentDate}
-                  tasks={tasks}
+                  tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
                   selectedDate={selectedDate}
