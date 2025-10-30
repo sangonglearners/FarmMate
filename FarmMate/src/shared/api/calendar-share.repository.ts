@@ -285,13 +285,16 @@ export class CalendarShareRepository extends BaseRepository {
    */
   async getUserRoleForCalendar(calendarId: string): Promise<UserRole> {
     const userId = await this.withUserId()
-    
-    // 먼저 소유자인지 확인
-    // calendar_id가 user_id이므로, 현재 userId와 같으면 owner
-    if (calendarId === userId) {
+    // 먼저 소유자인지 확인: farms.user_id 기준
+    const { data: farm, error: farmError } = await this.supabase
+      .from('farms')
+      .select('user_id')
+      .eq('id', calendarId)
+      .single()
+    if (!farmError && farm && farm.user_id === userId) {
       return 'owner'
     }
-    
+
     // 공유받은 사용자인지 확인
     const { data, error } = await this.supabase
       .from('calendar_shares')
