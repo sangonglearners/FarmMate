@@ -7,6 +7,7 @@ import { CalendarGrid } from "../../../widgets/calendar-grid";
 import MonthCalendar from "../../../widgets/calendar-grid/ui/MonthCalendar";
 
 import { useCrops } from "../../../features/crop-management";
+import { useSharedCalendars } from "@/features/calendar-share";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "../../../entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
@@ -22,6 +23,14 @@ export default function HomePage() {
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [, setLocation] = useLocation();
+
+  // 읽기 권한(viewer)으로 공유받은 농장 ID 집합 (Home의 ToDo 연동에서만 제외)
+  const { data: sharedCalendars = [] } = useSharedCalendars();
+  const viewerFarmIdSet = new Set(
+    (sharedCalendars || [])
+      .filter((c) => c.role === 'viewer')
+      .map((c) => c.calendarId)
+  );
 
   // 중복 제거 함수
   const removeDuplicateTasks = (tasks: any[]) => {
@@ -171,6 +180,10 @@ export default function HomePage() {
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
   // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
   const selectedDateTasks = tasks.filter(task => {
+    // 홈 ToDo에는 읽기 권한(viewer)으로 공유받은 농장의 작업은 제외
+    if (task.farmId && viewerFarmIdSet.has(task.farmId)) {
+      return false;
+    }
     // "재배" 유형의 작업은 투두리스트에서 제외
     if (task.taskType === "재배") {
       return false;
