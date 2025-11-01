@@ -15,7 +15,7 @@ export default function MobileNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full bg-white border-t border-gray-200 z-40">
+    <nav className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-200 z-40">
       <div className="grid grid-cols-4 gap-1">
         <Link href="/" className={`flex flex-col items-center py-3 px-1 ${
           isActive("/") ? "text-primary bg-primary/10" : "text-gray-600"
