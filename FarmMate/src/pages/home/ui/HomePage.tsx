@@ -13,6 +13,7 @@ import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
+import { WeatherWidget } from "../../../components/weather-widget";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -323,6 +324,9 @@ export default function HomePage() {
   return (
     <>
       <div className="p-4 space-y-6">
+        {/* Weather Widget */}
+        <WeatherWidget />
+
         {/* Header */}
         <div className="text-center">
           <h1 className="text-xl font-bold text-gray-900 mb-2">FarmMate</h1>
