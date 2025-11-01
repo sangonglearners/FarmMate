@@ -635,37 +635,40 @@ export default function BatchTaskEditDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>시작 날짜 (파종일)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? (
-                            format(new Date(field.value), "yyyy년 MM월 dd일", { locale: ko })
-                          ) : (
-                            "날짜를 선택해주세요"
-                          )}
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            const dateStr = format(date, "yyyy-MM-dd");
-                            field.onChange(dateStr);
-                            handleStartDateChange(dateStr);
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                            onTouchStart={(e) => {
+                              e.currentTarget.click();
+                            }}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? (
+                              format(new Date(field.value), "yyyy년 MM월 dd일", { locale: ko })
+                            ) : (
+                              "날짜를 선택해주세요"
+                            )}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              const dateStr = format(date, "yyyy-MM-dd");
+                              field.onChange(dateStr);
+                              handleStartDateChange(dateStr);
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   <FormMessage />
                 </FormItem>
               )}
@@ -738,12 +741,15 @@ export default function BatchTaskEditDialog({
                           <Button
                             variant="outline"
                             className="w-full justify-start text-left font-normal"
+                            onTouchStart={(e) => {
+                              e.currentTarget.click();
+                            }}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {format(new Date(task.startDate), "MM/dd")}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                           <Calendar
                             mode="single"
                             selected={new Date(task.startDate)}
@@ -767,12 +773,15 @@ export default function BatchTaskEditDialog({
                           <Button
                             variant="outline"
                             className="w-full justify-start text-left font-normal"
+                            onTouchStart={(e) => {
+                              e.currentTarget.click();
+                            }}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {format(new Date(task.endDate), "MM/dd")}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                           <Calendar
                             mode="single"
                             selected={new Date(task.endDate)}

@@ -152,8 +152,6 @@ export default function AddTaskDialog({
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [taskGroup, setTaskGroup] = useState<Task[]>([]);
   const [customTaskType, setCustomTaskType] = useState("");
-  const [scheduledDatePopoverOpen, setScheduledDatePopoverOpen] = useState(false);
-  const [endDatePopoverOpen, setEndDatePopoverOpen] = useState(false);
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -1763,16 +1761,17 @@ export default function AddTaskDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>작업 날짜 *</FormLabel>
-                    <Popover open={scheduledDatePopoverOpen} onOpenChange={setScheduledDatePopoverOpen}>
+                    <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
                             type="button"
                             variant="outline"
-                            className={`w-full pl-3 text-left font-normal ${
-                              !field.value ? "text-muted-foreground" : ""
-                            }`}
-                            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', cursor: 'pointer' }}
+                            className="w-full pl-3 text-left font-normal"
+                            onTouchStart={(e) => {
+                              // iOS 터치 이벤트 강제 처리
+                              e.currentTarget.click();
+                            }}
                           >
                             {field.value ? (
                               format(new Date(field.value), "yyyy년 MM월 dd일", {
@@ -1788,7 +1787,8 @@ export default function AddTaskDialog({
                       <PopoverContent 
                         className="w-auto p-0" 
                         align="start"
-                        style={{ touchAction: 'manipulation' }}
+                        sideOffset={5}
+                        collisionPadding={10}
                       >
                         <Calendar
                           mode="single"
@@ -1796,8 +1796,6 @@ export default function AddTaskDialog({
                           onSelect={(date) => {
                             if (date) {
                               field.onChange(format(date, "yyyy-MM-dd"));
-                              // iOS에서 날짜 선택 후 팝오버를 닫음
-                              setTimeout(() => setScheduledDatePopoverOpen(false), 100);
                             }
                           }}
                           disabled={(date) =>
@@ -1820,16 +1818,17 @@ export default function AddTaskDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
-                      <Popover open={endDatePopoverOpen} onOpenChange={setEndDatePopoverOpen}>
+                      <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
                               type="button"
                               variant="outline"
-                              className={`w-full pl-3 text-left font-normal ${
-                                !field.value ? "text-muted-foreground" : ""
-                              }`}
-                              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', cursor: 'pointer' }}
+                              className="w-full pl-3 text-left font-normal"
+                              onTouchStart={(e) => {
+                                // iOS 터치 이벤트 강제 처리
+                                e.currentTarget.click();
+                              }}
                             >
                               {field.value ? (
                                 format(new Date(field.value), "yyyy년 MM월 dd일", {
@@ -1845,7 +1844,8 @@ export default function AddTaskDialog({
                         <PopoverContent 
                           className="w-auto p-0" 
                           align="start"
-                          style={{ touchAction: 'manipulation' }}
+                          sideOffset={5}
+                          collisionPadding={10}
                         >
                           <Calendar
                             mode="single"
@@ -1853,8 +1853,6 @@ export default function AddTaskDialog({
                             onSelect={(date) => {
                               if (date) {
                                 field.onChange(format(date, "yyyy-MM-dd"));
-                                // iOS에서 날짜 선택 후 팝오버를 닫음
-                                setTimeout(() => setEndDatePopoverOpen(false), 100);
                               }
                             }}
                             disabled={(date) =>
