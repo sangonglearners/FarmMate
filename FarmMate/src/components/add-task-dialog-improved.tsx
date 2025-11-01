@@ -67,6 +67,8 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { mustOk } from "@/shared/api/mustOk";
 import { useFarms } from "@/features/farm-management";
 import { useCrops } from "@/features/crop-management";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSharedCalendars } from "@/features/calendar-share";
 
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
@@ -154,6 +156,31 @@ export default function AddTaskDialog({
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
   const { data: crops } = useCrops();
+
+  // 현재 사용자 정보와 공유된 캘린더 정보 가져오기 (권한 체크용)
+  const { user } = useAuth();
+  const { data: sharedCalendars = [] } = useSharedCalendars();
+
+  // 각 농장의 권한 확인 함수
+  const getFarmPermission = (farmId: string) => {
+    const farm = farms?.find(f => f.id === farmId);
+    if (!farm) return null;
+
+    // 내 농장인지 확인
+    if (farm.userId === user?.id) {
+      return 'owner';
+    }
+
+    // 공유된 캘린더에서 권한 찾기
+    const sharedCalendar = sharedCalendars.find(sc => sc.calendarId === farmId);
+    return sharedCalendar?.role || null;
+  };
+
+  // 작업 등록 가능 여부 확인: 내 농장 또는 editor 권한만 가능
+  const canCreateTaskForFarm = (farmId: string) => {
+    const permission = getFarmPermission(farmId);
+    return permission === 'owner' || permission === 'editor';
+  };
 
   /** 기존 작업 목록 가져오기 (이랑 중복 검사용) */
   const { data: existingTasks } = useQuery<Task[]>({
@@ -246,16 +273,19 @@ export default function AddTaskDialog({
     }
   }, [open]);
 
-  // 첫 번째 농장을 기본값으로 설정
+  // 첫 번째 작업 등록 가능한 농장을 기본값으로 설정
   useEffect(() => {
     if (farms && farms.length > 0 && !task && open && !selectedFarm) {
-      const firstFarm = farms[0];
-      setSelectedFarm(firstFarm);
-      form.setValue("farmId", firstFarm.id);
-      form.setValue("environment", firstFarm.environment || "");
-      console.log("첫 번째 농장이 자동 선택되었습니다:", firstFarm.name);
+      // 작업 등록 가능한 농장 찾기 (내 농장 또는 editor 권한)
+      const availableFarm = farms.find(farm => canCreateTaskForFarm(farm.id));
+      if (availableFarm) {
+        setSelectedFarm(availableFarm);
+        form.setValue("farmId", availableFarm.id);
+        form.setValue("environment", availableFarm.environment || "");
+        console.log("작업 등록 가능한 농장이 자동 선택되었습니다:", availableFarm.name);
+      }
     }
-  }, [farms, task, open, selectedFarm, form]);
+  }, [farms, task, open, selectedFarm, form, user, sharedCalendars]);
 
   // 일괄등록된 작업 그룹 찾기
   const findTaskGroup = (currentTask: Task) => {
@@ -1075,6 +1105,16 @@ export default function AddTaskDialog({
       return;
     }
 
+    // 권한 체크: 작업 등록 가능한 농장만 제출 가능
+    if (!canCreateTaskForFarm(data.farmId)) {
+      toast({
+        title: "권한이 없습니다",
+        description: "이 농장에는 작업을 등록할 권한이 없습니다. (내 농장 또는 전체 허용 권한 필요)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // 이랑 번호 필수 검증
     if (!task && !data.rowNumber) {
       toast({
@@ -1413,6 +1453,16 @@ export default function AddTaskDialog({
                       value={field.value || ""}
                       onValueChange={(value) => {
                         try {
+                          // 권한 체크: 작업 등록 가능한 농장만 선택 가능
+                          if (!canCreateTaskForFarm(value)) {
+                            toast({
+                              title: "권한이 없습니다",
+                              description: "이 농장에는 작업을 등록할 권한이 없습니다. (내 농장 또는 전체 허용 권한 필요)",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
                           field.onChange(value);
                           const farm = farms?.find(f => f.id === value);
                           if (farm) {
@@ -1454,11 +1504,33 @@ export default function AddTaskDialog({
                             등록된 농장이 없습니다. 농장을 먼저 추가해주세요.
                           </SelectItem>
                         ) : (
-                          farms?.map((farm) => (
-                            <SelectItem key={farm.id} value={farm.id}>
-                              {farm.name} ({farm.environment}) - {farm.rowCount}이랑
-                            </SelectItem>
-                          ))
+                          farms?.map((farm) => {
+                            const canCreate = canCreateTaskForFarm(farm.id);
+                            const permission = getFarmPermission(farm.id);
+                            const permissionLabel = permission === 'owner' 
+                              ? '내 농장' 
+                              : permission === 'editor' 
+                              ? '전체 허용' 
+                              : permission === 'commenter' 
+                              ? '댓글 허용' 
+                              : permission === 'viewer' 
+                              ? '읽기 허용' 
+                              : '';
+                            
+                            return (
+                              <SelectItem 
+                                key={farm.id} 
+                                value={farm.id}
+                                disabled={!canCreate}
+                                className={!canCreate ? "opacity-50 cursor-not-allowed" : ""}
+                              >
+                                <span className={!canCreate ? "text-gray-400" : ""}>
+                                  {farm.name}
+                                  {permissionLabel && ` [${permissionLabel}]`}
+                                </span>
+                              </SelectItem>
+                            );
+                          })
                         )}
                       </SelectContent>
                     </Select>
