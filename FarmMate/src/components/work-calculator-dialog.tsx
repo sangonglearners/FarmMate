@@ -404,12 +404,15 @@ export default function WorkCalculatorDialog({
                         <Button
                           variant="outline"
                           className="w-full justify-start text-left font-normal"
+                          onTouchStart={(e) => {
+                            e.currentTarget.click();
+                          }}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {format(new Date(schedule.startDate), "MM/dd")}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                         <Calendar
                           mode="single"
                           selected={new Date(schedule.startDate)}
@@ -431,12 +434,15 @@ export default function WorkCalculatorDialog({
                         <Button
                           variant="outline"
                           className="w-full justify-start text-left font-normal"
+                          onTouchStart={(e) => {
+                            e.currentTarget.click();
+                          }}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {format(new Date(schedule.endDate), "MM/dd")}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                         <Calendar
                           mode="single"
                           selected={new Date(schedule.endDate)}

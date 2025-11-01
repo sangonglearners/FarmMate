@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../shared/ui/dialog";
+import { Dialog as DateDialog, DialogContent as DateDialogContent, DialogTrigger as DateDialogTrigger } from "../shared/ui/dialog";
 import { Button } from "../shared/ui/button";
 import { Input } from "../shared/ui/input";
 import { Label } from "../shared/ui/label";
 import { Calendar } from "../shared/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "../shared/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../shared/ui/select";
 import { Checkbox } from "../shared/ui/checkbox";
 import { CalendarIcon, Edit2 } from "lucide-react";
@@ -36,6 +36,8 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
   const [selectedCropId, setSelectedCropId] = useState(task.cropId || "");
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [isAutoTitle, setIsAutoTitle] = useState(true); // 자동 제목 생성 여부
+  const [startDateDialogOpen, setStartDateDialogOpen] = useState(false);
+  const [endDateDialogOpen, setEndDateDialogOpen] = useState(false);
 
   const { data: farms } = useFarms();
   const { data: crops } = useCrops();
@@ -97,6 +99,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
 
   const handleUpdate = async () => {
     try {
+      const { taskApi } = await import("@/shared/api/tasks");
       const updateData = {
         title,
         taskType,
@@ -216,8 +219,8 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>시작 날짜</Label>
-              <Popover>
-                <PopoverTrigger asChild>
+              <DateDialog open={startDateDialogOpen} onOpenChange={setStartDateDialogOpen}>
+                <DateDialogTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
@@ -228,22 +231,25 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {startDate ? format(startDate, "PPP") : "날짜 선택"}
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                </DateDialogTrigger>
+                <DateDialogContent className="w-auto p-0 flex items-center justify-center">
                   <Calendar
                     mode="single"
                     selected={startDate}
-                    onSelect={setStartDate}
+                    onSelect={(date) => {
+                      setStartDate(date);
+                      setStartDateDialogOpen(false);
+                    }}
                     initialFocus
                   />
-                </PopoverContent>
-              </Popover>
+                </DateDialogContent>
+              </DateDialog>
             </div>
 
             <div>
               <Label>종료 날짜</Label>
-              <Popover>
-                <PopoverTrigger asChild>
+              <DateDialog open={endDateDialogOpen} onOpenChange={setEndDateDialogOpen}>
+                <DateDialogTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
@@ -254,16 +260,19 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {endDate ? format(endDate, "PPP") : "날짜 선택"}
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                </DateDialogTrigger>
+                <DateDialogContent className="w-auto p-0 flex items-center justify-center">
                   <Calendar
                     mode="single"
                     selected={endDate}
-                    onSelect={setEndDate}
+                    onSelect={(date) => {
+                      setEndDate(date);
+                      setEndDateDialogOpen(false);
+                    }}
                     initialFocus
                   />
-                </PopoverContent>
-              </Popover>
+                </DateDialogContent>
+              </DateDialog>
             </div>
           </div>
 
