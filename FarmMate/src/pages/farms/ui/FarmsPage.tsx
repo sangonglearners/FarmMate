@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AddFarmDialog, useFarms, useDeleteFarm } from "@features/farm-management";
 import { useAuth } from "@/contexts/AuthContext";
 import { AddCropDialog, useCrops, useDeleteCrop } from "@features/crop-management";
-import { useSharedFarmIds, useFarmOwners } from "@features/calendar-share";
+import { useSharedFarmIds, useFarmOwners, useSharedCalendars, useRemoveSharedUser } from "@features/calendar-share";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +48,19 @@ export default function FarmsPage() {
   // 친구 농장의 소유주 정보 조회
   const sharedFarmIdsForOwners = useMemo(() => sharedFarms.map(f => f.id), [sharedFarms]);
   const { data: farmOwners = new Map<string, any>() } = useFarmOwners(sharedFarmIdsForOwners);
+  
+  // 친구 농장의 shareId 조회를 위한 공유 캘린더 목록
+  const { data: sharedCalendars = [] } = useSharedCalendars();
+  const farmToShareIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    sharedCalendars.forEach(shared => {
+      map.set(shared.calendarId, shared.shareId);
+    });
+    return map;
+  }, [sharedCalendars]);
+  
+  // 친구 농장 삭제 (공유 권한 제거)
+  const removeSharedUser = useRemoveSharedUser();
 
   // Open dialogs when query params are present (e.g., /farms?add=farm or ?add=crop)
   useEffect(() => {
@@ -175,6 +188,7 @@ export default function FarmsPage() {
               const farmCrops = getFarmCrops(farm.id);
               const owner = farmOwners.get(farm.id);
               const ownerName = owner?.displayName || owner?.email?.split('@')[0] || '알 수 없음';
+              const shareId = farmToShareIdMap.get(farm.id);
               
               return (
                 <Card key={farm.id} className="border-blue-200 bg-blue-50/30">
@@ -189,6 +203,27 @@ export default function FarmsPage() {
                         <p className="text-xs text-gray-500 mt-1">
                           {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount} | 작물 {farmCrops.length}종
                         </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              className="text-destructive" 
+                              onClick={() => {
+                                if (shareId && window.confirm(`정말로 "${farm.name}" 농장의 공유를 취소하시겠습니까?\n\n나에게 공유된 권한만 제거되며, 농장 자체는 삭제되지 않습니다.`)) {
+                                  removeSharedUser.mutate(shareId);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" /> 삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </CardContent>
