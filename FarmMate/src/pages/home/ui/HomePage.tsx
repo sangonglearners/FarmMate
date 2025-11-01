@@ -13,6 +13,7 @@ import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
+import { WeatherWidget } from "../../../components/weather-widget";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -329,25 +330,8 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* Recommendation Banner */}
-        <Card className="overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="max-w-[70%]">
-                <p className="text-xs text-gray-600 mb-1">이번 시즌에는</p>
-                <h2 className="text-base font-semibold text-gray-900 leading-snug">
-                  무엇을, 언제, 어디에, 얼마나 심지?
-                </h2>
-                <Button size="sm" className="mt-3" onClick={() => setLocation('/recommendations/input')}>
-                  작물 추천 받으러가기
-                </Button>
-              </div>
-              <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center text-4xl select-none">
-                🥕
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Weather Widget */}
+        <WeatherWidget />
 
         {/* Calendar Planner */}
         <Card>

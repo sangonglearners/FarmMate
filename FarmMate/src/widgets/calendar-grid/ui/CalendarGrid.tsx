@@ -106,12 +106,26 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
           const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
           const isSelected = selectedDate === dateStr;
 
+          // 배경색 우선순위: 오늘 날짜 > 선택된 날짜 > 작업 있는 날짜 > 기본
+          let backgroundColor = '';
+          let borderColor = 'border-gray-200';
+          
+          if (todayCheck) {
+            backgroundColor = 'bg-green-50';
+            borderColor = 'border-green-200 border-2';
+          } else if (isSelected) {
+            backgroundColor = 'bg-blue-50';
+            borderColor = 'border-blue-200 border-2';
+          } else if (dayTasks.length > 0) {
+            backgroundColor = 'bg-gray-50';
+          }
+
           return (
             <div
               key={index}
-              className={`min-h-24 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                todayCheck ? 'bg-primary/5 border-primary' : ''
-              } ${isSelected ? 'bg-blue-50 border-blue-300' : ''} ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
+              className={`min-h-24 p-1 ${borderColor} rounded-lg cursor-pointer transition-colors ${
+                !isSelected && !todayCheck ? 'hover:bg-gray-50' : ''
+              } ${backgroundColor}`}
               onClick={() => {
                 onDateClick(dateStr);
               }}

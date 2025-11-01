@@ -6,3 +6,4 @@ export * from './crop.repository';
 export * from './task.repository';
 export * from './tasks';
 export * from './server-registration.repository';
+export * from './weather';
