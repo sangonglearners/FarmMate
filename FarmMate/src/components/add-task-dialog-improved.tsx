@@ -195,7 +195,7 @@ export default function AddTaskDialog({
       description: "",
       taskType: "",
       scheduledDate: selectedDate || "",
-      endDate: "",
+      endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
       farmId: "",
       cropId: "",
       environment: "",
@@ -203,6 +203,20 @@ export default function AddTaskDialog({
     },
     mode: "onChange", // 실시간 유효성 검사
   });
+
+  // 작업 날짜가 변경될 때 종료날짜를 자동으로 동일하게 설정
+  const watchedScheduledDate = form.watch("scheduledDate");
+  useEffect(() => {
+    const currentEndDate = form.getValues("endDate");
+    
+    // 작업 날짜가 있고, 종료날짜가 비어있거나 작업 날짜와 다른 경우
+    if (watchedScheduledDate && (!currentEndDate || currentEndDate !== watchedScheduledDate)) {
+      // 개별등록 모드이거나 수정 모드일 때만 자동 설정 (일괄등록은 제외)
+      if ((!task && registrationMode === "individual") || task) {
+        form.setValue("endDate", watchedScheduledDate);
+      }
+    }
+  }, [watchedScheduledDate, registrationMode, task, form]);
 
   // 제목 자동 설정 (편집 모드에서도 작동)
   useEffect(() => {
@@ -426,7 +440,7 @@ export default function AddTaskDialog({
         description: "",
         taskType: "",
         scheduledDate: selectedDate || "",
-        endDate: "",
+        endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
         farmId: "",
         cropId: "",
         environment: "",
