@@ -49,6 +49,19 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // 선택된 농장의 권한 확인 (작업 등록 가능 여부 확인용)
   const { data: userRole } = useUserRoleForCalendar(selectedFarm?.id || "");
@@ -937,21 +950,30 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           ref={scrollContainerRef} 
           className="overflow-auto max-h-[700px]"
         >
-          <div className="min-w-[1300px]">
+          <div 
+            style={{
+              width: viewMode === "monthly" 
+                ? (isMobile ? `${40 + 70 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
+                : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`),
+              minWidth: viewMode === "monthly" 
+                ? (isMobile ? `${40 + 70 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
+                : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`)
+            }}
+          >
             {/* 헤더 */}
-            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30">
-              <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50">
-                <div className="absolute inset-0 p-1">
+            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30 shadow-sm">
+              <div className="w-[40px] md:w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50 shadow-sm">
+                <div className="absolute inset-0 p-0.5 md:p-1">
                   {/* 대각선 */}
                   <svg className="absolute inset-0 w-full h-full">
                     <line x1="0" y1="0" x2="100%" y2="100%" stroke="#d1d5db" strokeWidth="1"/>
                   </svg>
                   {/* 이랑 텍스트 (왼쪽 하단) */}
-                  <div className="absolute bottom-1 left-1 text-xs font-medium text-gray-600">
+                  <div className="absolute bottom-0.5 left-0.5 md:bottom-1 md:left-1 text-[8px] md:text-xs font-medium text-gray-600 leading-tight whitespace-nowrap">
                     이랑
                   </div>
                   {/* 일/월 텍스트 (오른쪽 상단) */}
-                  <div className="absolute top-1 right-1 text-xs font-medium text-gray-600">
+                  <div className="absolute top-0.5 right-0.5 md:top-1 md:right-1 text-[8px] md:text-xs font-medium text-gray-600 leading-tight whitespace-nowrap">
                     {viewMode === "monthly" ? "일" : "월"}
                   </div>
                 </div>
@@ -959,7 +981,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {currentPeriods.map((dayInfo, index) => (
                 <div 
                   key={viewMode === "monthly" ? `${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : (dayInfo as any).month}
-                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[120px]"} flex-shrink-0 p-3 text-center font-medium border-r border-gray-200 last:border-r-0 ${
+                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-3 text-center font-medium border-r border-gray-200 ${
                     isToday(dayInfo) 
                       ? "bg-green-100 text-green-800 font-bold" 
                       : "text-gray-600"
@@ -989,12 +1011,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 return (
                   <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
                     {/* 이랑 번호 */}
-                    <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-20">
+                    <div className="w-[40px] md:w-[60px] p-1 md:p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-20 text-sm md:text-base shadow-sm">
                       {rowNumber}
                     </div>
 
                     {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
-                    <div className="absolute left-[60px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
+                    <div className={`absolute ${isMobile ? 'left-[40px]' : 'left-[60px]'} right-0 top-0 bottom-0 pointer-events-none overflow-hidden`}>
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 3개까지만 표시 */}
                     {continuousTaskGroups.slice(0, 3).map((taskGroup, groupIndex) => {
                       // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
@@ -1016,7 +1038,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         boxWidth = `${spanUnits * cellWidth}px`;
                       } else {
                         // 월간 뷰: 셀을 완전히 채우도록 패딩 제거
-                        const cellWidth = 120;
+                        // 모바일에서 반응형 처리
+                        const cellWidth = isMobile ? 70 : 120;
                         leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
                         boxWidth = `${spanUnits * cellWidth}px`;
                       }
@@ -1222,7 +1245,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[120px]"} flex-shrink-0 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
