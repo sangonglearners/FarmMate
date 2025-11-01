@@ -1767,11 +1767,10 @@ export default function AddTaskDialog({
                           <Button
                             type="button"
                             variant="outline"
-                            className="w-full pl-3 text-left font-normal"
-                            onTouchStart={(e) => {
-                              // iOS 터치 이벤트 강제 처리
-                              e.currentTarget.click();
-                            }}
+                            className={`w-full pl-3 text-left font-normal ${
+                              !field.value ? "text-muted-foreground" : ""
+                            }`}
+                            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                           >
                             {field.value ? (
                               format(new Date(field.value), "yyyy년 MM월 dd일", {
@@ -1824,11 +1823,10 @@ export default function AddTaskDialog({
                             <Button
                               type="button"
                               variant="outline"
-                              className="w-full pl-3 text-left font-normal"
-                              onTouchStart={(e) => {
-                                // iOS 터치 이벤트 강제 처리
-                                e.currentTarget.click();
-                              }}
+                              className={`w-full pl-3 text-left font-normal ${
+                                !field.value ? "text-muted-foreground" : ""
+                              }`}
+                              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                             >
                               {field.value ? (
                                 format(new Date(field.value), "yyyy년 MM월 dd일", {

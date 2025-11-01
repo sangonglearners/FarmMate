@@ -40,9 +40,14 @@ export const calendarShareApi = {
     return repo.getUserRoleForCalendar(calendarId);
   },
 
-  getSharedCalendars: async (): Promise<Array<{ calendarId: string; role: UserRole }>> => {
+  getSharedCalendars: async (): Promise<Array<{ calendarId: string; role: UserRole; shareId: string }>> => {
     const repo = new CalendarShareRepository();
     return repo.getSharedCalendars();
+  },
+
+  getShareIdForFarm: async (farmId: string): Promise<string | null> => {
+    const repo = new CalendarShareRepository();
+    return repo.getShareIdForFarm(farmId);
   },
 
   getFarmOwner: async (farmId: string): Promise<SharedUser | null> => {
