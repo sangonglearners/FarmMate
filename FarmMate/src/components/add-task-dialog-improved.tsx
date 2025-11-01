@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -40,11 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
@@ -1243,7 +1239,7 @@ export default function AddTaskDialog({
 
   return (
     <>
-      <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange}>
+      <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange} modal={false}>
         <DialogContent className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{task ? "일정 수정하기" : "내 농작업 관리"}</DialogTitle>
@@ -1758,101 +1754,38 @@ export default function AddTaskDialog({
               <FormField
                 control={form.control}
                 name="scheduledDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>작업 날짜 *</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full pl-3 text-left font-normal"
-                            onTouchStart={(e) => {
-                              // iOS 터치 이벤트 강제 처리
-                              e.currentTarget.click();
-                            }}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "yyyy년 MM월 dd일", {
-                                locale: ko,
-                              })
-                            ) : (
-                              <span>날짜를 선택해주세요</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-auto p-0" 
-                        align="start"
-                        sideOffset={5}
-                        collisionPadding={10}
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              field.onChange(format(date, "yyyy-MM-dd"));
-                            }
-                          }}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* 종료 날짜(개별등록 또는 수정 모드에서) */}
-              {((!task && registrationMode === "individual") || task) && (
-                <FormField
-                  control={form.control}
-                  name="endDate"
-                  render={({ field }) => (
+                render={({ field }) => {
+                  const [open, setOpen] = useState(false);
+                  return (
                     <FormItem>
-                      <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
+                      <FormLabel>작업 날짜 *</FormLabel>
+                      <Dialog open={open} onOpenChange={setOpen}>
+                        <DialogTrigger asChild>
                           <FormControl>
                             <Button
                               type="button"
                               variant="outline"
                               className="w-full pl-3 text-left font-normal"
-                              onTouchStart={(e) => {
-                                // iOS 터치 이벤트 강제 처리
-                                e.currentTarget.click();
-                              }}
                             >
                               {field.value ? (
                                 format(new Date(field.value), "yyyy년 MM월 dd일", {
                                   locale: ko,
                                 })
                               ) : (
-                                <span>종료 날짜를 선택해주세요</span>
+                                <span>날짜를 선택해주세요</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
                           </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent 
-                          className="w-auto p-0" 
-                          align="start"
-                          sideOffset={5}
-                          collisionPadding={10}
-                        >
+                        </DialogTrigger>
+                        <DialogContent className="w-auto p-0 flex items-center justify-center">
                           <Calendar
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
                             onSelect={(date) => {
                               if (date) {
                                 field.onChange(format(date, "yyyy-MM-dd"));
+                                setOpen(false);
                               }
                             }}
                             disabled={(date) =>
@@ -1860,11 +1793,64 @@ export default function AddTaskDialog({
                             }
                             initialFocus
                           />
-                        </PopoverContent>
-                      </Popover>
+                        </DialogContent>
+                      </Dialog>
                       <FormMessage />
                     </FormItem>
-                  )}
+                  );
+                }}
+              />
+
+              {/* 종료 날짜(개별등록 또는 수정 모드에서) */}
+              {((!task && registrationMode === "individual") || task) && (
+                <FormField
+                  control={form.control}
+                  name="endDate"
+                  render={({ field }) => {
+                    const [open, setOpen] = useState(false);
+                    return (
+                      <FormItem>
+                        <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
+                        <Dialog open={open} onOpenChange={setOpen}>
+                          <DialogTrigger asChild>
+                            <FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full pl-3 text-left font-normal"
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "yyyy년 MM월 dd일", {
+                                    locale: ko,
+                                  })
+                                ) : (
+                                  <span>종료 날짜를 선택해주세요</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </DialogTrigger>
+                          <DialogContent className="w-auto p-0 flex items-center justify-center">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? new Date(field.value) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  field.onChange(format(date, "yyyy-MM-dd"));
+                                  setOpen(false);
+                                }
+                              }}
+                              disabled={(date) =>
+                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                              }
+                              initialFocus
+                            />
+                          </DialogContent>
+                        </Dialog>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
 
