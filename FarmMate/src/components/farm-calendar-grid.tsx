@@ -779,63 +779,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     <div className="space-y-4">
       {/* 헤더 */}
       <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">나의 캘린더</h1>
-        <p className="text-gray-600 text-sm">월간, 연간 작업 일정을 이랑별로 확인할 수 있습니다</p>
+        <h1 className="text-xl font-bold text-gray-900 mb-4">나의 캘린더</h1>
       </div>
 
       {/* 컨트롤 */}
-      <div className="flex items-center justify-between">
-        {/* 좌측: 농장 선택 + 내보내기 아이콘 */}
-        <div className="flex items-center gap-2">
-          {farmsLoading ? (
-            <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
-          ) : farms.length > 0 ? (
-            <Select 
-              value={selectedFarm?.id || "no-farm"} 
-              onValueChange={(value) => {
-                if (value !== "no-farm") {
-                  const farm = farms.find(f => f.id === value);
-                  if (farm) setSelectedFarm(farm);
-                }
-              }}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="농장 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {/* 내 농장 섹션 */}
-                {myFarms.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">내 농장</div>
-                    {myFarms.map((farm) => (
-                      <SelectItem key={farm.id} value={farm.id}>
-                        {farm.name} ({farm.environment})
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-                
-                {/* 친구 농장 섹션 */}
-                {friendFarms.length > 0 && myFarms.length > 0 && (
-                  <div className="h-px bg-gray-200 my-1" />
-                )}
-                {friendFarms.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">친구 농장</div>
-                    {friendFarms.map((farm) => (
-                      <SelectItem key={farm.id} value={farm.id}>
-                        {farm.name} ({farm.environment})
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          ) : (
-            <div className="text-sm text-gray-500">
-              등록된 농장이 없습니다
-            </div>
-          )}
+      <div className="flex flex-col gap-2">
+        {/* 첫 번째 줄: CSV + 공유 + 댓글 버튼 */}
+        <div className="flex items-center justify-end gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -845,10 +795,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           >
             <FileDown className="w-4 h-4" />
           </Button>
-        </div>
-
-        {/* 우측: 공유 버튼 + 댓글 버튼 + 뷰 모드 선택 */}
-        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -858,13 +804,66 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           >
             <Share2 className="w-4 h-4" />
           </Button>
-
           {/* 댓글 패널 */}
           {selectedFarm && user && (
             <CalendarCommentsPanel calendarId={selectedFarm.id} userRole={userRole || null} />
           )}
+        </div>
 
-          {/* 뷰 모드 선택 */}
+        {/* 두 번째 줄: 농장 선택 + 월간 + 연간 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {farmsLoading ? (
+              <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
+            ) : farms.length > 0 ? (
+              <Select 
+                value={selectedFarm?.id || "no-farm"} 
+                onValueChange={(value) => {
+                  if (value !== "no-farm") {
+                    const farm = farms.find(f => f.id === value);
+                    if (farm) setSelectedFarm(farm);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="농장 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* 내 농장 섹션 */}
+                  {myFarms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">내 농장</div>
+                      {myFarms.map((farm) => (
+                        <SelectItem key={farm.id} value={farm.id}>
+                          {farm.name} ({farm.environment})
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  
+                  {/* 친구 농장 섹션 */}
+                  {friendFarms.length > 0 && myFarms.length > 0 && (
+                    <div className="h-px bg-gray-200 my-1" />
+                  )}
+                  {friendFarms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">친구 농장</div>
+                      {friendFarms.map((farm) => (
+                        <SelectItem key={farm.id} value={farm.id}>
+                          {farm.name} ({farm.environment})
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-gray-500">
+                등록된 농장이 없습니다
+              </div>
+            )}
+          </div>
+
           <div className="flex space-x-2">
             <Button
               variant={viewMode === "monthly" ? "default" : "outline"}
