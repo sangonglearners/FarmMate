@@ -667,7 +667,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
             {registrationMode === 'batch' ? (
               <div>
                 <Label>시작 날짜</Label>
-                <Popover open={calendarFromOpen} onOpenChange={setCalendarFromOpen}>
+                <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -675,12 +675,15 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                         "w-full justify-start text-left font-normal",
                         !startDate && "text-muted-foreground"
                       )}
+                      onTouchStart={(e) => {
+                        e.currentTarget.click();
+                      }}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {startDate ? format(startDate, "PPP", { locale: ko }) : "날짜를 선택하세요"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                     <CalendarComponent
                       mode="single"
                       selected={startDate}
@@ -695,7 +698,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
               <div className="space-y-4">
                 <div>
                   <Label>FROM</Label>
-                  <Popover open={calendarFromOpen} onOpenChange={setCalendarFromOpen}>
+                  <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -703,12 +706,15 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                           "w-full justify-start text-left font-normal",
                           !startDate && "text-muted-foreground"
                         )}
+                        onTouchStart={(e) => {
+                          e.currentTarget.click();
+                        }}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {startDate ? format(startDate, "MM/dd", { locale: ko }) : "날짜 선택"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                       <CalendarComponent
                         mode="single"
                         selected={startDate}
@@ -722,7 +728,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                 
                 <div>
                   <Label>TO</Label>
-                  <Popover open={calendarToOpen} onOpenChange={setCalendarToOpen}>
+                  <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -730,12 +736,15 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                           "w-full justify-start text-left font-normal",
                           !endDate && "text-muted-foreground"
                         )}
+                        onTouchStart={(e) => {
+                          e.currentTarget.click();
+                        }}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {endDate ? format(endDate, "MM/dd", { locale: ko }) : "날짜 선택"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                       <CalendarComponent
                         mode="single"
                         selected={endDate}

@@ -97,6 +97,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
 
   const handleUpdate = async () => {
     try {
+      const { taskApi } = await import("@/shared/api/tasks");
       const updateData = {
         title,
         taskType,
@@ -224,12 +225,15 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                       "w-full justify-start text-left font-normal",
                       !startDate && "text-muted-foreground"
                     )}
+                    onTouchStart={(e) => {
+                      e.currentTarget.click();
+                    }}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {startDate ? format(startDate, "PPP") : "날짜 선택"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0" sideOffset={5} collisionPadding={10}>
                   <Calendar
                     mode="single"
                     selected={startDate}
@@ -250,12 +254,15 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                       "w-full justify-start text-left font-normal",
                       !endDate && "text-muted-foreground"
                     )}
+                    onTouchStart={(e) => {
+                      e.currentTarget.click();
+                    }}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {endDate ? format(endDate, "PPP") : "날짜 선택"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0" sideOffset={5} collisionPadding={10}>
                   <Calendar
                     mode="single"
                     selected={endDate}
