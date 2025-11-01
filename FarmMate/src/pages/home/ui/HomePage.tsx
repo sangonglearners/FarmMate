@@ -25,11 +25,11 @@ export default function HomePage() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [, setLocation] = useLocation();
 
-  // 읽기 권한(viewer)으로 공유받은 농장 ID 집합 (Home의 ToDo 연동에서만 제외)
+  // 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장 ID 집합 (Home의 ToDo 연동에서만 제외)
   const { data: sharedCalendars = [] } = useSharedCalendars();
-  const viewerFarmIdSet = new Set(
+  const viewerAndCommenterFarmIdSet = new Set(
     (sharedCalendars || [])
-      .filter((c) => c.role === 'viewer')
+      .filter((c) => c.role === 'viewer' || c.role === 'commenter')
       .map((c) => c.calendarId)
   );
 
@@ -70,9 +70,9 @@ export default function HomePage() {
   const handleFullViewClick = () => {
     setShowMonthView(!showMonthView);
   };
-  // 홈 화면 플래너(주/월)에서도 viewer 공유 작업은 제외하여 전달
+  // 홈 화면 플래너(주/월)에서도 viewer 또는 commenter 공유 작업은 제외하여 전달
   const plannerTasks = tasks.filter((task: any) => {
-    if (task.farmId && viewerFarmIdSet.has(task.farmId)) return false;
+    if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) return false;
     return true;
   });
 
@@ -187,8 +187,8 @@ export default function HomePage() {
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
   // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
   const selectedDateTasks = tasks.filter(task => {
-    // 홈 ToDo에는 읽기 권한(viewer)으로 공유받은 농장의 작업은 제외
-    if (task.farmId && viewerFarmIdSet.has(task.farmId)) {
+    // 홈 ToDo에는 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장의 작업은 제외
+    if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) {
       return false;
     }
     // "재배" 유형의 작업은 투두리스트에서 제외
