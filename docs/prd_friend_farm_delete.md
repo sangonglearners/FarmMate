@@ -72,20 +72,34 @@ async getShareIdForFarm(farmId: string): Promise<string | null> {
 **파일**: `src/features/calendar-share/model/calendar-share.hooks.ts`
 
 - `useSharedCalendars()`: 반환 타입에 `shareId` 포함하도록 변경
-- `useRemoveSharedUser()`: 성공 시 관련 쿼리 무효화 추가
+- `useRemoveSharedUser()`: 성공 시 관련 쿼리 무효화 및 토스트 메시지 표시 추가
   - `/api/calendar-shares`
   - `/api/farms`
   - `/api/shared-calendars`
 
 ```typescript
 export const useRemoveSharedUser = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   return useMutation({
     mutationFn: (shareId: string) => calendarShareApi.removeSharedUser(shareId),
     onSuccess: () => {
-      // 관련된 모든 쿼리 무효화
       queryClient.invalidateQueries({ queryKey: ["/api/calendar-shares"] });
       queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shared-calendars"] });
+      toast({
+        title: "공유 해제 완료",
+        description: "사용자 공유가 성공적으로 해제되었습니다.",
+      });
+    },
+    onError: (error) => {
+      console.error("Remove shared user error:", error);
+      toast({
+        title: "공유 해제 실패",
+        description: "공유 해제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     },
   });
 };
@@ -115,7 +129,8 @@ const farmToShareIdMap = useMemo(() => {
 3. **UI 변경**:
    - 친구 농장 카드에 메뉴 버튼(⋯) 추가
    - 메뉴에서 "삭제" 옵션 제공
-   - 삭제 클릭 시 확인 메시지 표시
+   - 삭제 클릭 시 확인 메시지 표시 (window.confirm 사용)
+   - 삭제 성공/실패 시 토스트 메시지 표시
 
 ```tsx
 <DropdownMenu>
@@ -139,6 +154,8 @@ const farmToShareIdMap = useMemo(() => {
 </DropdownMenu>
 ```
 
+**참고**: 토스트 메시지는 `useRemoveSharedUser` hook에서 자동으로 처리됩니다.
+
 ---
 
 ## 🎨 UI 플로우
@@ -160,7 +177,8 @@ const farmToShareIdMap = useMemo(() => {
                 확인
                     ↓
               권한 삭제 완료
-              UI에서 친구 농장 제거
+              토스트 메시지: "공유 해제 완료"
+              UI에서 친구 농장 제거 (자동 새로고침)
 ```
 
 ---
@@ -181,8 +199,9 @@ const farmToShareIdMap = useMemo(() => {
 ### Frontend
 - [x] FarmsPage에 삭제 버튼 추가
 - [x] ShareId 매핑 로직 구현
-- [x] 확인 다이얼로그 추가
-- [x] 토스트 메시지 표시
+- [x] 확인 다이얼로그 추가 (window.confirm)
+- [x] 삭제 성공/실패 토스트 메시지 표시
+- [x] 친구 농장 소유주 정보 표시
 
 ### 테스트
 - [x] 친구 농장 삭제 시 UI 반영 확인
@@ -211,12 +230,19 @@ const farmToShareIdMap = useMemo(() => {
 3. `supabase/migrations/add_shared_user_delete_permission.sql` 파일 내용 복사
 4. 실행
 
+**SQL 파일**: `supabase/migrations/add_shared_user_delete_permission.sql`
+
 **SQL 내용**:
 ```sql
+-- Add RLS policy to allow shared users to delete their own shared permissions
+-- This allows users to remove themselves from shared calendars
+
 ALTER TABLE calendar_shares ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policy if it exists
 DROP POLICY IF EXISTS "Shared users can delete own permissions" ON calendar_shares;
 
+-- 공유받은 사용자는 자신의 권한만 삭제 가능
 CREATE POLICY "Shared users can delete own permissions"
 ON calendar_shares FOR DELETE
 USING (shared_user_id = auth.uid());
