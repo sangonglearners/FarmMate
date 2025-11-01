@@ -80,7 +80,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
       <div className="grid grid-cols-7 gap-1">
         {/* 요일 헤더 */}
         {weekDays.map(day => (
-          <div key={day} className="text-center py-2 text-sm font-medium text-gray-600">
+          <div key={day} className="text-center py-1 md:py-2 text-xs md:text-sm font-medium text-gray-600">
             {day}
           </div>
         ))}
@@ -104,19 +104,35 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
           const isSelected = selectedDate === dateStr;
 
+          // 배경색 우선순위: 오늘 날짜 > 선택된 날짜 > 작업 있는 날짜 > 기본
+          let backgroundColor = '';
+          let borderColor = 'border-gray-200';
+          
+          if (todayCheck) {
+            backgroundColor = 'bg-green-50';
+            borderColor = 'border-green-200 border-2';
+          } else if (isSelected) {
+            backgroundColor = 'bg-blue-50';
+            borderColor = 'border-blue-200 border-2';
+          } else if (dayTasks.length > 0 && dayInfo.isCurrentMonth) {
+            backgroundColor = 'bg-gray-50';
+          } else if (!dayInfo.isCurrentMonth) {
+            backgroundColor = 'bg-gray-25';
+          }
+
           return (
             <div
               key={index}
-              className={`min-h-20 p-1 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                !dayInfo.isCurrentMonth ? 'text-gray-400 bg-gray-25' : ''
-              } ${todayCheck ? 'bg-primary/5 border-primary' : ''} ${
-                isSelected ? 'bg-blue-50 border-blue-300' : ''
-              } ${dayTasks.length > 0 ? 'bg-gray-50' : ''}`}
+              className={`h-12 md:h-20 p-0.5 md:p-1 ${borderColor} rounded-lg cursor-pointer transition-colors flex flex-col overflow-hidden ${backgroundColor} ${
+                !isSelected && !todayCheck ? 'hover:bg-gray-50' : ''
+              } ${
+                !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
+              }`}
               onClick={() => {
                 onDateClick(dateStr);
               }}
             >
-              <div className={`text-xs mb-1 ${todayCheck ? 'font-bold text-primary' : ''} ${
+              <div className={`text-xs mb-0.5 md:mb-1 flex-shrink-0 ${todayCheck ? 'font-bold text-primary' : ''} ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
               }`}>
                 {dayInfo.day}
@@ -124,8 +140,8 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               
               {/* 홈 캘린더: 모든 일정을 개별적으로 표시 */}
               {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
-                <div className="space-y-0.5">
-                  {singleDayTasks.slice(0, 4).map((task, taskIndex) => {
+                <div className="space-y-0.5 flex-1 overflow-hidden">
+                  {singleDayTasks.slice(0, 2).map((task, taskIndex) => {
                     const taskColor = getTaskColor(task.taskType);
                     
                     // title 필드에서 작물명과 작업타입을 추출 (2주 플래너와 동일한 방식)
@@ -144,10 +160,10 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                     return (
                       <div
                         key={`${task.id}-${dayInfo.day}`}
-                        className={`${taskColor} rounded px-1 py-0.5 text-xs truncate cursor-pointer hover:opacity-80 transition-opacity`}
+                        className={`${taskColor} rounded px-0.5 md:px-1 py-0 md:py-0.5 text-[10px] md:text-xs truncate cursor-pointer hover:opacity-80 transition-opacity`}
                         style={{
-                          marginBottom: '2px',
-                          maxHeight: '1.25rem',
+                          marginBottom: '1px',
+                          maxHeight: '0.875rem',
                           overflow: 'hidden'
                         }}
                         title={`${displayText}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
@@ -160,9 +176,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                       </div>
                     );
                   })}
-                  {singleDayTasks.length > 4 && (
-                    <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 4}개 더
+                  {singleDayTasks.length > 2 && (
+                    <div className="text-[10px] md:text-xs text-gray-500">
+                      +{singleDayTasks.length - 2}개 더
                     </div>
                   )}
                 </div>
