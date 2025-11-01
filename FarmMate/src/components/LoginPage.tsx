@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
-  const { signInWithGoogle, testLogin, loading } = useAuth()
+  const { signInWithGoogle, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
   const handleGoogleLogin = async () => {
@@ -18,16 +18,6 @@ export const LoginPage: React.FC = () => {
     }
   }
 
-  const handleTestLogin = () => {
-    try {
-      setError(null)
-      testLogin()
-    } catch (error) {
-      console.error('테스트 로그인 실패:', error)
-      setError('테스트 로그인에 실패했습니다.')
-    }
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 flex justify-center">
       <div className="w-full bg-white min-h-screen shadow-xl flex flex-col justify-center p-6">
@@ -37,18 +27,9 @@ export const LoginPage: React.FC = () => {
         </div>
         
         <button
-          onClick={handleTestLogin}
-          className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 mb-4 font-medium"
-        >
-          🧪 테스트 로그인으로 시작하기
-        </button>
-        
-        <div className="text-center text-gray-400 text-sm mb-3">또는</div>
-        
-        <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -72,7 +53,7 @@ export const LoginPage: React.FC = () => {
               />
             </svg>
           )}
-          Google로 로그인 (설정 필요)
+          Google로 로그인
         </button>
         
         {error && (
@@ -80,12 +61,6 @@ export const LoginPage: React.FC = () => {
             <p className="text-sm text-red-600 whitespace-pre-line">{error}</p>
           </div>
         )}
-        
-        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-xs text-blue-600">
-            💡 <strong>개발 모드</strong>: 테스트 로그인을 사용하여 모든 기능을 체험해보세요!
-          </p>
-        </div>
       </div>
     </div>
   )
