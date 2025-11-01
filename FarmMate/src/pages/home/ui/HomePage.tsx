@@ -269,7 +269,9 @@ export default function HomePage() {
 
   const formatCurrentPeriod = () => {
     if (showMonthView) {
-      return `${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월`;
+      const year = currentDate.getFullYear().toString().slice(-2);
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      return `${year}.${month}`;
     } else {
       // 2주 보기에서는 해당 주의 월요일부터 2주간의 범위를 표시
       const currentDayOfWeek = currentDate.getDay();
@@ -280,13 +282,26 @@ export default function HomePage() {
       const endDate = new Date(monday);
       endDate.setDate(monday.getDate() + 13);
       
+      // 날짜 형식: "25.10.27~11.09"
+      const formatDateShort = (date: Date) => {
+        const year = date.getFullYear().toString().slice(-2);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}.${month}.${day}`;
+      };
+      
+      const startStr = formatDateShort(monday);
+      const endStr = formatDateShort(endDate);
+      
       // 같은 년도인지 확인
       if (monday.getFullYear() === endDate.getFullYear()) {
-        // 같은 년도: "2025년 11월 30일 - 12월 10일"
-        return `${monday.getFullYear()}년 ${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+        // 같은 년도: "25.10.27~11.09" (시작일의 년도만 표시)
+        const month = String(endDate.getMonth() + 1).padStart(2, '0');
+        const day = String(endDate.getDate()).padStart(2, '0');
+        return `${startStr}~${month}.${day}`;
       } else {
-        // 다른 년도: "2025년 11월 30일 - 2026년 1월 10일"
-        return `${monday.getFullYear()}년 ${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getFullYear()}년 ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+        // 다른 년도: "25.10.27~26.01.09"
+        return `${startStr}~${formatDateShort(endDate)}`;
       }
     }
   };
@@ -337,28 +352,28 @@ export default function HomePage() {
         {/* Calendar Planner */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              <div className="flex items-center space-x-1 flex-1 min-w-0">
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={handlePrevious}
-                  className="p-1 h-8 w-8"
+                  className="p-1 h-8 w-8 flex-shrink-0"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span className="flex items-center space-x-2">
-                  <CalendarIcon className="w-5 h-5" />
+                <span className="flex items-center space-x-1 flex-1 min-w-0">
+                  <CalendarIcon className="w-4 h-4 flex-shrink-0" />
                   <div className="flex flex-col">
-                    <span>{showMonthView ? "한 달 플래너" : "이번 주 플래너"}</span>
-                    <span className="text-sm text-gray-500 font-normal">{formatCurrentPeriod()}</span>
+                    <span className="text-sm whitespace-nowrap">{showMonthView ? "한 달 플래너" : "이번 주 플래너"}</span>
+                    <span className="text-xs text-gray-500 font-normal whitespace-nowrap">{formatCurrentPeriod()}</span>
                   </div>
                 </span>
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={handleNext}
-                  className="p-1 h-8 w-8"
+                  className="p-1 h-8 w-8 flex-shrink-0"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
