@@ -344,12 +344,12 @@ export class CalendarShareRepository extends BaseRepository {
   /**
    * 모든 공유받은 캘린더 목록 조회
    */
-  async getSharedCalendars(): Promise<Array<{ calendarId: string; role: UserRole }>> {
+  async getSharedCalendars(): Promise<Array<{ calendarId: string; role: UserRole; shareId: string }>> {
     const userId = await this.withUserId()
     
     const { data, error } = await this.supabase
       .from('calendar_shares')
-      .select('calendar_id, role')
+      .select('id, calendar_id, role')
       .eq('shared_user_id', userId)
     
     if (error) throw new Error(error.message)
@@ -357,7 +357,29 @@ export class CalendarShareRepository extends BaseRepository {
     return (data || []).map((row) => ({
       calendarId: row.calendar_id,
       role: row.role as UserRole,
+      shareId: row.id,
     }))
+  }
+
+  /**
+   * 특정 농장에 대한 현재 사용자의 shareId 조회
+   */
+  async getShareIdForFarm(farmId: string): Promise<string | null> {
+    const userId = await this.withUserId()
+    
+    const { data, error } = await this.supabase
+      .from('calendar_shares')
+      .select('id')
+      .eq('calendar_id', farmId)
+      .eq('shared_user_id', userId)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null // no rows returned
+      throw new Error(error.message)
+    }
+    
+    return data?.id || null
   }
 }
 
