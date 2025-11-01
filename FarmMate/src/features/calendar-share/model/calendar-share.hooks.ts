@@ -76,6 +76,8 @@ export const useRemoveSharedUser = () => {
     mutationFn: (shareId: string) => calendarShareApi.removeSharedUser(shareId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/calendar-shares"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shared-calendars"] });
       toast({
         title: "공유 해제 완료",
         description: "사용자 공유가 성공적으로 해제되었습니다.",
@@ -101,7 +103,7 @@ export const useUserRoleForCalendar = (calendarId: string) => {
 };
 
 export const useSharedCalendars = () => {
-  return useQuery<Array<{ calendarId: string; role: UserRole }>>({
+  return useQuery<Array<{ calendarId: string; role: UserRole; shareId: string }>>({
     queryKey: ["/api/shared-calendars"],
     queryFn: () => calendarShareApi.getSharedCalendars(),
   });
