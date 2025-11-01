@@ -1525,7 +1525,7 @@ export default function AddTaskDialog({
                                 className={!canCreate ? "opacity-50 cursor-not-allowed" : ""}
                               >
                                 <span className={!canCreate ? "text-gray-400" : ""}>
-                                  {farm.name} ({farm.environment}) - {farm.rowCount}이랑
+                                  {farm.name}
                                   {permissionLabel && ` [${permissionLabel}]`}
                                 </span>
                               </SelectItem>
