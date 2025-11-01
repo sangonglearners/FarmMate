@@ -58,6 +58,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     ? (selectedFarm.userId === user?.id || userRole === 'editor')
     : true; // 농장이 선택되지 않은 경우는 기본적으로 가능
   
+  // 작업 수정 가능 여부 확인: 소유주 또는 editor 권한만 가능 (commenter, viewer는 수정 불가)
+  const canEditTask = selectedFarm 
+    ? (selectedFarm.userId === user?.id || userRole === 'editor')
+    : true; // 농장이 선택되지 않은 경우는 기본적으로 가능
+  
   // 월간과 연간 뷰의 날짜 상태를 분리
   const today = new Date();
   const [monthlyDate, setMonthlyDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -1141,6 +1146,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
+                            // 권한 체크: commenter나 viewer는 수정 불가
+                            if (!canEditTask) {
+                              return;
+                            }
                             setSelectedTask(taskGroup.task);
                             setIsEditDialogOpen(true);
                           }}
@@ -1254,6 +1263,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   className="space-y-0.5 cursor-pointer hover:opacity-80"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // 권한 체크: commenter나 viewer는 수정 불가
+                                    if (!canEditTask) {
+                                      return;
+                                    }
                                     console.log("캘린더에서 작업 클릭, task 데이터:", task);
                                     setSelectedTask(task);
                                     setIsEditDialogOpen(true);
@@ -1317,6 +1330,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   className="cursor-pointer hover:opacity-80"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // 권한 체크: commenter나 viewer는 수정 불가
+                                    if (!canEditTask) {
+                                      return;
+                                    }
                                     setSelectedTask(task);
                                     setIsEditDialogOpen(true);
                                   }}
@@ -1441,12 +1458,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          // 권한 체크: commenter나 viewer는 수정 불가
+                          if (!canEditTask) {
+                            return;
+                          }
                           console.log("수정 버튼 클릭, task 데이터:", task);
                           setSelectedTask(task);
                           setIsEditDialogOpen(true);
                         }}
-                        disabled={!canCreateTask || task.userId !== user?.id}
-                        title={!canCreateTask ? "읽기 권한만 있어 작업을 수정할 수 없습니다" : task.userId !== user?.id ? "본인이 등록한 작업만 수정할 수 있습니다" : ""}
+                        disabled={!canEditTask || task.userId !== user?.id}
+                        title={!canEditTask ? "읽기 권한만 있어 작업을 수정할 수 없습니다" : task.userId !== user?.id ? "본인이 등록한 작업만 수정할 수 있습니다" : ""}
                       >
                         수정
                       </Button>
