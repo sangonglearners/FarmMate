@@ -45,10 +45,10 @@ export async function listTasksByDate(date: string): Promise<Task[]> {
     throw new Error("사용자가 로그인되어 있지 않습니다.");
   }
 
+  // RLS 정책이 자동으로 처리하므로 user_id 필터링 제거
   const { data, error } = await supabase
     .from('tasks_v1')
     .select('*')
-    .eq('user_id', auth.user.id)
     .eq('scheduled_date', date)
     .order('created_at', { ascending: true });
 
@@ -66,10 +66,11 @@ export async function listTasksRange(start: string, end: string): Promise<Task[]
     throw new Error("사용자가 로그인되어 있지 않습니다.");
   }
 
+  // RLS 정책이 자동으로 처리하므로 필터링 없이 select만 수행
+  // RLS 정책에 따라 본인의 작업과 공유받은 작업이 모두 반환됨
   const { data, error } = await supabase
     .from('tasks_v1')
     .select('*')
-    .eq('user_id', auth.user.id)
     .gte('scheduled_date', start)
     .lte('scheduled_date', end)
     .order('scheduled_date', { ascending: true });
@@ -85,7 +86,56 @@ export async function listTasksRange(start: string, end: string): Promise<Task[]
 // 기존 API와 호환성을 위한 taskApi 객체
 export const taskApi = {
   getTasks: async (): Promise<Task[]> => {
-    return listTasksRange("2020-01-01", "2030-12-31");
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      throw new Error("사용자가 로그인되어 있지 않습니다.");
+    }
+
+    // 1. 자신의 작업 가져오기
+    const { data: ownTasks, error: ownError } = await supabase
+      .from('tasks_v1')
+      .select('*')
+      .eq('user_id', auth.user.id)
+      .order('scheduled_date', { ascending: true });
+
+    if (ownError) {
+      console.error('자신의 작업 조회 오류:', ownError);
+      throw ownError;
+    }
+
+    // 2. 공유받은 농장의 작업 가져오기
+    const { data: sharedFarms, error: sharedError } = await supabase
+      .from('calendar_shares')
+      .select('calendar_id, role')
+      .eq('shared_user_id', auth.user.id);
+
+    if (sharedError) {
+      console.error('공유 농장 조회 오류:', sharedError);
+    }
+
+    let sharedTasks: SupabaseTask[] = [];
+    if (sharedFarms && sharedFarms.length > 0) {
+      const farmIds = sharedFarms.map(f => f.calendar_id); // calendar_id에 farm_id가 저장됨
+      const { data: sharedTasksData, error: sharedTasksError } = await supabase
+        .from('tasks_v1')
+        .select('*')
+        .in('farm_id', farmIds) // farm_id로 필터링
+        .order('scheduled_date', { ascending: true });
+
+      if (sharedTasksError) {
+        console.error('공유 작업 조회 오류:', sharedTasksError);
+      } else {
+        sharedTasks = sharedTasksData || [];
+      }
+    }
+
+    // 3. 모든 작업 합치기 (중복 제거)
+    const allTasksMap = new Map<string, SupabaseTask>();
+    [...(ownTasks || []), ...sharedTasks].forEach(task => {
+      allTasksMap.set(task.id, task);
+    });
+
+    return Array.from(allTasksMap.values()).map(toTask);
   },
 
   getTasksByDate: async (date: string): Promise<Task[]> => {
@@ -102,6 +152,12 @@ export const taskApi = {
     }
 
     console.log('✅ 인증된 사용자:', auth.user.id);
+
+    // 현재 사용자가 소유자로 있는 공유 캘린더 확인
+    const { data: sharedCalendars } = await supabase
+      .from('calendar_shares')
+      .select('calendar_id')
+      .eq('owner_id', auth.user.id);
 
     const insertData = {
       user_id: auth.user.id,

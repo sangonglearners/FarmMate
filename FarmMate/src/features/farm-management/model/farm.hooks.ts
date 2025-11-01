@@ -12,6 +12,20 @@ export const useFarms = () => {
   });
 };
 
+export const useOwnFarms = () => {
+  return useQuery<FarmEntity[]>({
+    queryKey: ["/api/farms/own"],
+    queryFn: farmApi.getOwnFarms,
+  });
+};
+
+export const useSharedFarms = () => {
+  return useQuery<FarmEntity[]>({
+    queryKey: ["/api/farms/shared"],
+    queryFn: farmApi.getSharedFarms,
+  });
+};
+
 export const useCreateFarm = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
