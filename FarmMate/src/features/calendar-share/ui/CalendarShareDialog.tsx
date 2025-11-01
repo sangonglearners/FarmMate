@@ -103,7 +103,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
       case 'editor':
         return '전체 허용';
       case 'commenter':
-        return '댓글 허용 (준비 중)';
+        return '댓글 허용';
       case 'viewer':
         return '읽기 허용';
       default:
@@ -170,7 +170,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="editor">전체 허용</SelectItem>
-                      <SelectItem value="commenter" disabled>댓글 허용 (준비 중)</SelectItem>
+                      <SelectItem value="commenter">댓글 허용</SelectItem>
                       <SelectItem value="viewer">읽기 허용</SelectItem>
                     </SelectContent>
                   </Select>
