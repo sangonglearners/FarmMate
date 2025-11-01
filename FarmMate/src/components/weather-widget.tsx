@@ -99,21 +99,21 @@ export function WeatherWidget() {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           {/* 왼쪽: 날씨 아이콘과 온도 정보 */}
-          <div className="flex items-center space-x-4 flex-1">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
             {/* 날씨 아이콘 */}
-            <div className="text-5xl">{weatherIcon}</div>
+            <div className="text-4xl flex-shrink-0">{weatherIcon}</div>
             
             {/* 온도 정보 */}
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               {/* 현재 온도 */}
-              <div className="text-3xl font-bold text-gray-900 mb-1">
+              <div className="text-2xl font-bold text-gray-900 mb-1">
                 {currentTemp}°
               </div>
               
               {/* 최고/최저 온도 */}
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-1.5 text-xs whitespace-nowrap">
                 {maxTemp !== null && (
                   <span className="text-red-500 font-medium">최고 {maxTemp}°</span>
                 )}
@@ -128,32 +128,32 @@ export function WeatherWidget() {
           </div>
 
           {/* 오른쪽: 습도, 바람, 강수량 */}
-          <div className="flex items-center space-x-4 border-l border-gray-200 pl-4">
+          <div className="flex items-center space-x-2 border-l border-gray-200 pl-2 flex-shrink-0">
             {/* 습도 */}
-            <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-600 mb-1">습도</span>
-              <span className="text-sm font-semibold text-gray-900">{humidity}%</span>
+            <div className="flex flex-col items-center min-w-0">
+              <span className="text-xs text-gray-600 mb-1 whitespace-nowrap">습도</span>
+              <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">{humidity}%</span>
             </div>
 
             {/* 구분선 */}
-            <div className="w-px h-8 bg-gray-200" />
+            <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
 
             {/* 바람 */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center min-w-0">
               <div className="flex items-center space-x-1 mb-1">
-                <Wind className="w-3 h-3 text-gray-600" />
-                <span className="text-xs text-gray-600">바람</span>
+                <Wind className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                <span className="text-xs text-gray-600 whitespace-nowrap">바람</span>
               </div>
-              <span className="text-sm font-semibold text-gray-900">{windSpeed.toFixed(1)}m/s</span>
+              <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">{windSpeed.toFixed(1)}m/s</span>
             </div>
 
             {/* 구분선 */}
-            <div className="w-px h-8 bg-gray-200" />
+            <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
 
             {/* 강수량 */}
-            <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-600 mb-1">강수량</span>
-              <span className="text-sm font-semibold text-gray-900">
+            <div className="flex flex-col items-center min-w-0">
+              <span className="text-xs text-gray-600 mb-1 whitespace-nowrap">강수량</span>
+              <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">
                 {precipitation > 0 ? `${precipitation.toFixed(1)}mm` : '0mm'}
               </span>
             </div>
