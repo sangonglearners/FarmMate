@@ -1786,7 +1786,8 @@ export default function AddTaskDialog({
                       <PopoverContent 
                         className="w-auto p-0" 
                         align="start"
-                        style={{ touchAction: 'manipulation' }}
+                        sideOffset={5}
+                        collisionPadding={10}
                       >
                         <Calendar
                           mode="single"
@@ -1841,7 +1842,8 @@ export default function AddTaskDialog({
                         <PopoverContent 
                           className="w-auto p-0" 
                           align="start"
-                          style={{ touchAction: 'manipulation' }}
+                          sideOffset={5}
+                          collisionPadding={10}
                         >
                           <Calendar
                             mode="single"
