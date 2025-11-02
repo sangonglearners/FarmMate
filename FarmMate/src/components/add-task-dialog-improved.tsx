@@ -1778,7 +1778,7 @@ export default function AddTaskDialog({
                             </Button>
                           </FormControl>
                         </DialogTrigger>
-                        <DialogContent className="w-auto p-0 flex items-center justify-center">
+                        <DialogContent className="w-auto p-6 flex items-center justify-center">
                           <Calendar
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
@@ -1830,7 +1830,7 @@ export default function AddTaskDialog({
                               </Button>
                             </FormControl>
                           </DialogTrigger>
-                          <DialogContent className="w-auto p-0 flex items-center justify-center">
+                          <DialogContent className="w-auto p-6 flex items-center justify-center">
                             <Calendar
                               mode="single"
                               selected={field.value ? new Date(field.value) : undefined}
