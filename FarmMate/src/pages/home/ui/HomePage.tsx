@@ -330,8 +330,31 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* Weather Widget */}
-        <WeatherWidget />
+        {/* Weather Widget and Recommendation Banner - 좌우 배치 */}
+        <div className="grid grid-cols-2 gap-4 items-stretch">
+          {/* 왼쪽: 날씨 위젯 */}
+          <div className="min-w-0">
+            <WeatherWidget className="mb-0" />
+          </div>
+          
+          {/* 오른쪽: 작물 추천 배너 */}
+          <Card className="overflow-hidden h-full flex">
+            <CardContent className="p-4 flex-1 flex items-center justify-between">
+              <div className="flex-1 min-w-0 pr-3">
+                <p className="text-xs text-gray-600 mb-1">이번 시즌에는</p>
+                <h2 className="text-sm font-semibold text-gray-900 leading-tight whitespace-nowrap">
+                  무엇을, 언제, 어디에, 얼마나 심지?
+                </h2>
+                <Button size="sm" className="mt-3" onClick={() => setLocation('/recommendations/input')}>
+                  작물 추천 받으러가기
+                </Button>
+              </div>
+              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center text-3xl flex-shrink-0 select-none">
+                🥕
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Calendar Planner */}
         <Card>

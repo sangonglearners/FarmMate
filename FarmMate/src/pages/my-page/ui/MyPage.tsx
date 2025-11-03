@@ -206,26 +206,6 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* Recommendation Banner */}
-      <Card className="overflow-hidden">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="max-w-[70%]">
-              <p className="text-xs text-gray-600 mb-1">이번 시즌에는</p>
-              <h2 className="text-base font-semibold text-gray-900 leading-snug">
-                무엇을, 언제, 어디에, 얼마나 심지?
-              </h2>
-              <Button size="sm" className="mt-3" onClick={() => setLocation('/recommendations/input')}>
-                작물 추천 받으러가기
-              </Button>
-            </div>
-            <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center text-4xl select-none">
-              🥕
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold flex items-center gap-2"><MapPin className="w-5 h-5 text-gray-600" /> 내 농장 정보</h2>
