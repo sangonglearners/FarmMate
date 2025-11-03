@@ -9,7 +9,11 @@ import {
   type WeatherData,
 } from "@/shared/api/weather";
 
-export function WeatherWidget() {
+interface WeatherWidgetProps {
+  className?: string;
+}
+
+export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number; name: string } | null>(null);
   const [locationError, setLocationError] = useState(false);
 
@@ -46,8 +50,8 @@ export function WeatherWidget() {
 
   if (isLoading) {
     return (
-      <Card className="mb-4">
-        <CardContent className="p-4">
+      <Card className={`${className || ''} h-full`}>
+        <CardContent className="p-4 h-full flex items-center">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse" />
@@ -68,8 +72,8 @@ export function WeatherWidget() {
 
   if (error || !weather) {
     return (
-      <Card className="mb-4 border-orange-200 bg-orange-50">
-        <CardContent className="p-4">
+      <Card className={`${className || ''} h-full border-orange-200 bg-orange-50`}>
+        <CardContent className="p-4 h-full flex items-center">
           <div className="flex items-center space-x-2 text-orange-700">
             <Cloud className="w-5 h-5" />
             <span className="text-sm">날씨 정보를 불러올 수 없습니다</span>
@@ -88,10 +92,10 @@ export function WeatherWidget() {
   const precipitation = parseFloat(weather.precipitation) || 0;
 
   return (
-    <Card className="mb-4 border-gray-200 bg-white">
-      <CardContent className="p-4">
+    <Card className={`${className || ''} h-full border-gray-200 bg-white`}>
+      <CardContent className="p-4 h-full flex flex-col">
         {/* 위치 정보 */}
-        <div className="flex items-center space-x-1 mb-3 text-xs text-gray-600">
+        <div className="flex items-center space-x-1 mb-3 text-xs text-gray-600 flex-shrink-0">
           <MapPin className="w-3.5 h-3.5" />
           <span className="font-medium">{weather.location}</span>
           {locationError && (
@@ -99,7 +103,7 @@ export function WeatherWidget() {
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-1">
           {/* 왼쪽: 날씨 아이콘과 온도 정보 */}
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             {/* 날씨 아이콘 */}
