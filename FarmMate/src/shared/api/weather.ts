@@ -1,5 +1,18 @@
 // 기상청 날씨 API 호출 함수
 
+/**
+ * 기상청 API 기본 URL을 반환합니다
+ * 개발 환경에서는 프록시를 사용하여 CORS 문제를 우회합니다
+ */
+function getApiBaseUrl(): string {
+  // 개발 환경에서는 Vite 프록시 사용
+  if (import.meta.env.DEV) {
+    return `${window.location.origin}/api/weather`;
+  }
+  // 프로덕션 환경에서는 직접 호출 (또는 백엔드 프록시 필요)
+  return 'http://apis.data.go.kr';
+}
+
 export interface WeatherData {
   temperature: string; // 현재 기온
   maxTemperature: string; // 최고 기온
@@ -165,7 +178,8 @@ export async function getWeatherDataByCoordinates(
     const baseTime = getBaseTime(now);
     
     // API URL (초단기실황)
-    const url = new URL('http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst');
+    const apiBaseUrl = getApiBaseUrl();
+    const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst`);
     url.searchParams.set('serviceKey', serviceKey);
     url.searchParams.set('pageNo', '1');
     url.searchParams.set('numOfRows', '10');
@@ -222,7 +236,32 @@ export async function getWeatherDataByCoordinates(
 }
 
 /**
+ * 단기예보 API용 base_time 계산
+ * 기상청 단기예보는 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00에 발표
+ */
+function getForecastBaseTime(date: Date): string {
+  const hour = date.getHours();
+  
+  // 발표 시각 배열
+  const baseTimes = ['0200', '0500', '0800', '1100', '1400', '1700', '2000', '2300'];
+  
+  // 현재 시간보다 이전의 가장 최근 발표 시각 찾기
+  let selectedTime = '2300'; // 기본값 (전날 23시)
+  
+  for (let i = baseTimes.length - 1; i >= 0; i--) {
+    const baseHour = parseInt(baseTimes[i].substring(0, 2));
+    if (hour >= baseHour + 1) { // API 발표 후 10분 정도 후부터 사용 가능
+      selectedTime = baseTimes[i];
+      break;
+    }
+  }
+  
+  return selectedTime;
+}
+
+/**
  * 좌표 기반 최고/최저 온도 가져오기
+ * 최저기온은 02시 발표 데이터를 사용해야 확실하게 조회 가능
  */
 async function getDailyTemperatureRangeForGrid(
   grid: { nx: number; ny: number },
@@ -230,11 +269,17 @@ async function getDailyTemperatureRangeForGrid(
   serviceKey: string
 ): Promise<{ maxTemp: string; minTemp: string }> {
   try {
-    const baseTime = '0200';
-    const url = new URL('http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst');
+    // 최고기온 조회 (현재 시간 기준 발표)
+    const now = new Date();
+    const baseTime = getForecastBaseTime(now);
+    
+    console.log(`[날씨 API] 최고/최저 온도 조회 - baseDate: ${baseDate}, baseTime: ${baseTime}`);
+    
+    const apiBaseUrl = getApiBaseUrl();
+    const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getVilageFcst`);
     url.searchParams.set('serviceKey', serviceKey);
     url.searchParams.set('pageNo', '1');
-    url.searchParams.set('numOfRows', '100');
+    url.searchParams.set('numOfRows', '300');
     url.searchParams.set('dataType', 'JSON');
     url.searchParams.set('base_date', baseDate);
     url.searchParams.set('base_time', baseTime);
@@ -250,21 +295,53 @@ async function getDailyTemperatureRangeForGrid(
     const data = await response.json();
     
     if (data.response?.header?.resultCode !== '00') {
-      throw new Error(`날씨 예보 API 오류`);
+      console.error(`[날씨 API] 응답 오류:`, data.response?.header?.resultMsg);
+      throw new Error(`날씨 예보 API 오류: ${data.response?.header?.resultMsg}`);
     }
 
     const items = data.response?.body?.items?.item || [];
-    const todayItems = items.filter((item: any) => item.fcstDate === baseDate);
+    console.log(`[날씨 API] 받은 데이터 개수: ${items.length}개`);
     
-    const maxTemp = todayItems.find((item: any) => item.category === 'TMX')?.fcstValue || '';
-    const minTemp = todayItems.find((item: any) => item.category === 'TMN')?.fcstValue || '';
+    // 오늘 날짜의 최고기온 찾기
+    const maxTemp = items.find((item: any) => item.category === 'TMX' && item.fcstDate === baseDate)?.fcstValue || '';
+    
+    // 최저기온 찾기 - 오늘 데이터에서 먼저 시도
+    let minTemp = items.find((item: any) => item.category === 'TMN' && item.fcstDate === baseDate)?.fcstValue || '';
+    
+    // 최저기온이 없으면 02시 발표 데이터로 재조회
+    if (!minTemp) {
+      console.log(`[날씨 API] 최저온도가 없어 02시 발표 데이터로 재조회합니다`);
+      
+      const url2 = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getVilageFcst`);
+      url2.searchParams.set('serviceKey', serviceKey);
+      url2.searchParams.set('pageNo', '1');
+      url2.searchParams.set('numOfRows', '300');
+      url2.searchParams.set('dataType', 'JSON');
+      url2.searchParams.set('base_date', baseDate);
+      url2.searchParams.set('base_time', '0200'); // 02시 발표
+      url2.searchParams.set('nx', grid.nx.toString());
+      url2.searchParams.set('ny', grid.ny.toString());
+
+      const response2 = await fetch(url2.toString());
+      
+      if (response2.ok) {
+        const data2 = await response2.json();
+        if (data2.response?.header?.resultCode === '00') {
+          const items2 = data2.response?.body?.items?.item || [];
+          minTemp = items2.find((item: any) => item.category === 'TMN' && item.fcstDate === baseDate)?.fcstValue || '';
+          console.log(`[날씨 API] 02시 발표에서 최저온도 찾음: ${minTemp}°C`);
+        }
+      }
+    }
+    
+    console.log(`[날씨 API] 최종 결과 - 최고: ${maxTemp}°C, 최저: ${minTemp}°C`);
     
     return {
       maxTemp: maxTemp || '',
       minTemp: minTemp || '',
     };
   } catch (error) {
-    console.error('최고/최저 온도 가져오기 실패:', error);
+    console.error('[날씨 API] 최고/최저 온도 가져오기 실패:', error);
     return { maxTemp: '', minTemp: '' };
   }
 }
@@ -316,7 +393,8 @@ export async function getWeatherData(
     const baseTime = getBaseTime(now); // HHmm 형식
     
     // API URL (초단기실황)
-    const url = new URL('http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst');
+    const apiBaseUrl = getApiBaseUrl();
+    const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst`);
     url.searchParams.set('serviceKey', serviceKey);
     url.searchParams.set('pageNo', '1');
     url.searchParams.set('numOfRows', '10');
@@ -392,9 +470,10 @@ export async function getForecastWeather(
     
     const now = new Date();
     const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const baseTime = '0200'; // 단기예보는 보통 02시, 05시, 08시 등에 발표
+    const baseTime = getForecastBaseTime(now); // 현재 시간에 맞는 발표시각 사용
     
-    const url = new URL('http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst');
+    const apiBaseUrl = getApiBaseUrl();
+    const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getVilageFcst`);
     url.searchParams.set('serviceKey', serviceKey);
     url.searchParams.set('pageNo', '1');
     url.searchParams.set('numOfRows', '300');
@@ -487,12 +566,15 @@ async function getDailyTemperatureRange(
   serviceKey: string
 ): Promise<{ maxTemp: string; minTemp: string }> {
   try {
-    // 단기예보 API 호출
-    const baseTime = '0200'; // 단기예보 발표 시간
-    const url = new URL('http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst');
+    // 단기예보 API 호출 - 현재 시간에 맞는 발표시각 사용
+    const now = new Date();
+    const baseTime = getForecastBaseTime(now);
+    
+    const apiBaseUrl = getApiBaseUrl();
+    const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getVilageFcst`);
     url.searchParams.set('serviceKey', serviceKey);
     url.searchParams.set('pageNo', '1');
-    url.searchParams.set('numOfRows', '100');
+    url.searchParams.set('numOfRows', '300');
     url.searchParams.set('dataType', 'JSON');
     url.searchParams.set('base_date', baseDate);
     url.searchParams.set('base_time', baseTime);
@@ -513,13 +595,34 @@ async function getDailyTemperatureRange(
 
     const items = data.response?.body?.items?.item || [];
     
-    // 오늘 날짜의 데이터만 필터링
-    const todayItems = items.filter((item: any) => item.fcstDate === baseDate);
-    
     // 최고 기온 (TMX)
-    const maxTemp = todayItems.find((item: any) => item.category === 'TMX')?.fcstValue || '';
-    // 최저 기온 (TMN)
-    const minTemp = todayItems.find((item: any) => item.category === 'TMN')?.fcstValue || '';
+    const maxTemp = items.find((item: any) => item.category === 'TMX' && item.fcstDate === baseDate)?.fcstValue || '';
+    // 최저 기온 (TMN) - 오늘 데이터에서 먼저 시도
+    let minTemp = items.find((item: any) => item.category === 'TMN' && item.fcstDate === baseDate)?.fcstValue || '';
+    
+    // 최저기온이 없으면 02시 발표 데이터로 재조회
+    if (!minTemp) {
+      const apiBaseUrl = getApiBaseUrl();
+      const url2 = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getVilageFcst`);
+      url2.searchParams.set('serviceKey', serviceKey);
+      url2.searchParams.set('pageNo', '1');
+      url2.searchParams.set('numOfRows', '300');
+      url2.searchParams.set('dataType', 'JSON');
+      url2.searchParams.set('base_date', baseDate);
+      url2.searchParams.set('base_time', '0200');
+      url2.searchParams.set('nx', coordinates.nx.toString());
+      url2.searchParams.set('ny', coordinates.ny.toString());
+
+      const response2 = await fetch(url2.toString());
+      
+      if (response2.ok) {
+        const data2 = await response2.json();
+        if (data2.response?.header?.resultCode === '00') {
+          const items2 = data2.response?.body?.items?.item || [];
+          minTemp = items2.find((item: any) => item.category === 'TMN' && item.fcstDate === baseDate)?.fcstValue || '';
+        }
+      }
+    }
     
     return {
       maxTemp: maxTemp || '',
