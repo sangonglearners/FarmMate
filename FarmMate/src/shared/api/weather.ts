@@ -2,15 +2,11 @@
 
 /**
  * 기상청 API 기본 URL을 반환합니다
- * 개발 환경에서는 프록시를 사용하여 CORS 문제를 우회합니다
+ * 개발/프로덕션 환경 모두 프록시를 사용하여 CORS 문제를 우회합니다
  */
 function getApiBaseUrl(): string {
-  // 개발 환경에서는 Vite 프록시 사용
-  if (import.meta.env.DEV) {
-    return `${window.location.origin}/api/weather`;
-  }
-  // 프로덕션 환경에서는 직접 호출 (또는 백엔드 프록시 필요)
-  return 'http://apis.data.go.kr';
+  // 개발/프로덕션 환경 모두 프록시 사용
+  return `${window.location.origin}/api/weather`;
 }
 
 export interface WeatherData {
