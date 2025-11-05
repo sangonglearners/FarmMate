@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/weather/:path*",
+      "destination": "http://apis.data.go.kr/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
