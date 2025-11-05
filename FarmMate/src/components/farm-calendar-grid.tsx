@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Share2 } from "lucide-react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,10 @@ import type { Task, Crop } from "@shared/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
+import { CalendarShareDialog } from "@/features/calendar-share/ui";
+import { useUserRoleForCalendar, useSharedFarmIds } from "@/features/calendar-share";
+import { useAuth } from "@/contexts/AuthContext";
+import { CalendarCommentsPanel } from "@/features/calendar-comments";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -25,13 +29,52 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
   
+  // 공유 다이얼로그 상태
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  
+  // 현재 사용자 정보 가져오기 (먼저 선언)
+  const { user } = useAuth();
   
   // 농장 데이터 가져오기
   const { data: farms = [], isLoading: farmsLoading } = useFarms();
+  
+  // 내 농장과 친구 농장 분리
+  const myFarms = farms.filter(farm => farm.userId === user?.id);
+  const friendFarms = farms.filter(farm => farm.userId !== user?.id);
+  
+  // 공유받은 농장 아이디 체크
+  const { data: sharedFarmIds = new Set<string>() } = useSharedFarmIds(friendFarms.map(f => f.id));
+  
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  // 선택된 농장의 권한 확인 (작업 등록 가능 여부 확인용)
+  const { data: userRole } = useUserRoleForCalendar(selectedFarm?.id || "");
+  
+  // 작업 등록 가능 여부 확인: 소유주 또는 editor 권한만 가능
+  const canCreateTask = selectedFarm 
+    ? (selectedFarm.userId === user?.id || userRole === 'editor')
+    : true; // 농장이 선택되지 않은 경우는 기본적으로 가능
+  
+  // 작업 수정 가능 여부 확인: 소유주 또는 editor 권한만 가능 (commenter, viewer는 수정 불가)
+  const canEditTask = selectedFarm 
+    ? (selectedFarm.userId === user?.id || userRole === 'editor')
+    : true; // 농장이 선택되지 않은 경우는 기본적으로 가능
   
   // 월간과 연간 뷰의 날짜 상태를 분리
   const today = new Date();
@@ -46,12 +89,14 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 현재 뷰 모드에 따른 날짜
   const currentDate = viewMode === "monthly" ? monthlyDate : yearlyDate;
 
-  // 첫 번째 농장을 기본값으로 설정
+  // 첫 번째 내 농장을 기본값으로 설정
   useEffect(() => {
-    if (farms && farms.length > 0 && !selectedFarm) {
-      setSelectedFarm(farms[0]);
+    if (myFarms.length > 0 && !selectedFarm) {
+      setSelectedFarm(myFarms[0]);
+    } else if (myFarms.length === 0 && friendFarms.length > 0 && !selectedFarm) {
+      setSelectedFarm(friendFarms[0]);
     }
-  }, [farms, selectedFarm]);
+  }, [myFarms, friendFarms, selectedFarm]);
 
   const handleExportCsv = () => {
     try {
@@ -752,42 +797,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     <div className="space-y-4">
       {/* 헤더 */}
       <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">나의 캘린더</h1>
-        <p className="text-gray-600 text-sm">월간, 연간 작업 일정을 이랑별로 확인할 수 있습니다</p>
+        <h1 className="text-xl font-bold text-gray-900 mb-4">나의 캘린더</h1>
       </div>
 
       {/* 컨트롤 */}
-      <div className="flex items-center justify-between">
-        {/* 좌측: 농장 선택 + 내보내기 아이콘 */}
-        <div className="flex items-center gap-2">
-          {farmsLoading ? (
-            <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
-          ) : farms.length > 0 ? (
-            <Select 
-              value={selectedFarm?.id || "no-farm"} 
-              onValueChange={(value) => {
-                if (value !== "no-farm") {
-                  const farm = farms.find(f => f.id === value);
-                  if (farm) setSelectedFarm(farm);
-                }
-              }}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="농장 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {farms.map((farm) => (
-                  <SelectItem key={farm.id} value={farm.id}>
-                    {farm.name} ({farm.environment})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <div className="text-sm text-gray-500">
-              등록된 농장이 없습니다
-            </div>
-          )}
+      <div className="flex flex-col gap-2">
+        {/* 첫 번째 줄: CSV + 공유 + 댓글 버튼 */}
+        <div className="flex items-center justify-end gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -797,34 +813,101 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           >
             <FileDown className="w-4 h-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowShareDialog(true)}
+            aria-label="캘린더 공유"
+            title="캘린더 공유"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+          {/* 댓글 패널 */}
+          {selectedFarm && user && (
+            <CalendarCommentsPanel calendarId={selectedFarm.id} userRole={userRole || null} />
+          )}
         </div>
 
-        {/* 우측: 뷰 모드 선택 */}
-        <div className="flex space-x-2">
-          <Button
-            variant={viewMode === "monthly" ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setViewMode("monthly");
-              // 월간 뷰로 전환 시 오늘 날짜로 리셋
-              const newMonthlyDate = new Date(today.getFullYear(), today.getMonth(), 1);
-              setMonthlyDate(newMonthlyDate);
-              setMonthlyOffset(Math.floor((today.getDate() - 1) / 5));
-            }}
-          >
-            월간
-          </Button>
-          <Button
-            variant={viewMode === "yearly" ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setViewMode("yearly");
-              // 연간 뷰로 전환 시 현재 년도로 리셋
-              setYearlyDate(new Date(today.getFullYear(), 0, 1));
-            }}
-          >
-            연간
-          </Button>
+        {/* 두 번째 줄: 농장 선택 + 월간 + 연간 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {farmsLoading ? (
+              <div className="w-32 h-10 bg-gray-200 rounded animate-pulse"></div>
+            ) : farms.length > 0 ? (
+              <Select 
+                value={selectedFarm?.id || "no-farm"} 
+                onValueChange={(value) => {
+                  if (value !== "no-farm") {
+                    const farm = farms.find(f => f.id === value);
+                    if (farm) setSelectedFarm(farm);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="농장 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* 내 농장 섹션 */}
+                  {myFarms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">내 농장</div>
+                      {myFarms.map((farm) => (
+                        <SelectItem key={farm.id} value={farm.id}>
+                          {farm.name} ({farm.environment})
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  
+                  {/* 친구 농장 섹션 */}
+                  {friendFarms.length > 0 && myFarms.length > 0 && (
+                    <div className="h-px bg-gray-200 my-1" />
+                  )}
+                  {friendFarms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">친구 농장</div>
+                      {friendFarms.map((farm) => (
+                        <SelectItem key={farm.id} value={farm.id}>
+                          {farm.name} ({farm.environment})
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-gray-500">
+                등록된 농장이 없습니다
+              </div>
+            )}
+          </div>
+
+          <div className="flex space-x-2">
+            <Button
+              variant={viewMode === "monthly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setViewMode("monthly");
+                // 월간 뷰로 전환 시 오늘 날짜로 리셋
+                const newMonthlyDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                setMonthlyDate(newMonthlyDate);
+                setMonthlyOffset(Math.floor((today.getDate() - 1) / 5));
+              }}
+            >
+              월간
+            </Button>
+            <Button
+              variant={viewMode === "yearly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setViewMode("yearly");
+                // 연간 뷰로 전환 시 현재 년도로 리셋
+                setYearlyDate(new Date(today.getFullYear(), 0, 1));
+              }}
+            >
+              연간
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -872,21 +955,30 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           ref={scrollContainerRef} 
           className="overflow-auto max-h-[700px]"
         >
-          <div className="min-w-[1300px]">
+          <div 
+            style={{
+              width: viewMode === "monthly" 
+                ? (isMobile ? `${40 + 70 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
+                : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`),
+              minWidth: viewMode === "monthly" 
+                ? (isMobile ? `${40 + 70 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
+                : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`)
+            }}
+          >
             {/* 헤더 */}
-            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30">
-              <div className="w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50">
-                <div className="absolute inset-0 p-1">
+            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-30 shadow-sm">
+              <div className="w-[40px] md:w-[60px] border-r border-gray-200 flex-shrink-0 relative sticky left-0 z-30 bg-gray-50 shadow-sm">
+                <div className="absolute inset-0 p-0.5 md:p-1">
                   {/* 대각선 */}
                   <svg className="absolute inset-0 w-full h-full">
                     <line x1="0" y1="0" x2="100%" y2="100%" stroke="#d1d5db" strokeWidth="1"/>
                   </svg>
                   {/* 이랑 텍스트 (왼쪽 하단) */}
-                  <div className="absolute bottom-1 left-1 text-xs font-medium text-gray-600">
+                  <div className="absolute bottom-0.5 left-0.5 md:bottom-1 md:left-1 text-[8px] md:text-xs font-medium text-gray-600 leading-tight whitespace-nowrap">
                     이랑
                   </div>
                   {/* 일/월 텍스트 (오른쪽 상단) */}
-                  <div className="absolute top-1 right-1 text-xs font-medium text-gray-600">
+                  <div className="absolute top-0.5 right-0.5 md:top-1 md:right-1 text-[8px] md:text-xs font-medium text-gray-600 leading-tight whitespace-nowrap">
                     {viewMode === "monthly" ? "일" : "월"}
                   </div>
                 </div>
@@ -894,7 +986,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {currentPeriods.map((dayInfo, index) => (
                 <div 
                   key={viewMode === "monthly" ? `${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : (dayInfo as any).month}
-                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[120px]"} flex-shrink-0 p-3 text-center font-medium border-r border-gray-200 last:border-r-0 ${
+                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-3 text-center font-medium border-r border-gray-200 ${
                     isToday(dayInfo) 
                       ? "bg-green-100 text-green-800 font-bold" 
                       : "text-gray-600"
@@ -924,12 +1016,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 return (
                   <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
                     {/* 이랑 번호 */}
-                    <div className="w-[60px] p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-20">
+                    <div className="w-[40px] md:w-[60px] p-1 md:p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-20 text-sm md:text-base shadow-sm">
                       {rowNumber}
                     </div>
 
                     {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
-                    <div className="absolute left-[60px] right-0 top-0 bottom-0 pointer-events-none overflow-hidden">
+                    <div className={`absolute ${isMobile ? 'left-[40px]' : 'left-[60px]'} right-0 top-0 bottom-0 pointer-events-none overflow-hidden`}>
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 3개까지만 표시 */}
                     {continuousTaskGroups.slice(0, 3).map((taskGroup, groupIndex) => {
                       // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
@@ -951,7 +1043,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         boxWidth = `${spanUnits * cellWidth}px`;
                       } else {
                         // 월간 뷰: 셀을 완전히 채우도록 패딩 제거
-                        const cellWidth = 120;
+                        // 모바일에서 반응형 처리
+                        const cellWidth = isMobile ? 70 : 120;
                         leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
                         boxWidth = `${spanUnits * cellWidth}px`;
                       }
@@ -1076,6 +1169,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
+                            // 권한 체크: commenter나 viewer는 수정 불가
+                            if (!canEditTask) {
+                              return;
+                            }
                             setSelectedTask(taskGroup.task);
                             setIsEditDialogOpen(true);
                           }}
@@ -1157,7 +1254,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[120px]"} flex-shrink-0 p-2 border-r border-gray-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
@@ -1189,6 +1286,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   className="space-y-0.5 cursor-pointer hover:opacity-80"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // 권한 체크: commenter나 viewer는 수정 불가
+                                    if (!canEditTask) {
+                                      return;
+                                    }
                                     console.log("캘린더에서 작업 클릭, task 데이터:", task);
                                     setSelectedTask(task);
                                     setIsEditDialogOpen(true);
@@ -1252,6 +1353,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   className="cursor-pointer hover:opacity-80"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // 권한 체크: commenter나 viewer는 수정 불가
+                                    if (!canEditTask) {
+                                      return;
+                                    }
                                     setSelectedTask(task);
                                     setIsEditDialogOpen(true);
                                   }}
@@ -1292,6 +1397,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 setSelectedDateForTask(selectedCellDate);
                 setShowAddTaskDialog(true);
               }}
+              disabled={!canCreateTask}
+              title={!canCreateTask ? "읽기 권한만 있어 작업을 추가할 수 없습니다" : ""}
             >
               <Plus className="w-4 h-4" />
               <span>작업 추가</span>
@@ -1374,10 +1481,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          // 권한 체크: commenter나 viewer는 수정 불가
+                          if (!canEditTask) {
+                            return;
+                          }
                           console.log("수정 버튼 클릭, task 데이터:", task);
                           setSelectedTask(task);
                           setIsEditDialogOpen(true);
                         }}
+                        disabled={!canEditTask || task.userId !== user?.id}
+                        title={!canEditTask ? "읽기 권한만 있어 작업을 수정할 수 없습니다" : task.userId !== user?.id ? "본인이 등록한 작업만 수정할 수 있습니다" : ""}
                       >
                         수정
                       </Button>
@@ -1391,6 +1504,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             )}
           </div>
         </div>
+      )}
+
+      {/* Share Dialog */}
+      {user && selectedFarm && (
+        <CalendarShareDialog 
+          open={showShareDialog} 
+          onOpenChange={setShowShareDialog}
+          farmId={selectedFarm.id}
+        />
       )}
 
       {/* Add Task Dialog */}

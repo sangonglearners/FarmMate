@@ -15,15 +15,23 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
 import { clearCurrentUserTaskData, clearAllFrontendData } from '../../../shared/api/clearAllData';
 import { Separator } from '@/components/ui/separator';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 
 export default function MyPage() {
   const [showLogout, setShowLogout] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showClearData, setShowClearData] = useState(false);
   const [userName, setUserName] = useState<string>('사용자');
+  const [tempUserName, setTempUserName] = useState<string>('사용자');
+  const [isSaving, setIsSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [, setLocation] = useLocation();
-  const { data: farms } = useFarms();
+  const queryClient = useQueryClient();
+  const { signOut, user } = useAuth();
+  
+  const { data: allFarms } = useFarms();
+  // 내 농장만 필터링
+  const farms = allFarms?.filter(farm => farm.userId === user?.id) || [];
   const deleteFarm = useDeleteFarm();
   const { data: crops } = useCrops();
   const deleteCrop = useDeleteCrop();
@@ -31,27 +39,78 @@ export default function MyPage() {
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
   const [editingFarm, setEditingFarm] = useState<any | null>(null);
   const [editingCrop, setEditingCrop] = useState<any | null>(null);
-  const queryClient = useQueryClient();
-  const { signOut, user } = useAuth();
 
   useEffect(() => {
-    // 실제 사용자 정보 우선, 없으면 로컬 스토리지에서 가져오기
-    if (user) {
-      setUserName(user.user_metadata?.full_name || user.email || '사용자');
-      if (user.user_metadata?.avatar_url) {
-        setAvatarUrl(user.user_metadata.avatar_url);
+    // user_profiles에서 display_name 가져오기
+    const loadUserProfile = async () => {
+      if (user?.id) {
+        try {
+          const { data, error } = await getSupabaseClient()
+            .from('user_profiles')
+            .select('display_name')
+            .eq('id', user.id)
+            .single();
+          
+          if (!error && data?.display_name) {
+            setUserName(data.display_name);
+            setTempUserName(data.display_name);
+            localStorage.setItem('fm_user_name', data.display_name);
+          } else {
+            // 기존 로직대로
+            setUserName(user.user_metadata?.full_name || user.email || '사용자');
+            setTempUserName(user.user_metadata?.full_name || user.email || '사용자');
+          }
+        } catch (error) {
+          console.error('Failed to load user profile:', error);
+          setUserName(user.user_metadata?.full_name || user.email || '사용자');
+          setTempUserName(user.user_metadata?.full_name || user.email || '사용자');
+        }
+      } else {
+        const savedName = localStorage.getItem('fm_user_name');
+        const savedAvatar = localStorage.getItem('fm_user_avatar');
+        if (savedName) {
+          setUserName(savedName);
+          setTempUserName(savedName);
+        }
+        if (savedAvatar) setAvatarUrl(savedAvatar);
       }
-    } else {
-      const savedName = localStorage.getItem('fm_user_name');
-      const savedAvatar = localStorage.getItem('fm_user_avatar');
-      if (savedName) setUserName(savedName);
-      if (savedAvatar) setAvatarUrl(savedAvatar);
-    }
+    };
+
+    loadUserProfile();
   }, [user]);
 
   const handleNameChange = (value: string) => {
-    setUserName(value);
-    localStorage.setItem('fm_user_name', value);
+    setTempUserName(value);
+  };
+
+  const handleSaveName = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    setUserName(tempUserName);
+    localStorage.setItem('fm_user_name', tempUserName);
+    
+    // user_profiles 테이블도 업데이트
+    if (user?.id) {
+      try {
+        const { error } = await getSupabaseClient()
+          .from('user_profiles')
+          .update({ display_name: tempUserName })
+          .eq('id', user.id);
+        
+        if (error) {
+          console.error('Display name update error:', error);
+          alert('이름 저장에 실패했습니다.');
+        } else {
+          alert('이름이 저장되었습니다.');
+        }
+      } catch (error) {
+        console.error('Failed to update display name:', error);
+        alert('이름 저장에 실패했습니다.');
+      }
+    }
+    
+    setIsSaving(false);
   };
 
   const handleAvatarChange = (file: File | null) => {
@@ -139,8 +198,11 @@ export default function MyPage() {
             className="absolute inset-0 opacity-0"
           />
         </label>
-        <div className="flex-1">
-          <Input value={userName} onChange={(e) => handleNameChange(e.target.value)} />
+        <div className="flex-1 flex gap-2">
+          <Input value={tempUserName} onChange={(e) => handleNameChange(e.target.value)} />
+          <Button onClick={handleSaveName} disabled={isSaving}>
+            {isSaving ? '저장 중...' : '저장'}
+          </Button>
         </div>
       </div>
 

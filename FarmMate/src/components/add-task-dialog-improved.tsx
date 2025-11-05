@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -41,11 +42,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -67,6 +63,8 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { mustOk } from "@/shared/api/mustOk";
 import { useFarms } from "@/features/farm-management";
 import { useCrops } from "@/features/crop-management";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSharedCalendars } from "@/features/calendar-share";
 
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
@@ -155,6 +153,31 @@ export default function AddTaskDialog({
 
   const { data: crops } = useCrops();
 
+  // 현재 사용자 정보와 공유된 캘린더 정보 가져오기 (권한 체크용)
+  const { user } = useAuth();
+  const { data: sharedCalendars = [] } = useSharedCalendars();
+
+  // 각 농장의 권한 확인 함수
+  const getFarmPermission = (farmId: string) => {
+    const farm = farms?.find(f => f.id === farmId);
+    if (!farm) return null;
+
+    // 내 농장인지 확인
+    if (farm.userId === user?.id) {
+      return 'owner';
+    }
+
+    // 공유된 캘린더에서 권한 찾기
+    const sharedCalendar = sharedCalendars.find(sc => sc.calendarId === farmId);
+    return sharedCalendar?.role || null;
+  };
+
+  // 작업 등록 가능 여부 확인: 내 농장 또는 editor 권한만 가능
+  const canCreateTaskForFarm = (farmId: string) => {
+    const permission = getFarmPermission(farmId);
+    return permission === 'owner' || permission === 'editor';
+  };
+
   /** 기존 작업 목록 가져오기 (이랑 중복 검사용) */
   const { data: existingTasks } = useQuery<Task[]>({
     queryKey: ["tasks"],
@@ -168,7 +191,7 @@ export default function AddTaskDialog({
       description: "",
       taskType: "",
       scheduledDate: selectedDate || "",
-      endDate: "",
+      endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
       farmId: "",
       cropId: "",
       environment: "",
@@ -176,6 +199,20 @@ export default function AddTaskDialog({
     },
     mode: "onChange", // 실시간 유효성 검사
   });
+
+  // 작업 날짜가 변경될 때 종료날짜를 자동으로 동일하게 설정
+  const watchedScheduledDate = form.watch("scheduledDate");
+  useEffect(() => {
+    const currentEndDate = form.getValues("endDate");
+    
+    // 작업 날짜가 있고, 종료날짜가 비어있거나 작업 날짜와 다른 경우
+    if (watchedScheduledDate && (!currentEndDate || currentEndDate !== watchedScheduledDate)) {
+      // 개별등록 모드이거나 수정 모드일 때만 자동 설정 (일괄등록은 제외)
+      if ((!task && registrationMode === "individual") || task) {
+        form.setValue("endDate", watchedScheduledDate);
+      }
+    }
+  }, [watchedScheduledDate, registrationMode, task, form]);
 
   // 제목 자동 설정 (편집 모드에서도 작동)
   useEffect(() => {
@@ -246,16 +283,19 @@ export default function AddTaskDialog({
     }
   }, [open]);
 
-  // 첫 번째 농장을 기본값으로 설정
+  // 첫 번째 작업 등록 가능한 농장을 기본값으로 설정
   useEffect(() => {
     if (farms && farms.length > 0 && !task && open && !selectedFarm) {
-      const firstFarm = farms[0];
-      setSelectedFarm(firstFarm);
-      form.setValue("farmId", firstFarm.id);
-      form.setValue("environment", firstFarm.environment || "");
-      console.log("첫 번째 농장이 자동 선택되었습니다:", firstFarm.name);
+      // 작업 등록 가능한 농장 찾기 (내 농장 또는 editor 권한)
+      const availableFarm = farms.find(farm => canCreateTaskForFarm(farm.id));
+      if (availableFarm) {
+        setSelectedFarm(availableFarm);
+        form.setValue("farmId", availableFarm.id);
+        form.setValue("environment", availableFarm.environment || "");
+        console.log("작업 등록 가능한 농장이 자동 선택되었습니다:", availableFarm.name);
+      }
     }
-  }, [farms, task, open, selectedFarm, form]);
+  }, [farms, task, open, selectedFarm, form, user, sharedCalendars]);
 
   // 일괄등록된 작업 그룹 찾기
   const findTaskGroup = (currentTask: Task) => {
@@ -396,7 +436,7 @@ export default function AddTaskDialog({
         description: "",
         taskType: "",
         scheduledDate: selectedDate || "",
-        endDate: "",
+        endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
         farmId: "",
         cropId: "",
         environment: "",
@@ -1075,6 +1115,16 @@ export default function AddTaskDialog({
       return;
     }
 
+    // 권한 체크: 작업 등록 가능한 농장만 제출 가능
+    if (!canCreateTaskForFarm(data.farmId)) {
+      toast({
+        title: "권한이 없습니다",
+        description: "이 농장에는 작업을 등록할 권한이 없습니다. (내 농장 또는 전체 허용 권한 필요)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // 이랑 번호 필수 검증
     if (!task && !data.rowNumber) {
       toast({
@@ -1189,7 +1239,7 @@ export default function AddTaskDialog({
 
   return (
     <>
-      <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange}>
+      <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange} modal={false}>
         <DialogContent className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{task ? "일정 수정하기" : "내 농작업 관리"}</DialogTitle>
@@ -1413,6 +1463,16 @@ export default function AddTaskDialog({
                       value={field.value || ""}
                       onValueChange={(value) => {
                         try {
+                          // 권한 체크: 작업 등록 가능한 농장만 선택 가능
+                          if (!canCreateTaskForFarm(value)) {
+                            toast({
+                              title: "권한이 없습니다",
+                              description: "이 농장에는 작업을 등록할 권한이 없습니다. (내 농장 또는 전체 허용 권한 필요)",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
                           field.onChange(value);
                           const farm = farms?.find(f => f.id === value);
                           if (farm) {
@@ -1454,11 +1514,33 @@ export default function AddTaskDialog({
                             등록된 농장이 없습니다. 농장을 먼저 추가해주세요.
                           </SelectItem>
                         ) : (
-                          farms?.map((farm) => (
-                            <SelectItem key={farm.id} value={farm.id}>
-                              {farm.name} ({farm.environment}) - {farm.rowCount}이랑
-                            </SelectItem>
-                          ))
+                          farms?.map((farm) => {
+                            const canCreate = canCreateTaskForFarm(farm.id);
+                            const permission = getFarmPermission(farm.id);
+                            const permissionLabel = permission === 'owner' 
+                              ? '내 농장' 
+                              : permission === 'editor' 
+                              ? '전체 허용' 
+                              : permission === 'commenter' 
+                              ? '댓글 허용' 
+                              : permission === 'viewer' 
+                              ? '읽기 허용' 
+                              : '';
+                            
+                            return (
+                              <SelectItem 
+                                key={farm.id} 
+                                value={farm.id}
+                                disabled={!canCreate}
+                                className={!canCreate ? "opacity-50 cursor-not-allowed" : ""}
+                              >
+                                <span className={!canCreate ? "text-gray-400" : ""}>
+                                  {farm.name}
+                                  {permissionLabel && ` [${permissionLabel}]`}
+                                </span>
+                              </SelectItem>
+                            );
+                          })
                         )}
                       </SelectContent>
                     </Select>
@@ -1672,46 +1754,51 @@ export default function AddTaskDialog({
               <FormField
                 control={form.control}
                 name="scheduledDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>작업 날짜 *</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={`w-full pl-3 text-left font-normal ${
-                              !field.value ? "text-muted-foreground" : ""
-                            }`}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "yyyy년 MM월 dd일", {
-                                locale: ko,
-                              })
-                            ) : (
-                              <span>날짜를 선택해주세요</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => {
-                            field.onChange(date ? format(date, "yyyy-MM-dd") : "");
-                          }}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const [open, setOpen] = useState(false);
+                  return (
+                    <FormItem>
+                      <FormLabel>작업 날짜 *</FormLabel>
+                      <Dialog open={open} onOpenChange={setOpen}>
+                        <DialogTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full pl-3 text-left font-normal"
+                            >
+                              {field.value ? (
+                                format(new Date(field.value), "yyyy년 MM월 dd일", {
+                                  locale: ko,
+                                })
+                              ) : (
+                                <span>날짜를 선택해주세요</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </DialogTrigger>
+                        <DialogContent className="w-auto p-6 flex items-center justify-center">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                field.onChange(format(date, "yyyy-MM-dd"));
+                                setOpen(false);
+                              }
+                            }}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            initialFocus
+                          />
+                        </DialogContent>
+                      </Dialog>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               {/* 종료 날짜(개별등록 또는 수정 모드에서) */}
@@ -1719,46 +1806,51 @@ export default function AddTaskDialog({
                 <FormField
                   control={form.control}
                   name="endDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={`w-full pl-3 text-left font-normal ${
-                                !field.value ? "text-muted-foreground" : ""
-                              }`}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), "yyyy년 MM월 dd일", {
-                                  locale: ko,
-                                })
-                              ) : (
-                                <span>종료 날짜를 선택해주세요</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => {
-                              field.onChange(date ? format(date, "yyyy-MM-dd") : "");
-                            }}
-                            disabled={(date) =>
-                              date < new Date(new Date().setHours(0, 0, 0, 0))
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const [open, setOpen] = useState(false);
+                    return (
+                      <FormItem>
+                        <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
+                        <Dialog open={open} onOpenChange={setOpen}>
+                          <DialogTrigger asChild>
+                            <FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full pl-3 text-left font-normal"
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "yyyy년 MM월 dd일", {
+                                    locale: ko,
+                                  })
+                                ) : (
+                                  <span>종료 날짜를 선택해주세요</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </DialogTrigger>
+                          <DialogContent className="w-auto p-6 flex items-center justify-center">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? new Date(field.value) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  field.onChange(format(date, "yyyy-MM-dd"));
+                                  setOpen(false);
+                                }
+                              }}
+                              disabled={(date) =>
+                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                              }
+                              initialFocus
+                            />
+                          </DialogContent>
+                        </Dialog>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
 
@@ -1812,12 +1904,25 @@ export default function AddTaskDialog({
                 <Button
                   type="submit"
                   className="flex-1"
+                  style={{ touchAction: 'manipulation' }}
                   disabled={
                     createMutation.isPending ||
                     updateMutation.isPending ||
                     bulkCreateMutation.isPending ||
                     deleteMutation.isPending
                   }
+                  onTouchStart={(e) => {
+                    // iOS에서 터치 이벤트로 form submit이 제대로 작동하도록 함
+                    e.stopPropagation();
+                    console.log("💾 저장하기 버튼 터치됨 (iOS)", {
+                      registrationMode,
+                      farmId: form.getValues("farmId"),
+                      taskType: form.getValues("taskType"),
+                      scheduledDate: form.getValues("scheduledDate"),
+                      endDate: form.getValues("endDate"),
+                    });
+                    // form submit이 자동으로 실행되도록 함 (type="submit"이 있으므로)
+                  }}
                   onClick={(e) => {
                     console.log("💾 저장하기 버튼 클릭됨", {
                       registrationMode,

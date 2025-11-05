@@ -108,6 +108,48 @@
 
 ---
 
+## 7. 캘린더 댓글 기능 및 권한/표시 개선 (2025-10-30)
+
+| 항목 | 내용 |
+|------|------|
+| 기능 이름 | 캘린더 댓글 + 권한/표시 개선 |
+| 목표 | 댓글 기능 도입과 권한 기반 읽기/쓰기 제어, 이름/이메일 표기 정비 |
+| 주요 요구사항 | - [x] 댓글 사이드패널 UI (우측 Sheet) <br>- [x] 작성자 이름/이메일, 생성시각 표시 <br>- [x] 본인 댓글 수정/삭제 가능(… 드롭다운) <br>- [x] 시간 포맷 24시간제 `YY.MM.DD HH:MM` <br>- [x] 권한: owner/editor/commenter 읽기·쓰기, viewer 불가 |
+| 데이터베이스 | `calendar_comments` 테이블, RLS 정책 추가 |
+| 핵심 파일 | - `supabase/migrations/create_calendar_comments_table.sql` <br>- `src/shared/api/calendar-comment.repository.ts` <br>- `src/features/calendar-comments/model/calendar-comment.hooks.ts` <br>- `src/features/calendar-comments/ui/CalendarCommentsPanel.tsx` |
+| 비고 | 댓글 버튼은 캘린더 메뉴바 우측 상단 고정 |
+
+### RLS 요약
+- 읽기: 소유자 또는 (calendar_shares의) editor/commenter
+- 작성: 소유자 또는 editor/commenter, 단 `user_id = auth.uid()`
+- 수정/삭제: 본인 댓글만, 소유자는 삭제 가능
+
+---
+
+## 8. 사용자 표시 이름(display_name) 연동 및 노출 규칙
+
+| 항목 | 내용 |
+|------|------|
+| 저장 위치 | `user_profiles.display_name` |
+| 입력/저장 | 마이페이지 이름 입력 + “저장” 버튼으로 Supabase 업데이트 |
+| 표시 규칙 | 상단: display_name(없으면 이메일) / 하단: 이메일 |
+| 적용 위치 | 댓글 패널, 공유 사용자 검색/목록, 마이페이지 헤더 |
+| 핵심 파일 | `src/pages/my-page/ui/MyPage.tsx`, `src/features/calendar-share/ui/CalendarShareDialog.tsx`, `src/features/calendar-comments/ui/CalendarCommentsPanel.tsx` |
+
+---
+
+## 9. 농장 분류 일원화(내 농장/친구 농장)
+
+| 항목 | 내용 |
+|------|------|
+| 분류 기준 | `farm.userId === currentUser.id` 이면 내 농장, 아니면 친구 농장 |
+| 캘린더 | 드롭다운 상단: 내 농장 / 하단: 친구 농장, 기본 선택은 내 농장 우선 |
+| 농장&작물 | “내 농장 목록”과 “친구 농장” 섹션 분리, 내 농장이 공유 중이면 파란색 하이라이트만 표시 |
+| 마이페이지 | 내 농장 정보에 내 농장만 노출 (친구 농장 제외) |
+| 핵심 파일 | `src/components/farm-calendar-grid.tsx`, `src/pages/farms/ui/FarmsPage.tsx`, `src/pages/my-page/ui/MyPage.tsx` |
+
+---
+
 ## 배포 및 환경 설정
 
 | 항목 | 내용 |

@@ -7,11 +7,13 @@ import { CalendarGrid } from "../../../widgets/calendar-grid";
 import MonthCalendar from "../../../widgets/calendar-grid/ui/MonthCalendar";
 
 import { useCrops } from "../../../features/crop-management";
+import { useSharedCalendars } from "@/features/calendar-share";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "../../../entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
+import { WeatherWidget } from "../../../components/weather-widget";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -22,6 +24,14 @@ export default function HomePage() {
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [, setLocation] = useLocation();
+
+  // 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장 ID 집합 (Home의 ToDo 연동에서만 제외)
+  const { data: sharedCalendars = [] } = useSharedCalendars();
+  const viewerAndCommenterFarmIdSet = new Set(
+    (sharedCalendars || [])
+      .filter((c) => c.role === 'viewer' || c.role === 'commenter')
+      .map((c) => c.calendarId)
+  );
 
   // 중복 제거 함수
   const removeDuplicateTasks = (tasks: any[]) => {
@@ -60,6 +70,12 @@ export default function HomePage() {
   const handleFullViewClick = () => {
     setShowMonthView(!showMonthView);
   };
+  // 홈 화면 플래너(주/월)에서도 viewer 또는 commenter 공유 작업은 제외하여 전달
+  const plannerTasks = tasks.filter((task: any) => {
+    if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) return false;
+    return true;
+  });
+
 
   const handleAddTaskClick = () => {
     setShowAddTaskDialog(true);
@@ -171,6 +187,10 @@ export default function HomePage() {
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
   // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
   const selectedDateTasks = tasks.filter(task => {
+    // 홈 ToDo에는 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장의 작업은 제외
+    if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) {
+      return false;
+    }
     // "재배" 유형의 작업은 투두리스트에서 제외
     if (task.taskType === "재배") {
       return false;
@@ -250,7 +270,9 @@ export default function HomePage() {
 
   const formatCurrentPeriod = () => {
     if (showMonthView) {
-      return `${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월`;
+      const year = currentDate.getFullYear().toString().slice(-2);
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      return `${year}.${month}`;
     } else {
       // 2주 보기에서는 해당 주의 월요일부터 2주간의 범위를 표시
       const currentDayOfWeek = currentDate.getDay();
@@ -261,13 +283,26 @@ export default function HomePage() {
       const endDate = new Date(monday);
       endDate.setDate(monday.getDate() + 13);
       
+      // 날짜 형식: "25.10.27~11.09"
+      const formatDateShort = (date: Date) => {
+        const year = date.getFullYear().toString().slice(-2);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}.${month}.${day}`;
+      };
+      
+      const startStr = formatDateShort(monday);
+      const endStr = formatDateShort(endDate);
+      
       // 같은 년도인지 확인
       if (monday.getFullYear() === endDate.getFullYear()) {
-        // 같은 년도: "2025년 11월 30일 - 12월 10일"
-        return `${monday.getFullYear()}년 ${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+        // 같은 년도: "25.10.27~11.09" (시작일의 년도만 표시)
+        const month = String(endDate.getMonth() + 1).padStart(2, '0');
+        const day = String(endDate.getDate()).padStart(2, '0');
+        return `${startStr}~${month}.${day}`;
       } else {
-        // 다른 년도: "2025년 11월 30일 - 2026년 1월 10일"
-        return `${monday.getFullYear()}년 ${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${endDate.getFullYear()}년 ${endDate.getMonth() + 1}월 ${endDate.getDate()}일`;
+        // 다른 년도: "25.10.27~26.01.09"
+        return `${startStr}~${formatDateShort(endDate)}`;
       }
     }
   };
@@ -295,51 +330,57 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* Recommendation Banner */}
-        <Card className="overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="max-w-[70%]">
+        {/* Weather Widget and Recommendation Banner - 좌우 배치 */}
+        <div className="grid grid-cols-2 gap-4 items-stretch">
+          {/* 왼쪽: 날씨 위젯 */}
+          <div className="min-w-0">
+            <WeatherWidget className="mb-0" />
+          </div>
+          
+          {/* 오른쪽: 작물 추천 배너 */}
+          <Card className="overflow-hidden h-full flex">
+            <CardContent className="p-4 flex-1 flex items-center justify-between">
+              <div className="flex-1 min-w-0 pr-3">
                 <p className="text-xs text-gray-600 mb-1">이번 시즌에는</p>
-                <h2 className="text-base font-semibold text-gray-900 leading-snug">
+                <h2 className="text-sm font-semibold text-gray-900 leading-tight whitespace-nowrap">
                   무엇을, 언제, 어디에, 얼마나 심지?
                 </h2>
                 <Button size="sm" className="mt-3" onClick={() => setLocation('/recommendations/input')}>
                   작물 추천 받으러가기
                 </Button>
               </div>
-              <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center text-4xl select-none">
+              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center text-3xl flex-shrink-0 select-none">
                 🥕
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Calendar Planner */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              <div className="flex items-center space-x-1 flex-1 min-w-0">
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={handlePrevious}
-                  className="p-1 h-8 w-8"
+                  className="p-1 h-8 w-8 flex-shrink-0"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span className="flex items-center space-x-2">
-                  <CalendarIcon className="w-5 h-5" />
+                <span className="flex items-center space-x-1 flex-1 min-w-0">
+                  <CalendarIcon className="w-4 h-4 flex-shrink-0" />
                   <div className="flex flex-col">
-                    <span>{showMonthView ? "한 달 플래너" : "이번 주 플래너"}</span>
-                    <span className="text-sm text-gray-500 font-normal">{formatCurrentPeriod()}</span>
+                    <span className="text-sm whitespace-nowrap">{showMonthView ? "한 달 플래너" : "이번 주 플래너"}</span>
+                    <span className="text-xs text-gray-500 font-normal whitespace-nowrap">{formatCurrentPeriod()}</span>
                   </div>
                 </span>
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={handleNext}
-                  className="p-1 h-8 w-8"
+                  className="p-1 h-8 w-8 flex-shrink-0"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -369,7 +410,7 @@ export default function HomePage() {
               {showMonthView ? (
                 <MonthCalendar
                   currentDate={currentDate}
-                  tasks={tasks}
+                  tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
                   selectedDate={selectedDate}
@@ -377,7 +418,7 @@ export default function HomePage() {
               ) : (
                 <CalendarGrid
                   currentDate={currentDate}
-                  tasks={tasks}
+                  tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
                   selectedDate={selectedDate}
