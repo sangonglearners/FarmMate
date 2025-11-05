@@ -242,3 +242,4 @@ if (taskData.farmId && taskData.farmId !== 'undefined' && taskData.farmId !== ''
 - `supabase/functions/recommend/`: 추천 정렬 로직 개선
 - `layout/header.tsx`, `layout/mobile-nav.tsx`: UI 일관성 개선
 - `calendar-grid.tsx`: 연간 캘린더 렌더링 수정
+- 아이폰 수정

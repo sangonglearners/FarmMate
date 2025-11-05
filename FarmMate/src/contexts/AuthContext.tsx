@@ -96,14 +96,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(session.user)
             console.log('✅ 세션 복원 완료:', session.user?.email)
           }
+        } else if (session) {
+          // 세션이 있으면 유지 (테스트 로그인 포함)
+          console.log('✅ 기존 세션 유지:', session.user?.email)
+          setSession(session)
+          setUser(session.user)
         } else {
-          console.log('🔄 일반 페이지 로드 - 개발 모드에서 로그인 화면으로')
-          // OAuth 콜백이 아니고 최근 성공도 없는 경우에만 로그아웃
-          await supabase.auth.signOut({ scope: 'local' })
+          console.log('🔄 세션이 없음 - 로그아웃 상태')
           setSession(null)
           setUser(null)
-          localStorage.removeItem('farmmate-oauth-success')
-          localStorage.removeItem('farmmate-oauth-timestamp')
         }
       } catch (error) {
         console.warn('인증 초기화 중 오류:', error)
@@ -177,8 +178,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const handleSignOut = async () => {
     try {
       setLoading(true)
-      await signOut()
       localStorage.removeItem('test-user')
+      await signOut()
     } catch (error) {
       console.error('로그아웃 실패:', error)
       throw error
@@ -188,7 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   // 테스트 로그인 함수
-  const handleTestLogin = () => {
+  const handleTestLogin = async () => {
     const testUser = {
       id: 'test-user-123',
       email: 'test@farmmate.com',
@@ -203,6 +204,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       app_metadata: {},
       aud: 'authenticated',
       role: 'authenticated'
+    }
+    
+    // 테스트 사용자를 localStorage에 저장 (requireUser에서 사용)
+    localStorage.setItem('test-user', JSON.stringify({
+      id: testUser.id,
+      email: testUser.email,
+      user_metadata: testUser.user_metadata,
+      created_at: testUser.created_at,
+      updated_at: testUser.updated_at,
+      email_confirmed_at: testUser.email_confirmed_at,
+      last_sign_in_at: testUser.last_sign_in_at,
+      app_metadata: testUser.app_metadata,
+      aud: testUser.aud,
+      role: testUser.role
+    }))
+    
+    // 테스트 사용자를 user_profiles에 추가
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: testUser.id,
+          email: testUser.email,
+          display_name: testUser.user_metadata.full_name || testUser.email,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+      
+      if (error && !error.message.includes('duplicate')) {
+        console.warn('테스트 사용자 프로필 추가 실패:', error)
+      }
+    } catch (error) {
+      console.warn('테스트 사용자 프로필 추가 중 오류:', error)
     }
     
     setUser(testUser as User)

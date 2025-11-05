@@ -64,6 +64,12 @@
     @apply font-sans antialiased;
     color: hsl(var(--foreground));
     background: hsl(var(--background));
+    overflow-x: hidden;
+  }
+  
+  #root {
+    overflow-x: hidden;
+    width: 100%;
   }
 }
 
@@ -86,5 +92,20 @@
   
   .nav-active {
     @apply text-primary bg-primary/10;
+  }
+  
+  /* iOS 터치 이벤트 최적화 */
+  button,
+  [role="button"],
+  .rdp-button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Calendar 날짜 선택 버튼 iOS 최적화 */
+  .rdp-day,
+  .rdp-nav_button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 }

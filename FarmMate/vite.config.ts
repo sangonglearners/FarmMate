@@ -48,5 +48,13 @@ export default defineConfig({
     port: 5175,
     strictPort: true,
     open: true,
+    proxy: {
+      '/api/weather': {
+        target: 'http://apis.data.go.kr',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/weather/, ''),
+        secure: false,
+      },
+    },
   },
 });
