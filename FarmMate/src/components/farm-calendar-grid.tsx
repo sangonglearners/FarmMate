@@ -1278,12 +1278,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   tasks: displayTasks.map(t => ({ id: t.id, title: t.title }))
                                 });
                                 return displayTasks.slice(0, 3);
-                              })().map((task) => {
-                              const cropName = getCropName(task.cropId);
-                              return (
+                              })().map((task) => (
                                 <div 
                                   key={task.id} 
-                                  className="space-y-0.5 cursor-pointer hover:opacity-80"
+                                  className="cursor-pointer hover:opacity-80"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     // 권한 체크: commenter나 viewer는 수정 불가
@@ -1295,13 +1293,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                     setIsEditDialogOpen(true);
                                   }}
                                 >
-                                  {cropName && (
-                                    <div className="text-xs font-medium text-gray-800 truncate">
-                                      {cropName}
-                                    </div>
-                                  )}
                                   <div 
-                                    className={`text-xs px-1 py-0.5 rounded border break-words leading-tight ${getTaskColor(task)}`}
+                                    className={`
+                                      ${getTaskColor(task)}
+                                      px-2 py-1 rounded border leading-tight
+                                      text-[11px]
+                                      ${['파종', '육묘', '수확'].includes(task.taskType) ? 'font-bold' : 'font-semibold'}
+                                    `.replace(/\s+/g, ' ').trim()}
                                     style={{
                                       display: '-webkit-box',
                                       WebkitLineClamp: 2,
@@ -1315,8 +1313,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                     {task.title || task.taskType}
                                   </div>
                                 </div>
-                              );
-                            })}
+                              ))}
                             
                             {/* 개별 셀에서 3개 초과 시 더보기 표시 */}
                             {(() => {
@@ -1362,7 +1359,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   }}
                                 >
                                   <div 
-                                    className={`text-[10px] px-1 py-0.5 rounded border truncate ${getTaskColor(task)}`}
+                                    className={`
+                                      ${getTaskColor(task)}
+                                      text-[11px] px-1.5 py-1 rounded border truncate
+                                      font-semibold
+                                    `.replace(/\s+/g, ' ').trim()}
                                     title={task.title || task.taskType}
                                   >
                                     {cropName}
