@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Cloud, Wind, MapPin } from "lucide-react";
+import { Cloud, MapPin } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import {
   getWeatherDataByCoordinates,
@@ -15,22 +15,20 @@ interface WeatherWidgetProps {
 
 export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number; name: string } | null>(null);
-  const [locationError, setLocationError] = useState(false);
 
-  // 사용자 위치 가져오기
+  // 사용자 위치 가져오기 (GPS 기반)
   useEffect(() => {
     getCurrentLocation()
       .then((location) => {
         if (location) {
           setUserLocation(location);
         } else {
-          setLocationError(true);
           // 위치를 가져올 수 없으면 기본값(서울) 사용
           setUserLocation({ lat: 37.5665, lon: 126.9780, name: '서울' });
         }
       })
       .catch(() => {
-        setLocationError(true);
+        // 위치를 가져올 수 없으면 기본값(서울) 사용
         setUserLocation({ lat: 37.5665, lon: 126.9780, name: '서울' });
       });
   }, []);
@@ -87,20 +85,15 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   const currentTemp = parseInt(weather.temperature) || 0;
   const maxTemp = weather.maxTemperature ? parseInt(weather.maxTemperature) : null;
   const minTemp = weather.minTemperature ? parseInt(weather.minTemperature) : null;
-  const windSpeed = parseFloat(weather.windSpeed) || 0;
   const humidity = parseInt(weather.humidity) || 0;
-  const precipitation = parseFloat(weather.precipitation) || 0;
 
   return (
-    <Card className={`${className || ''} h-full border-gray-200 bg-white`}>
+    <Card className={`${className || ''} h-full border bg-white`}>
       <CardContent className="p-4 h-full flex flex-col">
         {/* 위치 정보 */}
         <div className="flex items-center space-x-1 mb-3 text-xs text-gray-600 flex-shrink-0">
           <MapPin className="w-3.5 h-3.5" />
           <span className="font-medium">{weather.location}</span>
-          {locationError && (
-            <span className="text-gray-400 ml-2">(위치 권한 없음, 기본값 사용)</span>
-          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 flex-1">
@@ -111,9 +104,14 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
             
             {/* 온도 정보 */}
             <div className="flex flex-col min-w-0">
-              {/* 현재 온도 */}
-              <div className="text-2xl font-bold text-gray-900 mb-1">
-                {currentTemp}°
+              {/* 현재 온도와 습도 */}
+              <div className="flex items-center space-x-2 mb-1">
+                <div className="text-2xl font-bold text-gray-900">
+                  {currentTemp}°
+                </div>
+                <div className="text-sm text-gray-600">
+                  습도 {humidity}%
+                </div>
               </div>
               
               {/* 최고/최저 온도 */}
@@ -128,38 +126,6 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
                   <span className="text-gray-500">온도 정보 없음</span>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* 오른쪽: 습도, 바람, 강수량 */}
-          <div className="flex items-center space-x-2 border-l border-gray-200 pl-2 flex-shrink-0">
-            {/* 습도 */}
-            <div className="flex flex-col items-center min-w-0">
-              <span className="text-xs text-gray-600 mb-1 whitespace-nowrap">습도</span>
-              <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">{humidity}%</span>
-            </div>
-
-            {/* 구분선 */}
-            <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
-
-            {/* 바람 */}
-            <div className="flex flex-col items-center min-w-0">
-              <div className="flex items-center space-x-1 mb-1">
-                <Wind className="w-3 h-3 text-gray-600 flex-shrink-0" />
-                <span className="text-xs text-gray-600 whitespace-nowrap">바람</span>
-              </div>
-              <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">{windSpeed.toFixed(1)}m/s</span>
-            </div>
-
-            {/* 구분선 */}
-            <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
-
-            {/* 강수량 */}
-            <div className="flex flex-col items-center min-w-0">
-              <span className="text-xs text-gray-600 mb-1 whitespace-nowrap">강수량</span>
-              <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">
-                {precipitation > 0 ? `${precipitation.toFixed(1)}mm` : '0mm'}
-              </span>
             </div>
           </div>
         </div>
