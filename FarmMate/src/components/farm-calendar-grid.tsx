@@ -22,6 +22,8 @@ interface FarmCalendarGridProps {
 
 type ViewMode = "monthly" | "yearly";
 
+type TaskGroupWithLane = TaskGroup & { laneIndex: number; overlapCount: number };
+
 export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCalendarGridProps) {
   // tasks가 변경될 때마다 컴포넌트가 리렌더링되도록 의존성 추가
   const memoizedTasks = useMemo(() => tasks, [tasks]);
@@ -1027,22 +1029,62 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     <div className={`absolute ${isMobile ? 'left-[40px]' : 'left-[60px]'} right-0 top-0 bottom-0 pointer-events-none overflow-hidden`}>
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 2개까지만 표시 */}
                     {(() => {
-                      const maxVisible = 2;
-                      const visibleGroups = continuousTaskGroups.slice(0, maxVisible);
-                      const overflowCount = Math.max(0, continuousTaskGroups.length - maxVisible);
-                      const gapSize = 4;
-                      const visibleCount = visibleGroups.length || 1;
+                      const maxVisibleLanes = 2;
+                      const gapSizePx = 4;
                       const availablePercent = 90;
-                      const heightCalc =
-                        visibleCount === 1
-                          ? `${availablePercent}%`
-                          : `calc((${availablePercent}% - ${(visibleCount - 1) * gapSize}px) / ${visibleCount})`;
                       const startOffsetPercent = (100 - availablePercent) / 2;
                       const startOffset = `${startOffsetPercent}%`;
+
+                      const sortedGroups = [...continuousTaskGroups].sort((a, b) => {
+                        if (a.startDayIndex === b.startDayIndex) {
+                          return a.endDayIndex - b.endDayIndex;
+                        }
+                        return a.startDayIndex - b.startDayIndex;
+                      });
+
+                      const lanes: number[] = [];
+                      const groupsWithLaneBase = sortedGroups.map((group) => {
+                        let laneIndex = lanes.findIndex((laneEnd) => group.startDayIndex > laneEnd);
+
+                        if (laneIndex === -1) {
+                          lanes.push(group.endDayIndex);
+                          laneIndex = lanes.length - 1;
+                        } else {
+                          lanes[laneIndex] = Math.max(lanes[laneIndex], group.endDayIndex);
+                        }
+
+                        return { ...group, laneIndex };
+                      });
+
+                      const groupsWithLane: TaskGroupWithLane[] = groupsWithLaneBase.map((group, _, arr) => {
+                        const overlapCount = arr.reduce((count, other) => {
+                          if (
+                            other.startDayIndex <= group.endDayIndex &&
+                            other.endDayIndex >= group.startDayIndex
+                          ) {
+                            return count + 1;
+                          }
+                          return count;
+                        }, 0);
+                        return { ...group, overlapCount: overlapCount || 1 };
+                      });
+
+                      const visibleGroups = groupsWithLane.filter((group) => group.laneIndex < maxVisibleLanes);
+                      const overflowGroups = groupsWithLane.filter((group) => group.laneIndex >= maxVisibleLanes);
+                      const overflowCount = overflowGroups.length;
 
                       return (
                         <>
                           {visibleGroups.map((taskGroup, groupIndex) => {
+                      const laneCountForGroup = Math.min(
+                        maxVisibleLanes,
+                        Math.max(1, taskGroup.overlapCount)
+                      );
+                      const laneHeight =
+                        laneCountForGroup === 1
+                          ? `${availablePercent}%`
+                          : `calc((${availablePercent}% - ${(laneCountForGroup - 1) * gapSizePx}px) / ${laneCountForGroup})`;
+                      const laneIndex = Math.min(taskGroup.laneIndex, laneCountForGroup - 1);
                       // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
                       const taskColor = taskGroup.taskGroupId 
                         ? getTaskColor(taskGroup.task) // 개별등록과 동일한 색상
@@ -1167,11 +1209,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       });
                       
                       // 겹치지 않도록 top 위치 계산 (가변 높이, 90% 영역 사용)
-                      const gapSizePx = 4;
                       const topValue =
-                        visibleCount === 1
+                        laneCountForGroup === 1
                           ? startOffset
-                          : `calc(${startOffset} + ${groupIndex} * (${heightCalc} + ${gapSizePx}px))`;
+                          : `calc(${startOffset} + ${laneIndex} * (${laneHeight} + ${gapSizePx}px))`;
                       
                       return (
                         <div
@@ -1181,7 +1222,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             left: leftPosition,
                             width: boxWidth,
                             top: topValue,
-                            height: heightCalc,
+                            height: laneHeight,
                             zIndex: 5,
                             position: 'absolute', // relative positioning for children in yearly view
                             maxWidth: '100%' // 모든 뷰에서 최대 너비 제한 제거
@@ -1231,17 +1272,19 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               className="pointer-events-auto bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-200 transition-colors self-start"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOverflowTaskGroups(continuousTaskGroups.slice(maxVisible));
+                                setOverflowTaskGroups(
+                                  overflowGroups.map(({ laneIndex: _lane, overlapCount: _overlap, ...rest }) => rest)
+                                );
                                 setOverflowDialogTitle(`${rowNumber}번 이랑 일정`);
                               }}
-                              title={`+${overflowCount}개 더`}
+                              title={`${overflowCount}개 일정 더 보기`}
                               style={{
                                 position: "absolute",
                                 left: "8px",
                                 bottom: `calc(${startOffset} + 2px)`
                               }}
                             >
-                              +{overflowCount}개 더
+                              +{overflowCount}
                             </button>
                           )}
                         </>
@@ -1286,6 +1329,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           const maxVisible = 2;
                           const visibleTasks = displayTasks.slice(0, Math.min(displayTasks.length, maxVisible));
                           const isSingleTask = displayTasks.length === 1;
+                          const overflowCount = Math.max(0, displayTasks.length - maxVisible);
 
                           return (
                             <div
@@ -1388,18 +1432,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             
                             {/* 개별 셀에서 2개 초과 시 더보기 표시 */}
                             {(() => {
-                              const shouldShowMore = displayTasks.length > 2;
+                              const shouldShowMore = overflowCount > 0;
                               console.log(`[DEBUG] 이랑 ${rowNumber} 날짜 ${(dayInfo as any).day} 개별 셀 더보기:`, {
                                 totalTasks: displayTasks.length,
                                 shouldShowMore,
-                                moreCount: displayTasks.length - 2
+                                moreCount: overflowCount
                               });
                               return shouldShowMore;
                             })() && (
                               <button
                                 type="button"
                                 className="text-xs text-gray-500 text-center py-1 cursor-pointer hover:text-gray-700"
-                                title={`+${displayTasks.length - 2}개 더`}
+                                title={`${overflowCount}개 작업 더 보기`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
@@ -1407,7 +1451,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                   onDateClick(dateStr);
                                 }}
                               >
-                                +{displayTasks.length - 2}개 더
+                                +{overflowCount}
                               </button>
                             )}
                             </>

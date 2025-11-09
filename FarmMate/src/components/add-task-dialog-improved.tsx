@@ -184,6 +184,22 @@ export default function AddTaskDialog({
     queryFn: () => import("@/shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
   });
 
+  const extractRowNumber = (taskItem: Task | any): number | null => {
+    if (typeof taskItem?.rowNumber === "number" && !Number.isNaN(taskItem.rowNumber)) {
+      return taskItem.rowNumber;
+    }
+
+    if (typeof taskItem?.description === "string" && taskItem.description.includes("이랑:")) {
+      const match = taskItem.description.match(/이랑:\s*(\d+)번/);
+      if (match) {
+        const parsed = Number(match[1]);
+        return Number.isNaN(parsed) ? null : parsed;
+      }
+    }
+
+    return null;
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -1164,14 +1180,31 @@ export default function AddTaskDialog({
 
     // 이랑 중복 체크 (수정 모드가 아닐 때만)
     if (!task && data.rowNumber) {
-      const isDuplicate = existingTasks?.some((existingTask: any) => {
-        const isSameFarm = existingTask.farmId === data.farmId;
-        const isSameRow = existingTask.rowNumber === data.rowNumber;
-        return isSameFarm && isSameRow;
+      const toDate = (value?: string | null) => {
+        if (!value) return null;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      const newStartDate = toDate(data.scheduledDate);
+      const newEndDate = toDate(data.endDate) ?? newStartDate;
+
+      const isDuplicate = existingTasks?.some((existingTask) => {
+        if (existingTask.farmId !== data.farmId) return false;
+
+        const existingRowNumber = extractRowNumber(existingTask);
+        if (existingRowNumber !== data.rowNumber) return false;
+
+        const existingStartDate = toDate(existingTask.scheduledDate);
+        if (!existingStartDate || !newStartDate || !newEndDate) return false;
+
+        const existingEndDate = toDate(existingTask.endDate) ?? existingStartDate;
+
+        // 날짜 범위가 겹치는지 확인 (동일 기간에만 중복 경고)
+        return existingStartDate <= newEndDate && existingEndDate >= newStartDate;
       });
 
       if (isDuplicate) {
-        // 중복이면 확인 모달 표시
         setPendingSubmitData(taskData);
         setShowRowDuplicateAlert(true);
         return;
