@@ -1357,13 +1357,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                     className="relative w-full h-full"
                                   >
                                     <div
-                                      className="cursor-pointer hover:opacity-80 absolute left-1/2 -translate-x-1/2 flex items-center justify-center"
+                                      className="cursor-pointer hover:opacity-80 absolute inset-x-0 flex items-center justify-center"
                                       style={{
                                         top: "5%",
                                         bottom: "5%",
-                                        width: "70px",
-                                        minWidth: "70px",
-                                        minHeight: "90px",
                                       }}
                                       onClick={(e) => {
                                         e.stopPropagation();
