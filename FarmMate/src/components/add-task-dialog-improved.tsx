@@ -1125,6 +1125,19 @@ export default function AddTaskDialog({
       return;
     }
 
+    const startDate = data.scheduledDate;
+    const endDate = data.endDate;
+    const shouldValidateRange = ((!task && registrationMode === "individual") || task) && startDate && endDate;
+
+    if (shouldValidateRange && new Date(startDate) > new Date(endDate)) {
+      toast({
+        title: "날짜 범위를 확인해주세요",
+        description: "종료 날짜는 시작 날짜와 같거나 이후여야 합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // 이랑 번호 필수 검증
     if (!task && !data.rowNumber) {
       toast({
@@ -1788,9 +1801,6 @@ export default function AddTaskDialog({
                                 setOpen(false);
                               }
                             }}
-                            disabled={(date) =>
-                              date < new Date(new Date().setHours(0, 0, 0, 0))
-                            }
                             initialFocus
                           />
                         </DialogContent>
@@ -1808,6 +1818,13 @@ export default function AddTaskDialog({
                   name="endDate"
                   render={({ field }) => {
                     const [open, setOpen] = useState(false);
+                    const scheduledValue = form.getValues("scheduledDate");
+                    const minEndDate = scheduledValue ? new Date(scheduledValue) : null;
+                    const normalizeDate = (date: Date) => {
+                      const normalized = new Date(date);
+                      normalized.setHours(0, 0, 0, 0);
+                      return normalized;
+                    };
                     return (
                       <FormItem>
                         <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
@@ -1840,9 +1857,11 @@ export default function AddTaskDialog({
                                   setOpen(false);
                                 }
                               }}
-                              disabled={(date) =>
-                                date < new Date(new Date().setHours(0, 0, 0, 0))
-                              }
+                              disabled={(date) => {
+                                if (!minEndDate) return false;
+                                const targetDate = normalizeDate(date);
+                                return targetDate < normalizeDate(minEndDate);
+                              }}
                               initialFocus
                             />
                           </DialogContent>
