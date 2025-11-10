@@ -32,6 +32,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
   
+  // 더보기 클릭 시 전체 작업 목록 표시를 위한 상태
+  const [showAllTasksDialog, setShowAllTasksDialog] = useState<{
+    rowNumber: number;
+    date: string;
+    tasks: Task[];
+  } | null>(null);
+  
   // 공유 다이얼로그 상태
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [overflowTaskGroups, setOverflowTaskGroups] = useState<TaskGroup[] | null>(null);
@@ -1014,9 +1021,33 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             {/* 이랑별 데이터 */}
             <div>
               {rowNumbers.map((rowNumber) => {
-                const continuousTaskGroups = viewMode === "yearly" 
+                const continuousTaskGroupsRaw = viewMode === "yearly" 
                   ? getYearlyTaskGroups(rowNumber)
                   : getContinuousTaskGroups(rowNumber);
+                
+                // ===== 우선순위 적용: 일괄등록 작업을 먼저 표시 =====
+                const continuousTaskGroups = [...continuousTaskGroupsRaw].sort((a, b) => {
+                  // taskGroupId가 있으면 일괄등록 (우선순위 높음)
+                  const aIsBatch = !!a.taskGroupId;
+                  const bIsBatch = !!b.taskGroupId;
+                  
+                  if (aIsBatch && !bIsBatch) return -1; // a가 일괄등록이면 앞으로
+                  if (!aIsBatch && bIsBatch) return 1;  // b가 일괄등록이면 뒤로
+                  return 0; // 같은 타입이면 순서 유지
+                });
+                
+                // 박스 높이와 간격 계산 (이랑 전체에서 사용)
+                const boxHeight = viewMode === "yearly" ? 40 : 32;
+                const boxSpacing = 4;
+                const topOffset = 8;
+                
+                // 연속 일정 박스를 위한 최소 높이 계산
+                const visibleBoxCount = Math.min(continuousTaskGroups.length, 2); // 2개만 표시
+                const isSingleBox = continuousTaskGroups.length === 1;
+                const singleBoxHeight = isSingleBox ? Math.max(boxHeight * 2.5, 80) : boxHeight;
+                const requiredHeight = isSingleBox 
+                  ? Math.max(singleBoxHeight + 16, 96)  // 최소 높이: 박스 높이 + 위아래 8px씩
+                  : topOffset + (visibleBoxCount * (boxHeight + boxSpacing)) + 10; // 하단 여백 10px
                 
                 return (
                   <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
@@ -1024,6 +1055,30 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     <div className="w-[40px] md:w-[60px] p-1 md:p-3 text-center font-medium text-gray-900 border-r border-gray-200 bg-gray-50 flex-shrink-0 sticky left-0 z-20 text-sm md:text-base shadow-sm">
                       {rowNumber}
                     </div>
+
+                    {/* 연속된 일정 박스 컨테이너 - 우선순위 적용 + 최대 2개 표시 */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none" 
+                      style={{ 
+                        left: isMobile ? '40px' : '60px',
+                        minHeight: `${requiredHeight}px`
+                      }}
+                    >
+                      {/* 우선순위가 적용된 연속 박스들 - 최대 2개만 표시 */}
+                      {continuousTaskGroups.slice(0, 2).map((taskGroup, groupIndex) => {
+                        const taskColor = getTaskColor(taskGroup.task);
+                        
+                        // 정확한 그리드 위치 계산
+                        const totalUnits = currentPeriods.length;
+                        const spanUnits = taskGroup.endDayIndex - taskGroup.startDayIndex + 1;
+                        
+                        // 시작 위치와 너비 계산
+                        let leftPosition, boxWidth;
+                        
+                        if (viewMode === "yearly") {
+                          const cellWidth = 100;
+                          leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
+                          boxWidth = `${spanUnits * cellWidth}px`;
 
                     {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
                     <div className={`absolute ${isMobile ? 'left-[40px]' : 'left-[60px]'} right-0 top-0 bottom-0 pointer-events-none overflow-hidden`}>
@@ -1034,12 +1089,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       const availablePercent = 90;
                       const startOffsetPercent = (100 - availablePercent) / 2;
                       const startOffset = `${startOffsetPercent}%`;
-
+                              
                       const sortedGroups = [...continuousTaskGroups].sort((a, b) => {
-                        if (a.startDayIndex === b.startDayIndex) {
-                          return a.endDayIndex - b.endDayIndex;
+                        // 1순위: 우선순위 (높은 것부터)
+                        if (a.task.priority !== b.task.priority) {
+                          return b.task.priority - a.task.priority;
                         }
-                        return a.startDayIndex - b.startDayIndex;
+                        // 2순위: 시작일
+                        if (a.startDayIndex !== b.startDayIndex) {
+                          return a.startDayIndex - b.startDayIndex;
+                        }
+                        // 3순위: 종료일
+                        return a.endDayIndex - b.endDayIndex;
                       });
 
                       const lanes: number[] = [];
@@ -1118,82 +1179,43 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           // 한 달 안에만 있는 경우
                           borderRadiusClass = 'rounded-lg';
                         } else {
-                          // 여러 달에 걸친 경우 양쪽 둥글게
-                          borderRadiusClass = 'rounded-lg';
+                          const cellWidth = isMobile ? 70 : 120;
+                          leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
+                          boxWidth = `${spanUnits * cellWidth}px`;
                         }
-                      } else {
-                        // 월간 뷰
-                        if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
-                          // 하루 일정은 모든 모서리 둥글게
-                          borderRadiusClass = 'rounded-lg';
-                        } else {
-                          // 연속 일정의 경우 - 월별로 올바른 둥근 모서리 적용
-                          if (taskGroup.isFirstDay || taskGroup.startDayIndex === 0) {
-                            borderRadiusClass += 'rounded-l-lg'; // 첫 번째 날이면 왼쪽 둥글게
-                          }
-                          if (taskGroup.isLastDay || taskGroup.endDayIndex === currentPeriods.length - 1) {
-                            borderRadiusClass += ' rounded-r-lg'; // 마지막 날이면 오른쪽 둥글게
-                          }
-                        }
-                      }
-                      
-                      // 제목 표시 로직
-                      let displayTitle;
-                      if (taskGroup.taskGroupId) {
-                        // 일괄등록된 작업: 작물명만 표시
-                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
-                      } else if (viewMode === "yearly") {
-                        // 연간 뷰: 작물명만 표시 (작업 유형 제외)
-                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
-                      } else {
-                        // 월간 뷰: 전체 제목 표시
-                        displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
-                      }
-                      
-                      // 날짜 표시 로직
-                      const formatDateRange = (startDate: Date, endDate: Date) => {
+                        
+                        // 구글 캘린더 스타일의 둥근 모서리 처리
+                        let borderRadiusClass = '';
                         if (viewMode === "yearly") {
-                          // 연간 뷰: 연속된 날짜 범위를 하나의 문자열로 표시
-                          const startMonth = startDate.getMonth() + 1;
-                          const startDay = startDate.getDate();
-                          const endMonth = endDate.getMonth() + 1;
-                          const endDay = endDate.getDate();
-                          
-                          // 같은 날짜인 경우
-                          if (startDate.getTime() === endDate.getTime()) {
-                            return `${startMonth}/${startDay}`;
-                          }
-                          
-                          // 같은 월인 경우
-                          if (startMonth === endMonth) {
-                            return `${startMonth}/${startDay}~${endDay}`;
-                          }
-                          
-                          // 다른 월인 경우: 연속된 날짜 범위로 표시
-                          return `${startMonth}/${startDay}~${endMonth}/${endDay}`;
+                          borderRadiusClass = 'rounded-lg';
                         } else {
-                          // 월간 뷰: 월/일 표시
-                          const startMonth = startDate.getMonth() + 1;
-                          const startDay = startDate.getDate();
-                          const endMonth = endDate.getMonth() + 1;
-                          const endDay = endDate.getDate();
-                          
-                          // 같은 날짜인 경우
-                          if (startDate.getTime() === endDate.getTime()) {
-                            return `${startMonth}/${startDay}`;
+                          if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
+                            borderRadiusClass = 'rounded-lg';
+                          } else {
+                            if (taskGroup.isFirstDay || taskGroup.startDayIndex === 0) {
+                              borderRadiusClass += 'rounded-l-lg';
+                            }
+                            if (taskGroup.isLastDay || taskGroup.endDayIndex === currentPeriods.length - 1) {
+                              borderRadiusClass += ' rounded-r-lg';
+                            }
                           }
-                          
-                          // 같은 월인 경우
-                          if (startMonth === endMonth) {
-                            return `${startMonth}/${startDay}~${endDay}`;
-                          }
-                          
-                          // 다른 월인 경우
-                          return `${startMonth}/${startDay}~${endMonth}/${endDay}`;
                         }
-                      };
+                        
+                        // 제목 표시 로직
+                        let displayTitle;
+                        if (taskGroup.taskGroupId) {
+                          displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
+                        } else if (viewMode === "yearly") {
+                          displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
+                        } else {
+                          displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
+                        }
+                        
+                        // 날짜 표시 로직
+                        const dateRangeText = formatDateRange(taskGroup.startDate, taskGroup.endDate);
                       
-                      const dateRangeText = formatDateRange(taskGroup.startDate, taskGroup.endDate);
+                      // ⭐ bomi 로직 추가: 1개만 있을 때 크게 표시
+                      const isSingleContinuousBox = visibleGroups.length === 1;
                       
                       // 디버깅 정보
                       console.log(`[DEBUG] 박스 위치 계산:`, {
@@ -1205,14 +1227,20 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         spanUnits,
                         totalUnits,
                         calculatedLeft: leftPosition,
-                        calculatedWidth: boxWidth
+                        calculatedWidth: boxWidth,
+                        isSingleContinuousBox  // ⭐ 디버그에도 추가
                       });
                       
-                      // 겹치지 않도록 top 위치 계산 (가변 높이, 90% 영역 사용)
-                      const topValue =
-                        laneCountForGroup === 1
-                          ? startOffset
-                          : `calc(${startOffset} + ${laneIndex} * (${laneHeight} + ${gapSizePx}px))`;
+                      // ⭐ top 위치 계산 수정: 1개일 때는 개별 등록처럼 8px 여백
+                      const topValue = isSingleContinuousBox
+                        ? '8px'  // 1개만 있을 때
+                        : (laneCountForGroup === 1
+                            ? startOffset
+                            : `calc(${startOffset} + ${laneIndex} * (${laneHeight} + ${gapSizePx}px))`);
+                      
+                      // ⭐ height 계산 수정: 1개일 때는 auto
+                      const heightValue = isSingleContinuousBox ? 'auto' : laneHeight;
+                      const bottomValue = isSingleContinuousBox ? '8px' : undefined;
                       
                       return (
                         <div
@@ -1222,15 +1250,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             left: leftPosition,
                             width: boxWidth,
                             top: topValue,
-                            height: laneHeight,
+                            height: heightValue,
+                            bottom: bottomValue,  // ⭐ 1개일 때만 적용
                             zIndex: 5,
-                            position: 'absolute', // relative positioning for children in yearly view
-                            maxWidth: '100%' // 모든 뷰에서 최대 너비 제한 제거
+                            position: 'absolute',
+                            maxWidth: '100%'
                           }}
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            // 권한 체크: commenter나 viewer는 수정 불가
                             if (!canEditTask) {
                               return;
                             }
@@ -1239,7 +1267,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }}
                         >
                           {viewMode === "yearly" ? (
-                            // 연간 뷰: 월간 뷰와 동일한 방식으로 텍스트 렌더링
                            <div className="flex flex-col truncate w-full px-1 py-1">
                               <div className={`truncate text-[10px] md:text-[11px] ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
@@ -1251,7 +1278,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               </div>
                             </div>
                           ) : (
-                            // 월간 뷰: 작업이 실제로 끝날 때만 종료 날짜 표시
                             <div className="flex flex-col truncate w-full px-1 py-1">
                               <div className={`truncate text-[10px] md:text-[11px] ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
@@ -1289,16 +1315,26 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           )}
                         </>
                       );
-                    })()}
+                      })}
+                      };
+
                     </div>
 
-                    {/* 각 날짜/월의 작업 */}
+                    {/* 각 날짜/월의 작업 - 연속 박스와 단일 작업 통합 관리 */}
                     {currentPeriods.map((dayInfo, index) => {
                       const periodTasks = getTasksForPeriod(rowNumber, dayInfo);
                       const isTodayCell = isToday(dayInfo);
                       
-                      // 멀티데이 일정과 taskGroupId가 있는 작업은 개별 셀에 표시하지 않음 (연속 박스로 표시됨)
-                      const displayTasks = periodTasks.filter(task => {
+                      // ===== 각 셀의 총 작업 개수 계산 =====
+                      
+                      // 1. 이 셀을 지나가는 연속 박스 개수
+                      const continuousTasksInThisCell = continuousTaskGroups.filter(taskGroup => 
+                        taskGroup.startDayIndex <= index && taskGroup.endDayIndex >= index
+                      );
+                      const continuousCount = continuousTasksInThisCell.length;
+                      
+                      // 2. 이 셀의 단일 날짜 작업들
+                      const singleDayTasks = periodTasks.filter(task => {
                         // taskGroupId가 있는 작업은 제외 (연속 박스로 표시됨)
                         if (task.taskGroupId) return false;
                         
@@ -1306,17 +1342,55 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         if (!(task as any).endDate || task.scheduledDate === (task as any).endDate) return true;
                         
                         // 멀티데이 일정은 개별 셀에서 제외
-                        return false; // 멀티데이 일정은 항상 제외
+                        return false;
                       });
+                      
+                      // 3. 총 작업 개수 계산 (연속 박스 + 단일 작업)
+                      const totalTaskCount = continuousCount + singleDayTasks.length;
+                      
+                      // 4. 이 셀에 표시할 단일 작업 개수 결정 (최대 2개 제한)
+                      const maxSingleTasksToShow = Math.max(0, 2 - continuousCount);
+                      const displayTasks = singleDayTasks.slice(0, maxSingleTasksToShow);
+                      
+                      // 5. 더보기 카운트 (총 개수가 2개 초과 시)
+                      const moreCount = Math.max(0, totalTaskCount - 2);
+                      
+                      // ===== 중요: 이 셀에 실제로 표시되는 연속 박스 개수만큼 위쪽 여백 계산 =====
+                      // 연속 박스와 개별 작업이 겹치지 않도록 공간 확보
+                      const visibleContinuousCount = Math.min(continuousCount, 2); // 실제 표시되는 박스 개수 (최대 2개)
+                      const isSingleContinuousBoxInCell = continuousTaskGroups.length === 1;
+                      const adjustedBoxHeight = isSingleContinuousBoxInCell ? Math.max(boxHeight * 2.5, 80) : boxHeight;
+                      const cellPaddingTop = visibleContinuousCount > 0 
+                        ? topOffset + (isSingleContinuousBoxInCell ? adjustedBoxHeight : (visibleContinuousCount * boxHeight)) + ((visibleContinuousCount - 1) * boxSpacing)
+                        : 0;
+                      
+                      // 디버깅 로그
+                      if (totalTaskCount > 0) {
+                        console.log(`[셀별 작업 카운트] ${viewMode === "monthly" 
+                          ? `${(dayInfo as any).year}-${(dayInfo as any).month + 1}-${(dayInfo as any).day}`
+                          : `${(dayInfo as any).month}월`} 이랑 ${rowNumber}:`, {
+                          연속박스: continuousCount,
+                          표시될연속박스: visibleContinuousCount,
+                          단일작업: singleDayTasks.length,
+                          총작업: totalTaskCount,
+                          표시될단일작업: displayTasks.length,
+                          더보기: moreCount,
+                          셀위쪽여백: `${cellPaddingTop}px`
+                        });
+                      }
+                      
+                      // 셀의 최소 높이를 연속 일정 박스 개수에 따라 동적 계산
+                      const cellMinHeight = Math.max(requiredHeight, 100);
                       
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
                           }`}
+                          style={{ minHeight: `${cellMinHeight}px` }}
                           onClick={() => {
                             if (viewMode === "monthly") {
                               const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
@@ -1404,14 +1478,28 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       setIsEditDialogOpen(true);
                                     }}
                                   >
+                                    
+                                    {cropName && !isSingleTask && (
+                                      <div className="text-[10px] md:text-[11px] font-medium text-gray-800 truncate">
+                                        {cropName}
+                                      </div>
+                                    )}
                                     <div 
                                       className={`
                                         ${getTaskColor(task)}
-                                        h-full w-full px-2 py-1 rounded border leading-tight flex flex-col justify-center
+                                        ${isSingleTask ? 'h-full w-full' : 'flex-1'} px-2 py-1 rounded border leading-tight flex flex-col justify-center
                                         text-[10px] md:text-[11px]
                                         ${['파종', '육묘', '수확'].includes(task.taskType) ? 'font-bold' : 'font-semibold'}
                                       `.replace(/\s+/g, ' ').trim()}
-                                      style={{
+                                      style={isSingleTask ? {
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        wordWrap: 'break-word',
+                                        maxHeight: '100%',
+                                        minHeight: '80px'  
+                                      } : {
                                         display: '-webkit-box',
                                         WebkitLineClamp: 2,
                                         WebkitBoxOrient: 'vertical',
@@ -1424,10 +1512,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       {task.title || task.taskType}
                                     </div>
                                   </div>
-                                )
-                              ))}
+
+                                );
+                              })}
                             
-                            {/* 개별 셀에서 2개 초과 시 더보기 표시 */}
+                            {/* 더보기 버튼 - 총 작업이 2개 초과 시 표시 */}
                             {(() => {
                               const shouldShowMore = overflowCount > 0;
                               console.log(`[DEBUG] 이랑 ${rowNumber} 날짜 ${(dayInfo as any).day} 개별 셀 더보기:`, {
@@ -1439,13 +1528,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             })() && (
                               <button
                                 type="button"
-                                className="text-xs text-gray-500 text-center py-1 cursor-pointer hover:text-gray-700"
-                                title={`${overflowCount}개 작업 더 보기`}
+                                className="mt-1 text-xs text-gray-600 text-center py-1 px-2 cursor-pointer hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors"
+                                title={`+${overflowCount}개 더 보기`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
-                                  setSelectedCellDate(dateStr);
-                                  onDateClick(dateStr);
+                                  
+                                  const hiddenTasks = displayTasks.slice(maxVisible);
+                                  setShowAllTasksDialog({
+                                    rowNumber,
+                                    date: dateStr,
+                                    tasks: hiddenTasks
+                                  });
                                 }}
                               >
                                 +{overflowCount}
@@ -1453,43 +1547,76 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             )}
                             </>
                           ) : (
-                            // 연간 뷰: 단일 날짜 작업만 표시 (멀티데이 작업은 박스로 표시됨)
-                            displayTasks.map((task) => {
-                              // 작물 이름 추출
-                              let cropName;
-                              if (task.title && task.title.includes('_')) {
-                                cropName = task.title?.split('_')[0] || '작물'; // "무_파종" -> "무"
-                              } else {
-                                cropName = getCropName(task.cropId) || task.title || task.taskType;
-                              }
+                            // 연간 뷰: 단일 작업 표시 (연속 박스와 합쳐서 최대 2개)
+                            <>
+                              {displayTasks.map((task) => {
+                                // 작물 이름 추출
+                                let cropName;
+                                if (task.title && task.title.includes('_')) {
+                                  cropName = task.title?.split('_')[0] || '작물'; // "무_파종" -> "무"
+                                } else {
+                                  cropName = getCropName(task.cropId) || task.title || task.taskType;
+                                }
+                                
+                                // 작업이 1개만 있을 때 크게 표시
+                                const isSingleTask = totalTaskCount === 1;
+                                
+                                return (
+                                  <div 
+                                    key={task.id} 
+                                    className={`cursor-pointer hover:opacity-80 ${isSingleTask ? 'flex items-center' : ''}`}
+                                    style={isSingleTask ? {
+                                      height: 'calc(100% - 16px)',
+                                      margin: '8px 0'
+                                    } : {}}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // 권한 체크: commenter na viewer는 수정 불가
+                                      if (!canEditTask) {
+                                        return;
+                                      }
+                                      setSelectedTask(task);
+                                      setIsEditDialogOpen(true);
+                                    }}
+                                  >
+                                    <div 
+                                      className={`text-[11px] px-2 py-1 rounded border truncate ${isSingleTask ? 'font-bold' : ''} ${getTaskColor(task)}`}
+                                      style={isSingleTask ? {
+                                        minHeight: '60px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'flex-start'
+                                      } : {}}
+                                      title={task.title || task.taskType}
+                                    >
+                                      {cropName}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                               
-                              return (
+                              {/* 더보기 버튼 - 연간 뷰 */}
+                              {moreCount > 0 && (
                                 <div 
-                                  key={task.id} 
-                                  className="cursor-pointer hover:opacity-80"
+                                  className="mt-1 text-xs text-gray-600 text-center py-1 px-2 cursor-pointer hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors"
+                                  title={`+${moreCount}개 더 보기`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // 권한 체크: commenter나 viewer는 수정 불가
-                                    if (!canEditTask) {
-                                      return;
-                                    }
-                                    setSelectedTask(task);
-                                    setIsEditDialogOpen(true);
+                                    // 숨겨진 작업들: 연속 박스의 tasks + 표시되지 않은 단일 작업들
+                                    const hiddenContinuousTasks = continuousTasksInThisCell.slice(2).flatMap(group => group.tasks);
+                                    const hiddenSingleTasks = singleDayTasks.slice(maxSingleTasksToShow);
+                                    const allHiddenTasks = [...hiddenContinuousTasks, ...hiddenSingleTasks];
+                                    setShowAllTasksDialog({
+                                      rowNumber,
+                                      date: `${(dayInfo as any).month}월`,
+                                      tasks: allHiddenTasks
+                                    });
                                   }}
                                 >
-                                  <div 
-                                    className={`
-                                      ${getTaskColor(task)}
-                                      text-[9px] md:text-[11px] px-1.5 py-1 rounded border truncate
-                                      font-semibold leading-tight
-                                    `.replace(/\s+/g, ' ').trim()}
-                                    title={task.title || task.taskType}
-                                  >
-                                    {cropName}
-                                  </div>
+                                  +{moreCount}
                                 </div>
-                              );
-                            })
+                              )}
+                            </>
                           )}
                             </div>
                           );
@@ -1624,6 +1751,93 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 <p>이 날짜에 예정된 작업이 없습니다.</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 전체 작업 목록 다이얼로그 */}
+      {showAllTasksDialog && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowAllTasksDialog(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {showAllTasksDialog.date} - {showAllTasksDialog.tasks.length}개 작업
+              </h3>
+              <button
+                onClick={() => setShowAllTasksDialog(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+              <div className="space-y-3">
+                {showAllTasksDialog.tasks.map((task) => {
+                  const crop = crops.find(c => c.id === task.cropId);
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (canEditTask && task.userId === user?.id) {
+                          setSelectedTask(task);
+                          setIsEditDialogOpen(true);
+                          setShowAllTasksDialog(null);
+                        }
+                      }}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-medium text-gray-900">
+                            {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
+                          </h4>
+                          <span className={`text-xs px-2 py-0.5 rounded ${getTaskColor(task)}`}>
+                            {task.taskType}
+                          </span>
+                        </div>
+                        {task.description && (
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            task.completed === 1
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.completed === 1 ? '완료' : '예정'}
+                          </span>
+                          {task.rowNumber && (
+                            <span className="text-xs text-gray-500">
+                              이랑 {task.rowNumber}
+                            </span>
+                          )}
+                          {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
+                            <span className="text-xs text-blue-600">
+                              {task.scheduledDate} ~ {(task as any).endDate}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {canEditTask && task.userId === user?.id && (
+                        <div className="ml-4 text-gray-400 hover:text-gray-600">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
