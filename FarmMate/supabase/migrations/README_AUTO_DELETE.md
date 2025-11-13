@@ -156,3 +156,6 @@ SELECT cron.unschedule('delete-old-recommendations');
 - Supabase pg_cron 공식 문서: https://supabase.com/docs/guides/database/extensions/pg_cron
 - cron 표현식 생성기: https://crontab.guru/
 
+
+
+
