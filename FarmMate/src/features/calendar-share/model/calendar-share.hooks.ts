@@ -19,6 +19,10 @@ export const useShareCalendarWithUser = () => {
       calendarShareApi.shareCalendarWithUser(farmId, userId, role),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/calendar-shares", variables.farmId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms/shared"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms/own"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shared-calendars"] });
       toast({
         title: "공유 완료",
         description: "캘린더가 성공적으로 공유되었습니다.",
@@ -52,6 +56,10 @@ export const useUpdateUserPermission = () => {
       calendarShareApi.updateUserPermission(shareId, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/calendar-shares"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms/shared"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms/own"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shared-calendars"] });
       toast({
         title: "권한 변경 완료",
         description: "사용자 권한이 성공적으로 변경되었습니다.",
@@ -77,6 +85,8 @@ export const useRemoveSharedUser = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/calendar-shares"] });
       queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms/shared"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/farms/own"] });
       queryClient.invalidateQueries({ queryKey: ["/api/shared-calendars"] });
       toast({
         title: "공유 해제 완료",
