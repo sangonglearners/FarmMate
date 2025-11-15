@@ -292,10 +292,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       return;
     }
 
-    container.style.touchAction = isDraggingDates ? "none" : "pan-x pan-y";
+    container.style.touchAction = "pan-x pan-y";
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!isDraggingDates) return;
+      event.preventDefault();
+    };
+
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
 
     return () => {
       container.style.touchAction = "";
+      container.removeEventListener("touchmove", handleTouchMove);
     };
   }, [isDraggingDates, viewMode]);
 
