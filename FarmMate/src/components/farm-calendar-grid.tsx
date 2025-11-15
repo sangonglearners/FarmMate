@@ -1571,7 +1571,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           data-row-number={rowNumber}
                           style={{
                             minHeight: `${cellMinHeight}px`,
-                            touchAction: viewMode === "monthly" ? "none" : undefined,
+                            touchAction:
+                              viewMode === "monthly"
+                                ? isDraggingDates
+                                  ? "none"
+                                  : "pan-x pan-y"
+                                : undefined,
                           }}
                           onClick={() => {
                             if (viewMode === "monthly" && !isDraggingDates) {
