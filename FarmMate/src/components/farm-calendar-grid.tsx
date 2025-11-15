@@ -1305,6 +1305,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         <div 
           ref={scrollContainerRef} 
           className="overflow-auto max-h-[700px]"
+          style={{ WebkitUserSelect: "none", userSelect: "none" }}
         >
           <div 
             style={{
