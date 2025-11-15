@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { ChevronLeft, ChevronRight, Plus, Share2 } from "lucide-react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,12 +64,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
+  const [selectedEndDateForTask, setSelectedEndDateForTask] = useState<string | null>(null);
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
   const [selectedRowNumberForTask, setSelectedRowNumberForTask] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const longPressTimeoutRef = useRef<number | null>(null);
   const LONG_PRESS_DELAY = 600;
+  const [isDraggingDates, setIsDraggingDates] = useState(false);
+  const [dragStartDate, setDragStartDate] = useState<string | null>(null);
+  const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null);
+  const [dragRowNumber, setDragRowNumber] = useState<number | null>(null);
   
   // 화면 크기 감지
   useEffect(() => {
@@ -154,42 +166,187 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   };
 
-  const cancelLongPressTimer = () => {
-    if (longPressTimeoutRef.current !== null) {
-      clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-  };
-
-  const handleDateSelection = (dateStr: string, rowNumber?: number | null) => {
+  const handleDateSelection = useCallback((dateStr: string, rowNumber?: number | null) => {
     setSelectedCellDate(dateStr);
     setSelectedRowNumberForTask(
       typeof rowNumber === "number" ? rowNumber : null,
     );
     onDateClick(dateStr);
-  };
+  }, [onDateClick]);
 
-  const openAddTaskShortcut = (dateStr: string, rowNumber?: number | null) => {
+  const openAddTaskShortcut = useCallback((dateStr: string, rowNumber?: number | null, endDate?: string | null) => {
     if (!canCreateTask) return;
     handleDateSelection(dateStr, rowNumber);
     setSelectedDateForTask(dateStr);
+    setSelectedEndDateForTask(endDate ?? null);
     setSelectedRowNumberForTask(
       typeof rowNumber === "number" ? rowNumber : null,
     );
     setShowAddTaskDialog(true);
-  };
+  }, [canCreateTask, handleDateSelection]);
+
+  const cancelLongPressTimer = useCallback(() => {
+    if (longPressTimeoutRef.current !== null) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetDragState = useCallback(() => {
+    setIsDraggingDates(false);
+    setDragStartDate(null);
+    setDragCurrentDate(null);
+    setDragRowNumber(null);
+  }, []);
+
+  const finalizeDragSelection = useCallback(() => {
+    if (
+      !isDraggingDates ||
+      !dragStartDate ||
+      !dragCurrentDate ||
+      dragRowNumber === null
+    ) {
+      resetDragState();
+      return;
+    }
+
+    const [start, end] =
+      dragStartDate <= dragCurrentDate
+        ? [dragStartDate, dragCurrentDate]
+        : [dragCurrentDate, dragStartDate];
+
+    if (canCreateTask && viewMode === "monthly") {
+      openAddTaskShortcut(start, dragRowNumber, end);
+    }
+
+    resetDragState();
+  }, [
+    canCreateTask,
+    dragCurrentDate,
+    dragRowNumber,
+    dragStartDate,
+    isDraggingDates,
+    openAddTaskShortcut,
+    resetDragState,
+    viewMode,
+  ]);
+
+  const handleDragStart = useCallback(
+    (dateStr: string, rowNumber: number) => {
+      if (viewMode !== "monthly" || !canCreateTask) return;
+      cancelLongPressTimer();
+      setIsDraggingDates(true);
+      setDragStartDate(dateStr);
+      setDragCurrentDate(dateStr);
+      setDragRowNumber(rowNumber);
+    },
+    [canCreateTask, cancelLongPressTimer, viewMode],
+  );
 
   const startLongPressTimer = (dateStr: string, rowNumber: number) => {
     if (viewMode !== "monthly" || !canCreateTask) return;
     cancelLongPressTimer();
     longPressTimeoutRef.current = window.setTimeout(() => {
-      openAddTaskShortcut(dateStr, rowNumber);
+      handleDragStart(dateStr, rowNumber);
     }, LONG_PRESS_DELAY);
   };
 
   useEffect(() => {
     return () => cancelLongPressTimer();
   }, []);
+
+  const handleDragMove = useCallback(
+    (dateStr: string, rowNumber: number) => {
+      if (!isDraggingDates) return;
+      if (dragRowNumber === null || dragRowNumber !== rowNumber) return;
+      setDragCurrentDate(dateStr);
+    },
+    [dragRowNumber, isDraggingDates],
+  );
+
+  const isDateWithinDragRange = useCallback(
+    (rowNumber: number, targetDate: string) => {
+      if (
+        !isDraggingDates ||
+        !dragStartDate ||
+        !dragCurrentDate ||
+        dragRowNumber === null ||
+        dragRowNumber !== rowNumber
+      ) {
+        return false;
+      }
+
+      const min = dragStartDate < dragCurrentDate ? dragStartDate : dragCurrentDate;
+      const max = dragStartDate > dragCurrentDate ? dragStartDate : dragCurrentDate;
+
+      return targetDate >= min && targetDate <= max;
+    },
+    [dragCurrentDate, dragRowNumber, dragStartDate, isDraggingDates],
+  );
+
+  const handleCellPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, dateStr: string, rowNumber: number) => {
+      if (viewMode !== "monthly") return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      const isPointerDrag =
+        event.pointerType === "mouse" || event.pointerType === "pen";
+
+      if (event.pointerType === "touch") {
+        startLongPressTimer(dateStr, rowNumber);
+        return;
+      }
+
+      if (isPointerDrag) {
+        event.preventDefault();
+        handleDragStart(dateStr, rowNumber);
+      }
+    },
+    [handleDragStart, startLongPressTimer, viewMode],
+  );
+
+  const handleCellPointerEnter = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, dateStr: string, rowNumber: number) => {
+      if (
+        event.pointerType !== "mouse" &&
+        event.pointerType !== "pen" &&
+        !(event.pointerType === "touch" && isDraggingDates)
+      ) {
+        return;
+      }
+      handleDragMove(dateStr, rowNumber);
+    },
+    [handleDragMove, isDraggingDates],
+  );
+
+  const handleCellPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      cancelLongPressTimer();
+      if (isDraggingDates) {
+        event.preventDefault();
+        finalizeDragSelection();
+      }
+    },
+    [cancelLongPressTimer, finalizeDragSelection, isDraggingDates],
+  );
+
+  useEffect(() => {
+    if (!isDraggingDates) return;
+
+    const handlePointerUp = () => {
+      finalizeDragSelection();
+    };
+
+    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("touchend", handlePointerUp);
+    window.addEventListener("touchcancel", resetDragState);
+
+    return () => {
+      window.removeEventListener("mouseup", handlePointerUp);
+      window.removeEventListener("touchend", handlePointerUp);
+      window.removeEventListener("touchcancel", resetDragState);
+    };
+  }, [finalizeDragSelection, isDraggingDates, resetDragState]);
 
   // 연간 뷰에서 현재 월로 스크롤하는 함수
   const scrollToCurrentMonth = () => {
@@ -1322,6 +1479,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       const cellDateStr = viewMode === "monthly"
                         ? `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`
                         : "";
+                      const dragSelectionActive =
+                        viewMode === "monthly" &&
+                        !!cellDateStr &&
+                        isDateWithinDragRange(rowNumber, cellDateStr);
 
                       return (
                         <div
@@ -1333,27 +1494,32 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }`}
                           style={{ minHeight: `${cellMinHeight}px` }}
                           onClick={() => {
-                            if (viewMode === "monthly") {
+                            if (viewMode === "monthly" && !isDraggingDates) {
                               handleDateSelection(cellDateStr, rowNumber);
                             }
                           }}
                           onDoubleClick={(e) => {
                             if (viewMode !== "monthly") return;
                             e.stopPropagation();
+                            if (isDraggingDates) {
+                              resetDragState();
+                            }
                             openAddTaskShortcut(cellDateStr, rowNumber);
                           }}
-                          onPointerDown={() => {
-                            if (viewMode !== "monthly") return;
-                            startLongPressTimer(cellDateStr, rowNumber);
-                          }}
-                          onPointerUp={cancelLongPressTimer}
+                          onPointerDown={(event) => handleCellPointerDown(event, cellDateStr, rowNumber)}
+                          onPointerEnter={(event) => handleCellPointerEnter(event, cellDateStr, rowNumber)}
+                          onPointerUp={handleCellPointerUp}
                           onPointerLeave={cancelLongPressTimer}
                           onPointerCancel={cancelLongPressTimer}
                         >
+                          {dragSelectionActive && (
+                            <div className="absolute inset-1 rounded-lg border-2 border-blue-400/60 bg-blue-100/50 pointer-events-none" />
+                          )}
                           {/* 작업 표시 영역 - 모든 작업 동일한 크기로 표시 */}
                           <div className="absolute left-0 right-0 flex flex-col px-1" style={{ 
                             top: `${4 + Math.min(continuousBoxCount, 2) * (28 + 3)}px`,
-                            gap: '3px' 
+                            gap: '3px',
+                            zIndex: 10,
                           }}>
                               {viewMode === "monthly" ? (
                                 <>
@@ -1692,9 +1858,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           setShowAddTaskDialog(open);
           if (!open) {
             setSelectedRowNumberForTask(null);
+            setSelectedEndDateForTask(null);
           }
         }}
         selectedDate={selectedDateForTask}
+        selectedEndDate={selectedEndDateForTask ?? undefined}
         defaultFarmId={selectedFarm?.id}
         defaultRowNumber={selectedRowNumberForTask ?? undefined}
       />
