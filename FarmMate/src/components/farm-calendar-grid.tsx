@@ -60,6 +60,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const LONG_PRESS_DELAY = 600;
   
   // 화면 크기 감지
   useEffect(() => {
@@ -150,6 +152,37 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       alert("CSV 내보내기에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
+
+  const cancelLongPressTimer = () => {
+    if (longPressTimeoutRef.current !== null) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const handleDateSelection = (dateStr: string) => {
+    setSelectedCellDate(dateStr);
+    onDateClick(dateStr);
+  };
+
+  const openAddTaskShortcut = (dateStr: string) => {
+    if (!canCreateTask) return;
+    handleDateSelection(dateStr);
+    setSelectedDateForTask(dateStr);
+    setShowAddTaskDialog(true);
+  };
+
+  const startLongPressTimer = (dateStr: string) => {
+    if (viewMode !== "monthly" || !canCreateTask) return;
+    cancelLongPressTimer();
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      openAddTaskShortcut(dateStr);
+    }, LONG_PRESS_DELAY);
+  };
+
+  useEffect(() => {
+    return () => cancelLongPressTimer();
+  }, []);
 
   // 연간 뷰에서 현재 월로 스크롤하는 함수
   const scrollToCurrentMonth = () => {
@@ -1279,22 +1312,36 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       // 셀의 최소 높이
                       const cellMinHeight = 100;
                       
+                      const cellDateStr = viewMode === "monthly"
+                        ? `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`
+                        : "";
+
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
                           className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
-                            viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
+                            viewMode === "monthly" && selectedCellDate === cellDateStr ? "bg-blue-50 border-blue-300 border-2" : ""
                           }`}
                           style={{ minHeight: `${cellMinHeight}px` }}
                           onClick={() => {
                             if (viewMode === "monthly") {
-                              const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
-                              setSelectedCellDate(dateStr);
-                              onDateClick(dateStr);
+                              handleDateSelection(cellDateStr);
                             }
                           }}
+                          onDoubleClick={(e) => {
+                            if (viewMode !== "monthly") return;
+                            e.stopPropagation();
+                            openAddTaskShortcut(cellDateStr);
+                          }}
+                          onPointerDown={() => {
+                            if (viewMode !== "monthly") return;
+                            startLongPressTimer(cellDateStr);
+                          }}
+                          onPointerUp={cancelLongPressTimer}
+                          onPointerLeave={cancelLongPressTimer}
+                          onPointerCancel={cancelLongPressTimer}
                         >
                           {/* 작업 표시 영역 - 모든 작업 동일한 크기로 표시 */}
                           <div className="absolute left-0 right-0 flex flex-col px-1" style={{ 
