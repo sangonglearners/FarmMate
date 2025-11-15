@@ -70,6 +70,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const longPressTimeoutRef = useRef<number | null>(null);
+  const pendingPointerInfoRef = useRef<{
+    pointerId: number;
+    dateStr: string;
+    rowNumber: number;
+  } | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
   const LONG_PRESS_DELAY = 600;
   const [isDraggingDates, setIsDraggingDates] = useState(false);
   const [dragStartDate, setDragStartDate] = useState<string | null>(null);
@@ -191,6 +197,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
+    pendingPointerInfoRef.current = null;
   }, []);
 
   const resetDragState = useCallback(() => {
@@ -199,6 +206,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     setDragCurrentDate(null);
     setDragRowNumber(null);
     setHasDragMoved(false);
+    activePointerIdRef.current = null;
+    pendingPointerInfoRef.current = null;
   }, []);
 
   const finalizeDragSelection = useCallback(() => {
@@ -240,7 +249,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   ]);
 
   const handleDragStart = useCallback(
-    (dateStr: string, rowNumber: number) => {
+    (dateStr: string, rowNumber: number, pointerId?: number | null) => {
       if (viewMode !== "monthly" || !canCreateTask) return;
       cancelLongPressTimer();
       setIsDraggingDates(true);
@@ -248,6 +257,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       setDragCurrentDate(dateStr);
       setDragRowNumber(rowNumber);
       setHasDragMoved(false);
+      activePointerIdRef.current = pointerId ?? null;
+      pendingPointerInfoRef.current = null;
     },
     [canCreateTask, cancelLongPressTimer, viewMode],
   );
@@ -256,7 +267,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     if (viewMode !== "monthly" || !canCreateTask) return;
     cancelLongPressTimer();
     longPressTimeoutRef.current = window.setTimeout(() => {
-      handleDragStart(dateStr, rowNumber);
+      handleDragStart(
+        dateStr,
+        rowNumber,
+        pendingPointerInfoRef.current?.pointerId ?? null,
+      );
     }, LONG_PRESS_DELAY);
   };
 
@@ -305,16 +320,49 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         event.pointerType === "mouse" || event.pointerType === "pen";
 
       if (event.pointerType === "touch") {
+        pendingPointerInfoRef.current = {
+          pointerId: event.pointerId,
+          dateStr,
+          rowNumber,
+        };
         startLongPressTimer(dateStr, rowNumber);
         return;
       }
 
       if (isPointerDrag) {
         event.preventDefault();
-        handleDragStart(dateStr, rowNumber);
+        handleDragStart(dateStr, rowNumber, event.pointerId);
       }
     },
     [handleDragStart, startLongPressTimer, viewMode],
+  );
+
+  const handleGlobalPointerMove = useCallback(
+    (event: PointerEvent) => {
+      if (!isDraggingDates) return;
+      if (
+        activePointerIdRef.current !== null &&
+        event.pointerId !== activePointerIdRef.current
+      ) {
+        return;
+      }
+
+      const element = document.elementFromPoint(
+        event.clientX,
+        event.clientY,
+      ) as HTMLElement | null;
+      const cellElement = element?.closest(
+        "[data-calendar-cell='true']",
+      ) as HTMLElement | null;
+
+      if (!cellElement) return;
+      const dateStr = cellElement.getAttribute("data-date");
+      const rowAttr = cellElement.getAttribute("data-row-number");
+      if (!dateStr || !rowAttr) return;
+
+      handleDragMove(dateStr, Number(rowAttr));
+    },
+    [handleDragMove, isDraggingDates],
   );
 
   const handleCellPointerEnter = useCallback(
@@ -341,6 +389,20 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     },
     [cancelLongPressTimer, finalizeDragSelection, isDraggingDates],
   );
+
+  useEffect(() => {
+    if (!isDraggingDates) return;
+
+    const pointerMoveListener = (event: PointerEvent) => {
+      handleGlobalPointerMove(event);
+    };
+
+    window.addEventListener("pointermove", pointerMoveListener);
+
+    return () => {
+      window.removeEventListener("pointermove", pointerMoveListener);
+    };
+  }, [handleGlobalPointerMove, isDraggingDates]);
 
   useEffect(() => {
     if (!isDraggingDates) return;
@@ -1504,7 +1566,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === cellDateStr ? "bg-blue-50 border-blue-300 border-2" : ""
                           }`}
-                          style={{ minHeight: `${cellMinHeight}px` }}
+                          data-calendar-cell="true"
+                          data-date={cellDateStr || ""}
+                          data-row-number={rowNumber}
+                          style={{
+                            minHeight: `${cellMinHeight}px`,
+                            touchAction: viewMode === "monthly" ? "none" : undefined,
+                          }}
                           onClick={() => {
                             if (viewMode === "monthly" && !isDraggingDates) {
                               handleDateSelection(cellDateStr, rowNumber);
