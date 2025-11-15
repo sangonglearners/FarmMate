@@ -1621,7 +1621,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               viewMode === "monthly"
                                 ? isDraggingDates
                                   ? "none"
-                                  : "pan-y"
+                                  : "pan-x pan-y"
                                 : undefined,
                           }}
                           onClick={() => {
