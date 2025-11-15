@@ -75,6 +75,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [dragStartDate, setDragStartDate] = useState<string | null>(null);
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null);
   const [dragRowNumber, setDragRowNumber] = useState<number | null>(null);
+  const [hasDragMoved, setHasDragMoved] = useState(false);
   
   // 화면 크기 감지
   useEffect(() => {
@@ -197,6 +198,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     setDragStartDate(null);
     setDragCurrentDate(null);
     setDragRowNumber(null);
+    setHasDragMoved(false);
   }, []);
 
   const finalizeDragSelection = useCallback(() => {
@@ -215,8 +217,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         ? [dragStartDate, dragCurrentDate]
         : [dragCurrentDate, dragStartDate];
 
-    if (canCreateTask && viewMode === "monthly") {
+    const isRangeSelection = hasDragMoved && start !== end;
+
+    if (isRangeSelection && canCreateTask && viewMode === "monthly") {
       openAddTaskShortcut(start, dragRowNumber, end);
+    } else if (!isRangeSelection) {
+      handleDateSelection(start, dragRowNumber);
     }
 
     resetDragState();
@@ -225,6 +231,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     dragCurrentDate,
     dragRowNumber,
     dragStartDate,
+    hasDragMoved,
+    handleDateSelection,
     isDraggingDates,
     openAddTaskShortcut,
     resetDragState,
@@ -239,6 +247,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       setDragStartDate(dateStr);
       setDragCurrentDate(dateStr);
       setDragRowNumber(rowNumber);
+      setHasDragMoved(false);
     },
     [canCreateTask, cancelLongPressTimer, viewMode],
   );
@@ -259,9 +268,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     (dateStr: string, rowNumber: number) => {
       if (!isDraggingDates) return;
       if (dragRowNumber === null || dragRowNumber !== rowNumber) return;
-      setDragCurrentDate(dateStr);
+      if (dragCurrentDate !== dateStr) {
+        setDragCurrentDate(dateStr);
+        setHasDragMoved(true);
+      }
     },
-    [dragRowNumber, isDraggingDates],
+    [dragCurrentDate, dragRowNumber, isDraggingDates],
   );
 
   const isDateWithinDragRange = useCallback(
