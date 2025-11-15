@@ -508,7 +508,7 @@ export default function AddTaskDialog({
         farmId: defaultFarm?.id || "",
         cropId: "",
         environment: defaultFarm?.environment || "",
-        rowNumber: undefined,
+        rowNumber: defaultRowNumber ?? undefined,
       });
       setCropSearchTerm("");
       setCustomCropName("");
@@ -520,7 +520,7 @@ export default function AddTaskDialog({
         setSelectedFarm(defaultFarm);
       }
     }
-  }, [task, open, selectedDate, crops, farms, form, defaultFarmId]);
+  }, [task, open, selectedDate, crops, farms, form, defaultFarmId, defaultRowNumber]);
 
   // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
   useEffect(() => {
@@ -1341,7 +1341,10 @@ export default function AddTaskDialog({
   return (
     <>
       <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange} modal={false}>
-        <DialogContent className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          aria-describedby={undefined}
+          className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto"
+        >
           <DialogHeader>
             <DialogTitle>{task ? "일정 수정하기" : "내 농작업 관리"}</DialogTitle>
             {!task && (
@@ -1879,7 +1882,10 @@ export default function AddTaskDialog({
                             </Button>
                           </FormControl>
                         </DialogTrigger>
-                        <DialogContent className="w-auto p-6 flex items-center justify-center">
+                        <DialogContent
+                          aria-describedby={undefined}
+                          className="w-auto p-6 flex items-center justify-center"
+                        >
                           <Calendar
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
@@ -1935,7 +1941,10 @@ export default function AddTaskDialog({
                               </Button>
                             </FormControl>
                           </DialogTrigger>
-                          <DialogContent className="w-auto p-6 flex items-center justify-center">
+                          <DialogContent
+                            aria-describedby={undefined}
+                            className="w-auto p-6 flex items-center justify-center"
+                          >
                             <Calendar
                               mode="single"
                               selected={field.value ? new Date(field.value) : undefined}
