@@ -167,6 +167,32 @@ export default function BatchTaskEditDialog({
     },
   });
 
+  // 다이얼로그가 열릴 때 기본 작물 정보 세팅
+  useEffect(() => {
+    if (!open || !firstTask) return;
+
+    let initialCropName = "";
+    const cropFromId = firstTask.cropId
+      ? crops.find((crop) => crop.id === firstTask.cropId)
+      : null;
+
+    if (cropFromId) {
+      initialCropName = cropFromId.name;
+      setSelectedCrop(cropFromId);
+    } else if (firstTask.title?.includes("_")) {
+      initialCropName = firstTask.title.split("_")[0];
+    } else if (cropName) {
+      initialCropName = cropName;
+    }
+
+    if (initialCropName) {
+      setCropSearchTerm(initialCropName);
+      setCustomCropName(initialCropName);
+      setIsCropSelectedFromList(true);
+      form.setValue("cropName", initialCropName);
+    }
+  }, [open, firstTask, crops, cropName, form]);
+
   // registration 데이터에서 작물 정보 찾기
   const registrationCrop = useMemo(() => {
     return registrationData.find(
