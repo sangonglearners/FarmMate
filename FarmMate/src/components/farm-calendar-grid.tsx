@@ -283,6 +283,22 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return () => cancelLongPressTimer();
   }, []);
 
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (viewMode !== "monthly") {
+      container.style.touchAction = "";
+      return;
+    }
+
+    container.style.touchAction = isDraggingDates ? "none" : "pan-x pan-y";
+
+    return () => {
+      container.style.touchAction = "";
+    };
+  }, [isDraggingDates, viewMode]);
+
   const handleDragMove = useCallback(
     (dateStr: string, rowNumber: number) => {
       if (!isDraggingDates) return;
@@ -1617,12 +1633,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           data-row-number={rowNumber}
                           style={{
                             minHeight: `${cellMinHeight}px`,
-                            touchAction:
-                              viewMode === "monthly"
-                                ? isDraggingDates
-                                  ? "none"
-                                  : "pan-x pan-y"
-                                : undefined,
                           }}
                           onClick={() => {
                             if (viewMode === "monthly" && !isDraggingDates) {
