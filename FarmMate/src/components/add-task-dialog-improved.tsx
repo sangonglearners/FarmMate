@@ -114,6 +114,7 @@ interface AddTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate?: string;
+  selectedEndDate?: string;
   task?: Task | null;
   defaultFarmId?: string;
   defaultRowNumber?: number;
@@ -123,6 +124,7 @@ export default function AddTaskDialog({
   open,
   onOpenChange,
   selectedDate,
+  selectedEndDate,
   task,
   defaultFarmId,
   defaultRowNumber,
@@ -211,7 +213,7 @@ export default function AddTaskDialog({
       description: "",
       taskType: "",
       scheduledDate: selectedDate || "",
-      endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
+      endDate: selectedEndDate || selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
       farmId: "",
       cropId: "",
       environment: "",
@@ -224,15 +226,20 @@ export default function AddTaskDialog({
   const watchedScheduledDate = form.watch("scheduledDate");
   useEffect(() => {
     const currentEndDate = form.getValues("endDate");
+    const hasCustomSelectedRange =
+      Boolean(selectedEndDate) && selectedEndDate !== selectedDate;
+
+    const allowAutoSync =
+      ((!task && registrationMode === "individual" && !hasCustomSelectedRange) || task);
     
-    // 작업 날짜가 있고, 종료날짜가 비어있거나 작업 날짜와 다른 경우
-    if (watchedScheduledDate && (!currentEndDate || currentEndDate !== watchedScheduledDate)) {
-      // 개별등록 모드이거나 수정 모드일 때만 자동 설정 (일괄등록은 제외)
-      if ((!task && registrationMode === "individual") || task) {
-        form.setValue("endDate", watchedScheduledDate);
-      }
+    if (
+      allowAutoSync &&
+      watchedScheduledDate &&
+      (!currentEndDate || currentEndDate !== watchedScheduledDate)
+    ) {
+      form.setValue("endDate", watchedScheduledDate);
     }
-  }, [watchedScheduledDate, registrationMode, task, form]);
+  }, [watchedScheduledDate, registrationMode, task, form, selectedDate, selectedEndDate]);
 
   // 제목 자동 설정 (편집 모드에서도 작동)
   useEffect(() => {
@@ -361,6 +368,13 @@ export default function AddTaskDialog({
       form.setValue("rowNumber", undefined);
     }
   }, [defaultRowNumber, open, task, form]);
+
+  useEffect(() => {
+    if (!open || task) return;
+    if (selectedEndDate) {
+      form.setValue("endDate", selectedEndDate);
+    }
+  }, [selectedEndDate, open, task, form]);
 
   // 일괄등록된 작업 그룹 찾기
   const findTaskGroup = (currentTask: Task) => {
@@ -504,7 +518,7 @@ export default function AddTaskDialog({
         description: "",
         taskType: "",
         scheduledDate: selectedDate || "",
-        endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
+        endDate: selectedEndDate || selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
         farmId: defaultFarm?.id || "",
         cropId: "",
         environment: defaultFarm?.environment || "",
@@ -520,7 +534,7 @@ export default function AddTaskDialog({
         setSelectedFarm(defaultFarm);
       }
     }
-  }, [task, open, selectedDate, crops, farms, form, defaultFarmId, defaultRowNumber]);
+  }, [task, open, selectedDate, selectedEndDate, crops, farms, form, defaultFarmId, defaultRowNumber]);
 
   // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
   useEffect(() => {
