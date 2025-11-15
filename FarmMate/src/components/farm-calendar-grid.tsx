@@ -1636,6 +1636,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         open={showAddTaskDialog} 
         onOpenChange={setShowAddTaskDialog}
         selectedDate={selectedDateForTask}
+        defaultFarmId={selectedFarm?.id}
       />
 
       {/* Edit Task Dialog */}
@@ -1645,6 +1646,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           onOpenChange={setIsEditDialogOpen}
           task={selectedTask}
           selectedDate={selectedTask.scheduledDate}
+          defaultFarmId={selectedFarm?.id}
         />
       )}
     </div>

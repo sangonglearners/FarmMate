@@ -115,6 +115,7 @@ interface AddTaskDialogProps {
   onOpenChange: (open: boolean) => void;
   selectedDate?: string;
   task?: Task | null;
+  defaultFarmId?: string;
 }
 
 export default function AddTaskDialog({
@@ -122,6 +123,7 @@ export default function AddTaskDialog({
   onOpenChange,
   selectedDate,
   task,
+  defaultFarmId,
 }: AddTaskDialogProps) {
   console.log("AddTaskDialog 렌더링, 받은 task props:", task);
   const { toast } = useToast();
@@ -301,17 +303,52 @@ export default function AddTaskDialog({
 
   // 첫 번째 작업 등록 가능한 농장을 기본값으로 설정
   useEffect(() => {
-    if (farms && farms.length > 0 && !task && open && !selectedFarm) {
+    if (
+      farms &&
+      farms.length > 0 &&
+      !task &&
+      open &&
+      !selectedFarm &&
+      !defaultFarmId
+    ) {
       // 작업 등록 가능한 농장 찾기 (내 농장 또는 editor 권한)
-      const availableFarm = farms.find(farm => canCreateTaskForFarm(farm.id));
+      const availableFarm = farms.find((farm) =>
+        canCreateTaskForFarm(farm.id),
+      );
       if (availableFarm) {
         setSelectedFarm(availableFarm);
         form.setValue("farmId", availableFarm.id);
         form.setValue("environment", availableFarm.environment || "");
-        console.log("작업 등록 가능한 농장이 자동 선택되었습니다:", availableFarm.name);
+        console.log(
+          "작업 등록 가능한 농장이 자동 선택되었습니다:",
+          availableFarm.name,
+        );
       }
     }
-  }, [farms, task, open, selectedFarm, form, user, sharedCalendars]);
+  }, [
+    farms,
+    task,
+    open,
+    selectedFarm,
+    form,
+    user,
+    sharedCalendars,
+    defaultFarmId,
+  ]);
+
+  // 캘린더에서 전달된 기본 농장 설정
+  useEffect(() => {
+    if (!open || task) return;
+    if (!defaultFarmId) return;
+    if (!farms || farms.length === 0) return;
+
+    const farm = farms.find((f) => f.id === defaultFarmId);
+    if (!farm) return;
+
+    setSelectedFarm(farm);
+    form.setValue("farmId", farm.id);
+    form.setValue("environment", farm.environment || "");
+  }, [defaultFarmId, open, task, farms, form]);
 
   // 일괄등록된 작업 그룹 찾기
   const findTaskGroup = (currentTask: Task) => {
@@ -447,15 +484,18 @@ export default function AddTaskDialog({
       }
       
     } else if (!task && open) {
+      const defaultFarm =
+        (defaultFarmId && farms?.find((f) => f.id === defaultFarmId)) || null;
+
       form.reset({
         title: "",
         description: "",
         taskType: "",
         scheduledDate: selectedDate || "",
         endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
-        farmId: "",
+        farmId: defaultFarm?.id || "",
         cropId: "",
-        environment: "",
+        environment: defaultFarm?.environment || "",
         rowNumber: undefined,
       });
       setCropSearchTerm("");
@@ -463,9 +503,12 @@ export default function AddTaskDialog({
       setSelectedWorks([]);
       setSelectedCrop(null);
       setIsCropSelectedFromList(false); // 리스트 선택 상태 초기화
-      // selectedFarm은 첫 번째 농장으로 자동 설정되므로 null로 초기화하지 않음
+
+      if (defaultFarm) {
+        setSelectedFarm(defaultFarm);
+      }
     }
-  }, [task, open, selectedDate, crops, farms, form]);
+  }, [task, open, selectedDate, crops, farms, form, defaultFarmId]);
 
   // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
   useEffect(() => {
