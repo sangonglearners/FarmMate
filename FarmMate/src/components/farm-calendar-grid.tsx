@@ -76,6 +76,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     rowNumber: number;
   } | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
+  const edgeScrollDirectionRef = useRef<-1 | 0 | 1>(0);
+  const autoScrollAnimationRef = useRef<number | null>(null);
   const LONG_PRESS_DELAY = 600;
   const [isDraggingDates, setIsDraggingDates] = useState(false);
   const [dragStartDate, setDragStartDate] = useState<string | null>(null);
@@ -198,6 +200,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       longPressTimeoutRef.current = null;
     }
     pendingPointerInfoRef.current = null;
+    edgeScrollDirectionRef.current = 0;
   }, []);
 
   const resetDragState = useCallback(() => {
@@ -208,6 +211,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     setHasDragMoved(false);
     activePointerIdRef.current = null;
     pendingPointerInfoRef.current = null;
+    edgeScrollDirectionRef.current = 0;
   }, []);
 
   const finalizeDragSelection = useCallback(() => {
@@ -360,9 +364,19 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const rowAttr = cellElement.getAttribute("data-row-number");
       if (!dateStr || !rowAttr) return;
 
+      if (viewMode === "monthly" && scrollContainerRef.current) {
+        const containerRect = scrollContainerRef.current.getBoundingClientRect();
+        const EDGE_THRESHOLD = 60;
+        const isNearLeft = event.clientX - containerRect.left < EDGE_THRESHOLD;
+        const isNearRight = containerRect.right - event.clientX < EDGE_THRESHOLD;
+        edgeScrollDirectionRef.current = isNearLeft ? -1 : isNearRight ? 1 : 0;
+      } else {
+        edgeScrollDirectionRef.current = 0;
+      }
+
       handleDragMove(dateStr, Number(rowAttr));
     },
-    [handleDragMove, isDraggingDates],
+    [handleDragMove, isDraggingDates, viewMode],
   );
 
   const handleCellPointerEnter = useCallback(
@@ -421,6 +435,38 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       window.removeEventListener("touchcancel", resetDragState);
     };
   }, [finalizeDragSelection, isDraggingDates, resetDragState]);
+
+  useEffect(() => {
+    if (!isDraggingDates || viewMode !== "monthly") {
+      if (autoScrollAnimationRef.current !== null) {
+        cancelAnimationFrame(autoScrollAnimationRef.current);
+        autoScrollAnimationRef.current = null;
+      }
+      edgeScrollDirectionRef.current = 0;
+      return;
+    }
+
+    const SCROLL_SPEED = isMobile ? 6 : 12;
+
+    const step = () => {
+      if (!scrollContainerRef.current) return;
+      if (edgeScrollDirectionRef.current !== 0) {
+        scrollContainerRef.current.scrollLeft +=
+          edgeScrollDirectionRef.current * SCROLL_SPEED;
+      }
+      autoScrollAnimationRef.current = requestAnimationFrame(step);
+    };
+
+    autoScrollAnimationRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (autoScrollAnimationRef.current !== null) {
+        cancelAnimationFrame(autoScrollAnimationRef.current);
+        autoScrollAnimationRef.current = null;
+      }
+      edgeScrollDirectionRef.current = 0;
+    };
+  }, [isDraggingDates, viewMode, isMobile]);
 
   // 연간 뷰에서 현재 월로 스크롤하는 함수
   const scrollToCurrentMonth = () => {
@@ -1575,7 +1621,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               viewMode === "monthly"
                                 ? isDraggingDates
                                   ? "none"
-                                  : "pan-x pan-y"
+                                  : "pan-y"
                                 : undefined,
                           }}
                           onClick={() => {
