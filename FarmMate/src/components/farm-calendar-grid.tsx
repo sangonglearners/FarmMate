@@ -58,6 +58,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
+  const [selectedRowNumberForTask, setSelectedRowNumberForTask] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const longPressTimeoutRef = useRef<number | null>(null);
@@ -160,23 +161,29 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   };
 
-  const handleDateSelection = (dateStr: string) => {
+  const handleDateSelection = (dateStr: string, rowNumber?: number | null) => {
     setSelectedCellDate(dateStr);
+    setSelectedRowNumberForTask(
+      typeof rowNumber === "number" ? rowNumber : null,
+    );
     onDateClick(dateStr);
   };
 
-  const openAddTaskShortcut = (dateStr: string) => {
+  const openAddTaskShortcut = (dateStr: string, rowNumber?: number | null) => {
     if (!canCreateTask) return;
-    handleDateSelection(dateStr);
+    handleDateSelection(dateStr, rowNumber);
     setSelectedDateForTask(dateStr);
+    setSelectedRowNumberForTask(
+      typeof rowNumber === "number" ? rowNumber : null,
+    );
     setShowAddTaskDialog(true);
   };
 
-  const startLongPressTimer = (dateStr: string) => {
+  const startLongPressTimer = (dateStr: string, rowNumber: number) => {
     if (viewMode !== "monthly" || !canCreateTask) return;
     cancelLongPressTimer();
     longPressTimeoutRef.current = window.setTimeout(() => {
-      openAddTaskShortcut(dateStr);
+      openAddTaskShortcut(dateStr, rowNumber);
     }, LONG_PRESS_DELAY);
   };
 
@@ -1327,17 +1334,17 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           style={{ minHeight: `${cellMinHeight}px` }}
                           onClick={() => {
                             if (viewMode === "monthly") {
-                              handleDateSelection(cellDateStr);
+                              handleDateSelection(cellDateStr, rowNumber);
                             }
                           }}
                           onDoubleClick={(e) => {
                             if (viewMode !== "monthly") return;
                             e.stopPropagation();
-                            openAddTaskShortcut(cellDateStr);
+                            openAddTaskShortcut(cellDateStr, rowNumber);
                           }}
                           onPointerDown={() => {
                             if (viewMode !== "monthly") return;
-                            startLongPressTimer(cellDateStr);
+                            startLongPressTimer(cellDateStr, rowNumber);
                           }}
                           onPointerUp={cancelLongPressTimer}
                           onPointerLeave={cancelLongPressTimer}
@@ -1466,13 +1473,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             <h3 className="text-lg font-semibold text-gray-900">
               {selectedCellDate} 작업
             </h3>
-            <Button 
-              size="sm" 
-              className="flex items-center space-x-1"
-              onClick={() => {
-                setSelectedDateForTask(selectedCellDate);
-                setShowAddTaskDialog(true);
-              }}
+              <Button 
+                size="sm" 
+                className="flex items-center space-x-1"
+                onClick={() => {
+                  setSelectedDateForTask(selectedCellDate);
+                  setShowAddTaskDialog(true);
+                }}
               disabled={!canCreateTask}
               title={!canCreateTask ? "읽기 권한만 있어 작업을 추가할 수 없습니다" : ""}
             >
@@ -1681,9 +1688,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       {/* Add Task Dialog */}
       <AddTaskDialog 
         open={showAddTaskDialog} 
-        onOpenChange={setShowAddTaskDialog}
+        onOpenChange={(open) => {
+          setShowAddTaskDialog(open);
+          if (!open) {
+            setSelectedRowNumberForTask(null);
+          }
+        }}
         selectedDate={selectedDateForTask}
         defaultFarmId={selectedFarm?.id}
+        defaultRowNumber={selectedRowNumberForTask ?? undefined}
       />
 
       {/* Edit Task Dialog */}
@@ -1694,6 +1707,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           task={selectedTask}
           selectedDate={selectedTask.scheduledDate}
           defaultFarmId={selectedFarm?.id}
+          defaultRowNumber={selectedRowNumberForTask ?? undefined}
         />
       )}
     </div>
