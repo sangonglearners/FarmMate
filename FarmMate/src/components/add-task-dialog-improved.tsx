@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
-import { CalendarIcon, Check, Search, Calculator, ChevronDown } from "lucide-react";
+import { CalendarIcon, Check, Search, Calculator, ChevronDown, Plus, Minus } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
@@ -114,14 +114,20 @@ interface AddTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate?: string;
+  selectedEndDate?: string;
   task?: Task | null;
+  defaultFarmId?: string;
+  defaultRowNumber?: number;
 }
 
 export default function AddTaskDialog({
   open,
   onOpenChange,
   selectedDate,
+  selectedEndDate,
   task,
+  defaultFarmId,
+  defaultRowNumber,
 }: AddTaskDialogProps) {
   console.log("AddTaskDialog 렌더링, 받은 task props:", task);
   const { toast } = useToast();
@@ -148,6 +154,13 @@ export default function AddTaskDialog({
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [taskGroup, setTaskGroup] = useState<Task[]>([]);
   const [customTaskType, setCustomTaskType] = useState("");
+  const [memoImageUrls, setMemoImageUrls] = useState<string[]>([]);
+
+  // 이미지 URL 파싱/정리 유틸
+  const extractImageUrls = (text: string): string[] =>
+    (text.match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi) || []);
+  const removeImageUrls = (text: string): string =>
+    text.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim();
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -184,6 +197,22 @@ export default function AddTaskDialog({
     queryFn: () => import("@/shared/api/tasks").then(m => m.listTasksRange("2020-01-01", "2030-12-31")),
   });
 
+  const extractRowNumber = (taskItem: Task | any): number | null => {
+    if (typeof taskItem?.rowNumber === "number" && !Number.isNaN(taskItem.rowNumber)) {
+      return taskItem.rowNumber;
+    }
+
+    if (typeof taskItem?.description === "string" && taskItem.description.includes("이랑:")) {
+      const match = taskItem.description.match(/이랑:\s*(\d+)번/);
+      if (match) {
+        const parsed = Number(match[1]);
+        return Number.isNaN(parsed) ? null : parsed;
+      }
+    }
+
+    return null;
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -191,11 +220,11 @@ export default function AddTaskDialog({
       description: "",
       taskType: "",
       scheduledDate: selectedDate || "",
-      endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
+      endDate: selectedEndDate || selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
       farmId: "",
       cropId: "",
       environment: "",
-      rowNumber: undefined,
+      rowNumber: defaultRowNumber,
     },
     mode: "onChange", // 실시간 유효성 검사
   });
@@ -204,15 +233,20 @@ export default function AddTaskDialog({
   const watchedScheduledDate = form.watch("scheduledDate");
   useEffect(() => {
     const currentEndDate = form.getValues("endDate");
+    const hasCustomSelectedRange =
+      Boolean(selectedEndDate) && selectedEndDate !== selectedDate;
+
+    const allowAutoSync =
+      ((!task && registrationMode === "individual" && !hasCustomSelectedRange) || task);
     
-    // 작업 날짜가 있고, 종료날짜가 비어있거나 작업 날짜와 다른 경우
-    if (watchedScheduledDate && (!currentEndDate || currentEndDate !== watchedScheduledDate)) {
-      // 개별등록 모드이거나 수정 모드일 때만 자동 설정 (일괄등록은 제외)
-      if ((!task && registrationMode === "individual") || task) {
-        form.setValue("endDate", watchedScheduledDate);
-      }
+    if (
+      allowAutoSync &&
+      watchedScheduledDate &&
+      (!currentEndDate || currentEndDate !== watchedScheduledDate)
+    ) {
+      form.setValue("endDate", watchedScheduledDate);
     }
-  }, [watchedScheduledDate, registrationMode, task, form]);
+  }, [watchedScheduledDate, registrationMode, task, form, selectedDate, selectedEndDate]);
 
   // 제목 자동 설정 (편집 모드에서도 작동)
   useEffect(() => {
@@ -285,17 +319,69 @@ export default function AddTaskDialog({
 
   // 첫 번째 작업 등록 가능한 농장을 기본값으로 설정
   useEffect(() => {
-    if (farms && farms.length > 0 && !task && open && !selectedFarm) {
+    if (
+      farms &&
+      farms.length > 0 &&
+      !task &&
+      open &&
+      !selectedFarm &&
+      !defaultFarmId
+    ) {
       // 작업 등록 가능한 농장 찾기 (내 농장 또는 editor 권한)
-      const availableFarm = farms.find(farm => canCreateTaskForFarm(farm.id));
+      const availableFarm = farms.find((farm) =>
+        canCreateTaskForFarm(farm.id),
+      );
       if (availableFarm) {
         setSelectedFarm(availableFarm);
         form.setValue("farmId", availableFarm.id);
         form.setValue("environment", availableFarm.environment || "");
-        console.log("작업 등록 가능한 농장이 자동 선택되었습니다:", availableFarm.name);
+        console.log(
+          "작업 등록 가능한 농장이 자동 선택되었습니다:",
+          availableFarm.name,
+        );
       }
     }
-  }, [farms, task, open, selectedFarm, form, user, sharedCalendars]);
+  }, [
+    farms,
+    task,
+    open,
+    selectedFarm,
+    form,
+    user,
+    sharedCalendars,
+    defaultFarmId,
+  ]);
+
+  // 캘린더에서 전달된 기본 농장 설정
+  useEffect(() => {
+    if (!open || task) return;
+    if (!defaultFarmId) return;
+    if (!farms || farms.length === 0) return;
+
+    const farm = farms.find((f) => f.id === defaultFarmId);
+    if (!farm) return;
+
+    setSelectedFarm(farm);
+    form.setValue("farmId", farm.id);
+    form.setValue("environment", farm.environment || "");
+  }, [defaultFarmId, open, task, farms, form]);
+
+  // 캘린더에서 전달된 기본 이랑 설정
+  useEffect(() => {
+    if (!open || task) return;
+    if (typeof defaultRowNumber === "number") {
+      form.setValue("rowNumber", defaultRowNumber);
+    } else {
+      form.setValue("rowNumber", undefined);
+    }
+  }, [defaultRowNumber, open, task, form]);
+
+  useEffect(() => {
+    if (!open || task) return;
+    if (selectedEndDate) {
+      form.setValue("endDate", selectedEndDate);
+    }
+  }, [selectedEndDate, open, task, form]);
 
   // 일괄등록된 작업 그룹 찾기
   const findTaskGroup = (currentTask: Task) => {
@@ -351,7 +437,7 @@ export default function AddTaskDialog({
       // 기본 폼 데이터 먼저 설정
       form.reset({
         title: task.title || "",
-        description: (task as any).description || "",
+        description: removeImageUrls((task as any).description || ""),
         taskType: (task as any).taskType || "",
         scheduledDate: (task as any).scheduledDate || "",
         endDate: (task as any).endDate || (task as any).scheduledDate || "", // 종료날짜가 없으면 시작날짜와 동일하게 설정
@@ -360,6 +446,7 @@ export default function AddTaskDialog({
         environment: "",
         rowNumber: taskRowNumber || undefined,
       });
+      setMemoImageUrls(extractImageUrls((task as any).description || ""));
       
       // 약간의 지연 후 이랑 번호를 확실히 설정 (form.reset 후 값이 덮어씌워질 수 있음)
       setTimeout(() => {
@@ -431,25 +518,32 @@ export default function AddTaskDialog({
       }
       
     } else if (!task && open) {
+      const defaultFarm =
+        (defaultFarmId && farms?.find((f) => f.id === defaultFarmId)) || null;
+
       form.reset({
         title: "",
         description: "",
         taskType: "",
         scheduledDate: selectedDate || "",
-        endDate: selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
-        farmId: "",
+        endDate: selectedEndDate || selectedDate || "", // 디폴트 값: 작업 날짜와 동일하게 설정
+        farmId: defaultFarm?.id || "",
         cropId: "",
-        environment: "",
-        rowNumber: undefined,
+        environment: defaultFarm?.environment || "",
+        rowNumber: defaultRowNumber ?? undefined,
       });
       setCropSearchTerm("");
       setCustomCropName("");
       setSelectedWorks([]);
       setSelectedCrop(null);
       setIsCropSelectedFromList(false); // 리스트 선택 상태 초기화
-      // selectedFarm은 첫 번째 농장으로 자동 설정되므로 null로 초기화하지 않음
+
+      if (defaultFarm) {
+        setSelectedFarm(defaultFarm);
+      }
+      setMemoImageUrls([]);
     }
-  }, [task, open, selectedDate, crops, farms, form]);
+  }, [task, open, selectedDate, selectedEndDate, crops, farms, form, defaultFarmId, defaultRowNumber]);
 
   // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
   useEffect(() => {
@@ -748,9 +842,13 @@ export default function AddTaskDialog({
       
       // 항상 taskApi.createTask를 사용하여 endDate를 제대로 처리
       const { taskApi } = await import("@/shared/api/tasks");
+      const memoText = (data as any).description || "";
+      const finalDescription = memoImageUrls.length > 0
+        ? [memoText, ...memoImageUrls].filter(Boolean).join("\n")
+        : memoText;
       const taskToCreate = {
         title: data.title!,
-        description: (data as any).description || "",
+        description: finalDescription,
         taskType: (data as any).taskType || "기타",
         scheduledDate: (data as any).scheduledDate,
         endDate: (data as any).endDate || null, // endDate가 없으면 null로 설정
@@ -809,8 +907,11 @@ export default function AddTaskDialog({
     mutationFn: async (data: InsertTask) => {
         const { taskApi } = await import("../shared/api/tasks");
       const rowNumber = (data as any).rowNumber;
-      // 메모 자동 문구 제거: description은 사용자가 입력한 값만 사용
-      const description = (data as any).description || "";
+      // 메모 텍스트 + 이미지 URL 합쳐서 저장
+      const memoText = (data as any).description || "";
+      const finalDescription = memoImageUrls.length > 0
+        ? [memoText, ...memoImageUrls].filter(Boolean).join("\n")
+        : memoText;
       
       // 작물 ID 결정 로직 개선
       let finalCropId = (data as any).cropId;
@@ -829,7 +930,7 @@ export default function AddTaskDialog({
       });
       return await taskApi.updateTask((task as any)!.id, {
         title: data.title!,
-        description: description,
+        description: finalDescription,
         taskType: (data as any).taskType || "기타",
         scheduledDate: (data as any).scheduledDate,
         endDate: (data as any).endDate || null, // 종료날짜가 없으면 null로 설정
@@ -963,9 +1064,13 @@ export default function AddTaskDialog({
         cropName
       });
       
+      const memoText = form.getValues("description") || "";
+      const finalDescription = memoImageUrls.length > 0
+        ? [memoText, ...memoImageUrls].filter(Boolean).join("\n")
+        : memoText;
       const tasks: InsertTask[] = selectedWorks.map((work) => ({
         title: form.getValues("title") || `${cropName}_${work}`,
-        description: form.getValues("description") || "", // 메모 자동 문구 제거: 사용자가 입력한 값만 사용
+        description: finalDescription, // 텍스트 + 이미지 URL
         taskType: work,
         scheduledDate: startDate,
         endDate: startDate, // 일괄등록 시 종료날짜를 시작날짜와 동일하게 설정
@@ -1022,9 +1127,13 @@ export default function AddTaskDialog({
       const finalTaskType = work === "기타" ? customTaskType : work;
       const finalTitle = form.getValues("title") || `${cropName}_${finalTaskType}`;
       
+      const memoText2 = form.getValues("description") || "";
+      const finalDescription2 = memoImageUrls.length > 0
+        ? [memoText2, ...memoImageUrls].filter(Boolean).join("\n")
+        : memoText2;
       const task: InsertTask = {
         title: finalTitle,
-        description: form.getValues("description") || "", // 메모 자동 문구 제거: 사용자가 입력한 값만 사용
+        description: finalDescription2,
         taskType: finalTaskType,
         scheduledDate: startDate,
         endDate: endDate, // 종료일도 함께 저장
@@ -1125,6 +1234,19 @@ export default function AddTaskDialog({
       return;
     }
 
+    const startDate = data.scheduledDate;
+    const endDate = data.endDate;
+    const shouldValidateRange = ((!task && registrationMode === "individual") || task) && startDate && endDate;
+
+    if (shouldValidateRange && new Date(startDate) > new Date(endDate)) {
+      toast({
+        title: "날짜 범위를 확인해주세요",
+        description: "종료 날짜는 시작 날짜와 같거나 이후여야 합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // 이랑 번호 필수 검증
     if (!task && !data.rowNumber) {
       toast({
@@ -1151,14 +1273,31 @@ export default function AddTaskDialog({
 
     // 이랑 중복 체크 (수정 모드가 아닐 때만)
     if (!task && data.rowNumber) {
-      const isDuplicate = existingTasks?.some((existingTask: any) => {
-        const isSameFarm = existingTask.farmId === data.farmId;
-        const isSameRow = existingTask.rowNumber === data.rowNumber;
-        return isSameFarm && isSameRow;
+      const toDate = (value?: string | null) => {
+        if (!value) return null;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      const newStartDate = toDate(data.scheduledDate);
+      const newEndDate = toDate(data.endDate) ?? newStartDate;
+
+      const isDuplicate = existingTasks?.some((existingTask) => {
+        if (existingTask.farmId !== data.farmId) return false;
+
+        const existingRowNumber = extractRowNumber(existingTask);
+        if (existingRowNumber !== data.rowNumber) return false;
+
+        const existingStartDate = toDate(existingTask.scheduledDate);
+        if (!existingStartDate || !newStartDate || !newEndDate) return false;
+
+        const existingEndDate = toDate(existingTask.endDate) ?? existingStartDate;
+
+        // 날짜 범위가 겹치는지 확인 (동일 기간에만 중복 경고)
+        return existingStartDate <= newEndDate && existingEndDate >= newStartDate;
       });
 
       if (isDuplicate) {
-        // 중복이면 확인 모달 표시
         setPendingSubmitData(taskData);
         setShowRowDuplicateAlert(true);
         return;
@@ -1237,10 +1376,51 @@ export default function AddTaskDialog({
     }
   };
 
+  // ----- 이미지 업로드 (메모 옆 + 버튼) -----
+  const fileInputRefId = "memo-image-file-input";
+  const handlePickImage = () => {
+    const el = document.getElementById(fileInputRefId) as HTMLInputElement | null;
+    el?.click();
+  };
+
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "로그인이 필요합니다", description: "이미지를 업로드하려면 로그인해주세요.", variant: "destructive" });
+        return;
+      }
+      const bucket = "task-attachments";
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
+        contentType: file.type || "image/jpeg",
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+      const url = pub.publicUrl;
+      setMemoImageUrls((prev) => [...prev, url]);
+      toast({ title: "이미지 업로드 완료", description: "메모에 이미지 링크가 추가되었습니다." });
+    } catch (err: any) {
+      console.error("이미지 업로드 실패:", err);
+      toast({ title: "이미지 업로드 실패", description: err?.message || "잠시 후 다시 시도해주세요.", variant: "destructive" });
+    } finally {
+      // 같은 파일 재선택 가능하도록 reset
+      if (e.target) e.target.value = "";
+    }
+  };
+
   return (
     <>
       <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange} modal={false}>
-        <DialogContent className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          aria-describedby={undefined}
+          className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto"
+        >
           <DialogHeader>
             <DialogTitle>{task ? "일정 수정하기" : "내 농작업 관리"}</DialogTitle>
             {!task && (
@@ -1778,7 +1958,10 @@ export default function AddTaskDialog({
                             </Button>
                           </FormControl>
                         </DialogTrigger>
-                        <DialogContent className="w-auto p-0 flex items-center justify-center">
+                        <DialogContent
+                          aria-describedby={undefined}
+                          className="w-auto p-6 flex items-center justify-center"
+                        >
                           <Calendar
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
@@ -1788,9 +1971,6 @@ export default function AddTaskDialog({
                                 setOpen(false);
                               }
                             }}
-                            disabled={(date) =>
-                              date < new Date(new Date().setHours(0, 0, 0, 0))
-                            }
                             initialFocus
                           />
                         </DialogContent>
@@ -1808,6 +1988,13 @@ export default function AddTaskDialog({
                   name="endDate"
                   render={({ field }) => {
                     const [open, setOpen] = useState(false);
+                    const scheduledValue = form.getValues("scheduledDate");
+                    const minEndDate = scheduledValue ? new Date(scheduledValue) : null;
+                    const normalizeDate = (date: Date) => {
+                      const normalized = new Date(date);
+                      normalized.setHours(0, 0, 0, 0);
+                      return normalized;
+                    };
                     return (
                       <FormItem>
                         <FormLabel>종료 날짜 {!task ? "*" : "(선택사항)"}</FormLabel>
@@ -1830,7 +2017,10 @@ export default function AddTaskDialog({
                               </Button>
                             </FormControl>
                           </DialogTrigger>
-                          <DialogContent className="w-auto p-0 flex items-center justify-center">
+                          <DialogContent
+                            aria-describedby={undefined}
+                            className="w-auto p-6 flex items-center justify-center"
+                          >
                             <Calendar
                               mode="single"
                               selected={field.value ? new Date(field.value) : undefined}
@@ -1840,9 +2030,11 @@ export default function AddTaskDialog({
                                   setOpen(false);
                                 }
                               }}
-                              disabled={(date) =>
-                                date < new Date(new Date().setHours(0, 0, 0, 0))
-                              }
+                              disabled={(date) => {
+                                if (!minEndDate) return false;
+                                const targetDate = normalizeDate(date);
+                                return targetDate < normalizeDate(minEndDate);
+                              }}
                               initialFocus
                             />
                           </DialogContent>
@@ -1860,7 +2052,21 @@ export default function AddTaskDialog({
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>메모 (선택사항)</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>메모 (선택사항)</FormLabel>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={fileInputRefId}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageSelected}
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={handlePickImage} title="이미지 추가">
+                          <Plus className="w-4 h-4 mr-1" /> 추가
+                        </Button>
+                      </div>
+                    </div>
                     <FormControl>
                       <Textarea
                         placeholder="예시 : 작물 kg"
@@ -1868,6 +2074,26 @@ export default function AddTaskDialog({
                         value={field.value || ""}
                       />
                     </FormControl>
+                    {memoImageUrls.length > 0 && (
+                      <div className="mt-2 grid grid-cols-4 gap-2">
+                        {memoImageUrls.map((url, idx) => (
+                          <div key={idx} className="relative border rounded overflow-hidden group">
+                            <img src={url} alt={`메모 이미지 ${idx + 1}`} className="w-full h-20 object-cover" />
+                            <button
+                              type="button"
+                              aria-label="이미지 삭제"
+                              title="이미지 삭제"
+                              className="absolute top-1 right-1 bg-white/90 hover:bg-white text-gray-700 hover:text-red-600 border border-gray-300 rounded-full p-1 shadow-sm opacity-90 group-hover:opacity-100"
+                              onClick={() => {
+                                setMemoImageUrls((prev) => prev.filter((_, i) => i !== idx));
+                              }}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

@@ -232,7 +232,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                     {startDate ? format(startDate, "PPP") : "날짜 선택"}
                   </Button>
                 </DateDialogTrigger>
-                <DateDialogContent className="w-auto p-0 flex items-center justify-center">
+                <DateDialogContent className="w-auto p-6 flex items-center justify-center">
                   <Calendar
                     mode="single"
                     selected={startDate}
@@ -261,7 +261,7 @@ export function EditTaskDialog({ task, trigger }: EditTaskDialogProps) {
                     {endDate ? format(endDate, "PPP") : "날짜 선택"}
                   </Button>
                 </DateDialogTrigger>
-                <DateDialogContent className="w-auto p-0 flex items-center justify-center">
+                <DateDialogContent className="w-auto p-6 flex items-center justify-center">
                   <Calendar
                     mode="single"
                     selected={endDate}
