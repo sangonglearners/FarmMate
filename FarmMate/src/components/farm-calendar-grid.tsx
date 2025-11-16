@@ -148,9 +148,33 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
       const headers = ["농장", "시작일", "종료일", "이랑", "일", "메모", "이미지"];
-      const filtered = selectedFarm
+
+      // 기간 계산: 월간 → 해당 월, 연간 → 해당 연도
+      let periodStart: Date | null = null;
+      let periodEnd: Date | null = null;
+      if (viewMode === "monthly") {
+        const y = monthlyDate.getFullYear();
+        const m = monthlyDate.getMonth();
+        periodStart = new Date(y, m, 1);
+        periodEnd = new Date(y, m + 1, 0);
+      } else if (viewMode === "yearly") {
+        const y = yearlyDate.getFullYear();
+        periodStart = new Date(y, 0, 1);
+        periodEnd = new Date(y + 1, 0, 0);
+      }
+
+      const isOverlapping = (task: any) => {
+        if (!periodStart || !periodEnd) return true;
+        const taskStart = new Date(task.scheduledDate);
+        const taskEnd = task.endDate ? new Date(task.endDate) : taskStart;
+        return taskStart <= periodEnd && taskEnd >= periodStart;
+      };
+
+      const filtered = (selectedFarm
         ? memoizedTasks.filter(t => t.farmId === selectedFarm.id)
-        : memoizedTasks;
+        : memoizedTasks
+      ).filter(isOverlapping);
+
       const escapeCsv = (value: unknown): string => {
         if (value === null || value === undefined) return "";
         const str = String(value);
