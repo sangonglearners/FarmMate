@@ -90,6 +90,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null);
   const [dragRowNumber, setDragRowNumber] = useState<number | null>(null);
   const [hasDragMoved, setHasDragMoved] = useState(false);
+
+  // 메모에서 이미지 URL을 안 보이게 하기 위한 렌더링 유틸
+  const stripImageUrls = (text?: string | null) => {
+    if (!text) return "";
+    return text.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim();
+  };
   
   // 화면 크기 감지
   useEffect(() => {
@@ -141,7 +147,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const buildCsvForSelectedFarm = () => {
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
-      const headers = ["농장", "시작일", "종료일", "이랑", "일", "메모"];
+      const headers = ["농장", "시작일", "종료일", "이랑", "일", "메모", "이미지"];
       const filtered = selectedFarm
         ? memoizedTasks.filter(t => t.farmId === selectedFarm.id)
         : memoizedTasks;
@@ -155,13 +161,24 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       };
       const rows = filtered.map(t => {
         const farmName = t.farmId ? farmIdToName.get(t.farmId) ?? "" : "";
+        const descRaw = (t as any).description ?? "";
+        const imageUrls = typeof descRaw === "string"
+          ? (descRaw.match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi) || [])
+          : [];
+        // 메모 텍스트는 이미지 URL 제거
+        const desc = typeof descRaw === "string"
+          ? descRaw.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim()
+          : "";
+        // 수식 대신 원본 URL 그대로 넣기
+        const imageCell = imageUrls.length > 0 ? imageUrls[0] : "";
         const cols = [
           farmName,
           t.scheduledDate,
           t.endDate ?? "",
           t.rowNumber ?? "",
           t.title,
-          (t as any).description ?? "",
+          desc,
+          imageCell,
         ];
         return cols.map(escapeCsv).join(",");
       });
@@ -270,6 +287,20 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const formatRangeYyMmDd = (start: string | Date, end: string | Date): string => {
     const s = formatYyMmDd(start);
     const e = formatYyMmDd(end);
+    return s && e ? `${s}~${e}` : s || e || '';
+  };
+
+  // MM.DD 전용 포맷 (달력 상단 박스에만 사용)
+  const formatMmDd = (d: string | Date): string => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${mm}.${dd}`;
+  };
+  const formatRangeMmDd = (start: string | Date, end: string | Date): string => {
+    const s = formatMmDd(start);
+    const e = formatMmDd(end);
     return s && e ? `${s}~${e}` : s || e || '';
   };
 
@@ -1669,8 +1700,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       }
                       
-                      // 날짜 표시 로직 (YY.MM.DD~YY.MM.DD)
-                      const dateRangeText = formatRangeYyMmDd(taskGroup.startDate, taskGroup.endDate);
+                      // 날짜 표시 로직 (달력 박스: MM.DD~MM.DD)
+                      const dateRangeText = formatRangeMmDd(taskGroup.startDate, taskGroup.endDate);
                       
                       // top과 height 계산 (고정 높이 사용)
                       const topValue = `${topPadding + laneIndex * (fixedBoxHeight + gapSizePx)}px`;
@@ -1999,7 +2030,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
                         </h4>
                         {task.description && (
-                          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {stripImageUrls(task.description as any)}
+                          </p>
                         )}
                         <div className="flex items-center gap-1 sm:gap-2 mt-2 whitespace-nowrap text-[10px] sm:text-xs">
                           <span className={`px-2 py-1 rounded-full ${
@@ -2103,7 +2136,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           </span>
                         </div>
                         {task.description && (
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {stripImageUrls(task.description as any)}
+                          </p>
                         )}
                         <div className="flex items-center gap-1 sm:gap-2 mt-2 flex-wrap whitespace-nowrap text-[10px] sm:text-xs">
                           <span className={`px-2 py-1 rounded-full ${
