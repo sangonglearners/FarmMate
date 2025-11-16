@@ -141,7 +141,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const buildCsvForSelectedFarm = () => {
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
-      const headers = ["농장", "시작일", "종료일", "이랑", "일"];
+      const headers = ["농장", "시작일", "종료일", "이랑", "일", "메모"];
       const filtered = selectedFarm
         ? memoizedTasks.filter(t => t.farmId === selectedFarm.id)
         : memoizedTasks;
@@ -161,6 +161,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           t.endDate ?? "",
           t.rowNumber ?? "",
           t.title,
+          (t as any).description ?? "",
         ];
         return cols.map(escapeCsv).join(",");
       });
