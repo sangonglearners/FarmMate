@@ -509,7 +509,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                       <span className="inline-block w-1 h-4 bg-blue-500 mr-2 rounded"></span>
-                      공유받은 농장
+                      친구 농장
                     </h3>
                     <TodoList 
                       tasks={groupedSharedTasks}
