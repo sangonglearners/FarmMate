@@ -9,6 +9,12 @@ import {
 import { ChevronLeft, ChevronRight, Plus, Share2 } from "lucide-react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
@@ -84,6 +90,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null);
   const [dragRowNumber, setDragRowNumber] = useState<number | null>(null);
   const [hasDragMoved, setHasDragMoved] = useState(false);
+
+  // 메모에서 이미지 URL을 안 보이게 하기 위한 렌더링 유틸
+  const stripImageUrls = (text?: string | null) => {
+    if (!text) return "";
+    return text.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim();
+  };
   
   // 화면 크기 감지
   useEffect(() => {
@@ -132,13 +144,37 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   }, [myFarms, friendFarms, selectedFarm]);
 
-  const handleExportCsv = () => {
+  const buildCsvForSelectedFarm = () => {
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
-      const headers = ["농장", "시작일", "종료일", "이랑", "일"];
-      const filtered = selectedFarm
+      const headers = ["농장", "시작일", "종료일", "이랑", "일", "메모", "이미지"];
+
+      // 기간 계산: 월간 → 해당 월, 연간 → 해당 연도
+      let periodStart: Date | null = null;
+      let periodEnd: Date | null = null;
+      if (viewMode === "monthly") {
+        const y = monthlyDate.getFullYear();
+        const m = monthlyDate.getMonth();
+        periodStart = new Date(y, m, 1);
+        periodEnd = new Date(y, m + 1, 0);
+      } else if (viewMode === "yearly") {
+        const y = yearlyDate.getFullYear();
+        periodStart = new Date(y, 0, 1);
+        periodEnd = new Date(y + 1, 0, 0);
+      }
+
+      const isOverlapping = (task: any) => {
+        if (!periodStart || !periodEnd) return true;
+        const taskStart = new Date(task.scheduledDate);
+        const taskEnd = task.endDate ? new Date(task.endDate) : taskStart;
+        return taskStart <= periodEnd && taskEnd >= periodStart;
+      };
+
+      const filtered = (selectedFarm
         ? memoizedTasks.filter(t => t.farmId === selectedFarm.id)
-        : memoizedTasks;
+        : memoizedTasks
+      ).filter(isOverlapping);
+
       const escapeCsv = (value: unknown): string => {
         if (value === null || value === undefined) return "";
         const str = String(value);
@@ -149,16 +185,38 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       };
       const rows = filtered.map(t => {
         const farmName = t.farmId ? farmIdToName.get(t.farmId) ?? "" : "";
+        const descRaw = (t as any).description ?? "";
+        const imageUrls = typeof descRaw === "string"
+          ? (descRaw.match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi) || [])
+          : [];
+        // 메모 텍스트는 이미지 URL 제거
+        const desc = typeof descRaw === "string"
+          ? descRaw.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim()
+          : "";
+        // 수식 대신 원본 URL 그대로 넣기
+        const imageCell = imageUrls.length > 0 ? imageUrls[0] : "";
         const cols = [
           farmName,
           t.scheduledDate,
           t.endDate ?? "",
           t.rowNumber ?? "",
           t.title,
+          desc,
+          imageCell,
         ];
         return cols.map(escapeCsv).join(",");
       });
       const csv = [headers.join(","), ...rows].join("\n");
+      return csv;
+    } catch (e) {
+      console.error("CSV build failed", e);
+      throw e;
+    }
+  };
+
+  const handleExportCsv = () => {
+    try {
+      const csv = buildCsvForSelectedFarm();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -174,6 +232,148 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       alert("CSV 내보내기에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
+
+  const handleExportGoogleSheets = async () => {
+    try {
+      const csv = buildCsvForSelectedFarm();
+      const filename = `FarmMate 캘린더 ${new Date().toISOString().split("T")[0]}`;
+      const sheetId = await uploadCsvToGoogleAsSheet(csv, filename);
+      if (sheetId) {
+        window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, "_blank");
+      }
+    } catch (e) {
+      console.error("Google Sheets export failed", e);
+      alert("구글 시트 내보내기에 실패했습니다. 설정을 확인하고 다시 시도해주세요.");
+    }
+  };
+
+  // ---- Google Sheets 업로드 유틸 (컴포넌트 내에 포함) ----
+  async function uploadCsvToGoogleAsSheet(csv: string, filename: string): Promise<string> {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+    if (!clientId) {
+      throw new Error("VITE_GOOGLE_CLIENT_ID 가 설정되어 있지 않습니다.");
+    }
+
+    await ensureGoogleApisLoaded();
+    const accessToken = await requestGoogleAccessToken(clientId, [
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets",
+    ]);
+
+    const metadata = {
+      name: filename.endsWith(".csv") ? filename.replace(/\.csv$/i, "") : filename,
+      mimeType: "application/vnd.google-apps.spreadsheet",
+    };
+
+    const boundary = "farmmate_boundary_" + Math.random().toString(36).slice(2);
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelim = `\r\n--${boundary}--`;
+
+    const multipartBody =
+      delimiter +
+      "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+      JSON.stringify(metadata) +
+      delimiter +
+      "Content-Type: text/csv; charset=UTF-8\r\n\r\n" +
+      csv +
+      closeDelim;
+
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body: multipartBody,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Drive upload failed: ${res.status} ${text}`);
+    }
+    const json = await res.json() as { id?: string };
+    if (!json.id) {
+      throw new Error("파일 ID를 받지 못했습니다.");
+    }
+    return json.id;
+  }
+
+  // 통일된 날짜 포맷: YY.MM.DD
+  const formatYyMmDd = (d: string | Date): string => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yy}.${mm}.${dd}`;
+  };
+
+  const formatRangeYyMmDd = (start: string | Date, end: string | Date): string => {
+    const s = formatYyMmDd(start);
+    const e = formatYyMmDd(end);
+    return s && e ? `${s}~${e}` : s || e || '';
+  };
+
+  // MM.DD 전용 포맷 (달력 상단 박스에만 사용)
+  const formatMmDd = (d: string | Date): string => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${mm}.${dd}`;
+  };
+  const formatRangeMmDd = (start: string | Date, end: string | Date): string => {
+    const s = formatMmDd(start);
+    const e = formatMmDd(end);
+    return s && e ? `${s}~${e}` : s || e || '';
+  };
+
+  function ensureGoogleApisLoaded(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const ensureScript = (src: string, id: string) =>
+        new Promise<void>((res, rej) => {
+          if (document.getElementById(id)) return res();
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.defer = true;
+          s.id = id;
+          s.onload = () => res();
+          s.onerror = () => rej(new Error(`Failed to load ${src}`));
+          document.head.appendChild(s);
+        });
+
+      Promise.all([
+        ensureScript("https://accounts.google.com/gsi/client", "google_gsi_script"),
+        ensureScript("https://apis.google.com/js/api.js", "google_api_script"),
+      ])
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  function requestGoogleAccessToken(clientId: string, scopes: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      // @ts-ignore
+      if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+        return reject(new Error("Google OAuth 클라이언트를 불러오지 못했습니다."));
+      }
+      // @ts-ignore
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: scopes.join(" "),
+        callback: (resp: any) => {
+          if (resp && resp.access_token) {
+            resolve(resp.access_token);
+          } else {
+            reject(new Error("액세스 토큰을 받지 못했습니다."));
+          }
+        },
+        error_callback: (err: any) => reject(err),
+      });
+      tokenClient.requestAccessToken();
+    });
+  }
 
   const handleDateSelection = useCallback((dateStr: string, rowNumber?: number | null) => {
     setSelectedCellDate(dateStr);
@@ -1155,15 +1355,26 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       <div className="flex flex-col gap-2">
         {/* 첫 번째 줄: CSV + 공유 + 댓글 버튼 */}
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCsv}
-            aria-label="CSV로 내보내기"
-            title="CSV로 내보내기"
-          >
-            <FileDown className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="CSV로 내보내기"
+                title="CSV로 내보내기"
+              >
+                <FileDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCsv}>
+                CSV로 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportGoogleSheets}>
+                구글 시트로 내보내기
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="sm"
@@ -1513,10 +1724,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       }
                       
-                      // 날짜 표시 로직 (간단한 형식)
-                      const startDateStr = taskGroup.startDate.toISOString().split('T')[0].substring(5); // MM-DD
-                      const endDateStr = taskGroup.endDate.toISOString().split('T')[0].substring(5); // MM-DD
-                      const dateRangeText = startDateStr === endDateStr ? startDateStr : `${startDateStr}~${endDateStr}`;
+                      // 날짜 표시 로직 (달력 박스: MM.DD~MM.DD)
+                      const dateRangeText = formatRangeMmDd(taskGroup.startDate, taskGroup.endDate);
                       
                       // top과 height 계산 (고정 높이 사용)
                       const topValue = `${topPadding + laneIndex * (fixedBoxHeight + gapSizePx)}px`;
@@ -1538,9 +1747,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!canEditTask) {
-                              return;
-                            }
                             setSelectedTask(taskGroup.task);
                             setIsEditDialogOpen(true);
                           }}
@@ -1681,7 +1887,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       style={{ height: '28px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!canEditTask) return;
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
                                       }}
@@ -1734,7 +1939,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       style={{ height: '28px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!canEditTask) return;
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
                                       }}
@@ -1850,10 +2054,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
                         </h4>
                         {task.description && (
-                          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {stripImageUrls(task.description as any)}
+                          </p>
                         )}
-                        <div className="flex items-center space-x-2 mt-2">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                        <div className="flex items-center gap-1 sm:gap-2 mt-2 whitespace-nowrap text-[10px] sm:text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
                             task.completed === 1
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -1861,7 +2067,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             {task.completed === 1 ? '완료' : '예정'}
                           </span>
                           {(task.rowNumber || (task.description && task.description.includes("이랑:"))) && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-gray-500">
                               이랑 {task.rowNumber || (() => {
                                 const match = task.description?.match(/이랑:\s*(\d+)번/);
                                 return match ? match[1] : "";
@@ -1869,8 +2075,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             </span>
                           )}
                           {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
-                            <span className="text-xs text-blue-600">
-                              {task.scheduledDate} ~ {(task as any).endDate}
+                            <span className="text-blue-600">
+                              {formatRangeYyMmDd(task.scheduledDate, (task as any).endDate)}
                             </span>
                           )}
                         </div>
@@ -1954,10 +2160,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           </span>
                         </div>
                         {task.description && (
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {stripImageUrls(task.description as any)}
+                          </p>
                         )}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                        <div className="flex items-center gap-1 sm:gap-2 mt-2 flex-wrap whitespace-nowrap text-[10px] sm:text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
                             task.completed === 1
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -1965,13 +2173,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             {task.completed === 1 ? '완료' : '예정'}
                           </span>
                           {task.rowNumber && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-gray-500">
                               이랑 {task.rowNumber}
                             </span>
                           )}
                           {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
-                            <span className="text-xs text-blue-600">
-                              {task.scheduledDate} ~ {(task as any).endDate}
+                            <span className="text-blue-600">
+                              {formatRangeYyMmDd(task.scheduledDate, (task as any).endDate)}
                             </span>
                           )}
                         </div>

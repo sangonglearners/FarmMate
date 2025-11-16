@@ -31,7 +31,7 @@ export default function HomePage() {
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [, setLocation] = useLocation();
 
   // 농장 목록 조회
@@ -46,10 +46,19 @@ export default function HomePage() {
       .map((c) => c.calendarId)
   );
 
-  // 유효한 농장 ID 목록 (공유 권한이 제거된 농장 필터링용)
-  const validFarmIds = getValidFarmIds(ownFarms, sharedFarms);
-  const ownFarmIds = getOwnFarmIds(ownFarms);
-  const sharedFarmIds = getSharedFarmIds(sharedFarms);
+  // '전체 허용(editor)' 권한만 친구 농장으로 간주
+  const editorSharedFarmIdSet = new Set(
+    (sharedCalendars || [])
+      .filter((c) => c.role === 'editor')
+      .map((c) => c.calendarId)
+  );
+  const ownFarmIdsForSubtract = getOwnFarmIds(ownFarms);
+  const editorSharedFarms = sharedFarms.filter((f) => editorSharedFarmIdSet.has(f.id) && !ownFarmIdsForSubtract.has(f.id));
+
+  // 유효한 농장 ID 목록 (내 농장 + '전체 허용' 친구 농장)
+  const validFarmIds = getValidFarmIds(ownFarms, editorSharedFarms);
+  const ownFarmIds = ownFarmIdsForSubtract;
+  const sharedFarmIds = getSharedFarmIds(editorSharedFarms);
 
   // 중복 제거 함수
   const removeDuplicateTasks = (tasks: any[]) => {
@@ -485,31 +494,27 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* 내 농장의 일정 */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                    <span className="inline-block w-1 h-4 bg-primary mr-2 rounded"></span>
-                    내 농장
-                  </h3>
-                  {groupedOwnTasks.length > 0 ? (
+                {/* 내 농장의 일정 (작업이 있을 때만 제목+리스트 표시) */}
+                {groupedOwnTasks.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <span className="inline-block w-1 h-4 bg-primary mr-2 rounded"></span>
+                      내 농장
+                    </h3>
                     <TodoList 
                       tasks={groupedOwnTasks}
                       selectedDate={selectedDate}
                       onTaskClick={handleTaskClick}
                     />
-                  ) : (
-                    <p className="text-gray-500 text-sm py-2 px-3 bg-gray-50 rounded">
-                      내 농장에 예정된 작업이 없습니다.
-                    </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* 공유받은 농장의 일정 */}
                 {groupedSharedTasks.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                       <span className="inline-block w-1 h-4 bg-blue-500 mr-2 rounded"></span>
-                      공유받은 농장
+                      친구 농장
                     </h3>
                     <TodoList 
                       tasks={groupedSharedTasks}
