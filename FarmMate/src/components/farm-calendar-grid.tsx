@@ -9,6 +9,12 @@ import {
 import { ChevronLeft, ChevronRight, Plus, Share2 } from "lucide-react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
@@ -132,7 +138,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   }, [myFarms, friendFarms, selectedFarm]);
 
-  const handleExportCsv = () => {
+  const buildCsvForSelectedFarm = () => {
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
       const headers = ["농장", "시작일", "종료일", "이랑", "일"];
@@ -159,6 +165,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         return cols.map(escapeCsv).join(",");
       });
       const csv = [headers.join(","), ...rows].join("\n");
+      return csv;
+    } catch (e) {
+      console.error("CSV build failed", e);
+      throw e;
+    }
+  };
+
+  const handleExportCsv = () => {
+    try {
+      const csv = buildCsvForSelectedFarm();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -174,6 +190,118 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       alert("CSV 내보내기에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
+
+  const handleExportGoogleSheets = async () => {
+    try {
+      const csv = buildCsvForSelectedFarm();
+      const filename = `FarmMate 캘린더 ${new Date().toISOString().split("T")[0]}`;
+      const sheetId = await uploadCsvToGoogleAsSheet(csv, filename);
+      if (sheetId) {
+        window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, "_blank");
+      }
+    } catch (e) {
+      console.error("Google Sheets export failed", e);
+      alert("구글 시트 내보내기에 실패했습니다. 설정을 확인하고 다시 시도해주세요.");
+    }
+  };
+
+  // ---- Google Sheets 업로드 유틸 (컴포넌트 내에 포함) ----
+  async function uploadCsvToGoogleAsSheet(csv: string, filename: string): Promise<string> {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+    if (!clientId) {
+      throw new Error("VITE_GOOGLE_CLIENT_ID 가 설정되어 있지 않습니다.");
+    }
+
+    await ensureGoogleApisLoaded();
+    const accessToken = await requestGoogleAccessToken(clientId, [
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets",
+    ]);
+
+    const metadata = {
+      name: filename.endsWith(".csv") ? filename.replace(/\.csv$/i, "") : filename,
+      mimeType: "application/vnd.google-apps.spreadsheet",
+    };
+
+    const boundary = "farmmate_boundary_" + Math.random().toString(36).slice(2);
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelim = `\r\n--${boundary}--`;
+
+    const multipartBody =
+      delimiter +
+      "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+      JSON.stringify(metadata) +
+      delimiter +
+      "Content-Type: text/csv; charset=UTF-8\r\n\r\n" +
+      csv +
+      closeDelim;
+
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body: multipartBody,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Drive upload failed: ${res.status} ${text}`);
+    }
+    const json = await res.json() as { id?: string };
+    if (!json.id) {
+      throw new Error("파일 ID를 받지 못했습니다.");
+    }
+    return json.id;
+  }
+
+  function ensureGoogleApisLoaded(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const ensureScript = (src: string, id: string) =>
+        new Promise<void>((res, rej) => {
+          if (document.getElementById(id)) return res();
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.defer = true;
+          s.id = id;
+          s.onload = () => res();
+          s.onerror = () => rej(new Error(`Failed to load ${src}`));
+          document.head.appendChild(s);
+        });
+
+      Promise.all([
+        ensureScript("https://accounts.google.com/gsi/client", "google_gsi_script"),
+        ensureScript("https://apis.google.com/js/api.js", "google_api_script"),
+      ])
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  function requestGoogleAccessToken(clientId: string, scopes: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      // @ts-ignore
+      if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+        return reject(new Error("Google OAuth 클라이언트를 불러오지 못했습니다."));
+      }
+      // @ts-ignore
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: scopes.join(" "),
+        callback: (resp: any) => {
+          if (resp && resp.access_token) {
+            resolve(resp.access_token);
+          } else {
+            reject(new Error("액세스 토큰을 받지 못했습니다."));
+          }
+        },
+        error_callback: (err: any) => reject(err),
+      });
+      tokenClient.requestAccessToken();
+    });
+  }
 
   const handleDateSelection = useCallback((dateStr: string, rowNumber?: number | null) => {
     setSelectedCellDate(dateStr);
@@ -1155,15 +1283,26 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       <div className="flex flex-col gap-2">
         {/* 첫 번째 줄: CSV + 공유 + 댓글 버튼 */}
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCsv}
-            aria-label="CSV로 내보내기"
-            title="CSV로 내보내기"
-          >
-            <FileDown className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="CSV로 내보내기"
+                title="CSV로 내보내기"
+              >
+                <FileDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCsv}>
+                CSV로 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportGoogleSheets}>
+                구글 시트로 내보내기
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="sm"
