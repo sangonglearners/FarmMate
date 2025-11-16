@@ -69,7 +69,7 @@ export const categorizeTasksByOwnership = (
     !task.farmId || ownFarmIds.has(task.farmId)
   );
   const sharedTasks = tasks.filter(task => 
-    task.farmId && sharedFarmIds.has(task.farmId)
+    task.farmId && sharedFarmIds.has(task.farmId) && !ownFarmIds.has(task.farmId)
   );
   
   return { ownTasks, sharedTasks };
