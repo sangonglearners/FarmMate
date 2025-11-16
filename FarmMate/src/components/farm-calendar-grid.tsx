@@ -1678,9 +1678,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!canEditTask) {
-                              return;
-                            }
                             setSelectedTask(taskGroup.task);
                             setIsEditDialogOpen(true);
                           }}
@@ -1821,7 +1818,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       style={{ height: '28px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!canEditTask) return;
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
                                       }}
@@ -1874,7 +1870,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       style={{ height: '28px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!canEditTask) return;
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
                                       }}
