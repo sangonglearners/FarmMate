@@ -257,6 +257,22 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     return json.id;
   }
 
+  // 통일된 날짜 포맷: YY.MM.DD
+  const formatYyMmDd = (d: string | Date): string => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yy}.${mm}.${dd}`;
+  };
+
+  const formatRangeYyMmDd = (start: string | Date, end: string | Date): string => {
+    const s = formatYyMmDd(start);
+    const e = formatYyMmDd(end);
+    return s && e ? `${s}~${e}` : s || e || '';
+  };
+
   function ensureGoogleApisLoaded(): Promise<void> {
     return new Promise((resolve, reject) => {
       const ensureScript = (src: string, id: string) =>
@@ -1653,10 +1669,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       }
                       
-                      // 날짜 표시 로직 (간단한 형식)
-                      const startDateStr = taskGroup.startDate.toISOString().split('T')[0].substring(5); // MM-DD
-                      const endDateStr = taskGroup.endDate.toISOString().split('T')[0].substring(5); // MM-DD
-                      const dateRangeText = startDateStr === endDateStr ? startDateStr : `${startDateStr}~${endDateStr}`;
+                      // 날짜 표시 로직 (YY.MM.DD~YY.MM.DD)
+                      const dateRangeText = formatRangeYyMmDd(taskGroup.startDate, taskGroup.endDate);
                       
                       // top과 height 계산 (고정 높이 사용)
                       const topValue = `${topPadding + laneIndex * (fixedBoxHeight + gapSizePx)}px`;
@@ -1987,8 +2001,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         {task.description && (
                           <p className="text-sm text-gray-600 mt-1">{task.description}</p>
                         )}
-                        <div className="flex items-center space-x-2 mt-2">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                        <div className="flex items-center gap-1 sm:gap-2 mt-2 whitespace-nowrap text-[10px] sm:text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
                             task.completed === 1
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -1996,7 +2010,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             {task.completed === 1 ? '완료' : '예정'}
                           </span>
                           {(task.rowNumber || (task.description && task.description.includes("이랑:"))) && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-gray-500">
                               이랑 {task.rowNumber || (() => {
                                 const match = task.description?.match(/이랑:\s*(\d+)번/);
                                 return match ? match[1] : "";
@@ -2004,8 +2018,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             </span>
                           )}
                           {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
-                            <span className="text-xs text-blue-600">
-                              {task.scheduledDate} ~ {(task as any).endDate}
+                            <span className="text-blue-600">
+                              {formatRangeYyMmDd(task.scheduledDate, (task as any).endDate)}
                             </span>
                           )}
                         </div>
@@ -2091,8 +2105,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         {task.description && (
                           <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
                         )}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                        <div className="flex items-center gap-1 sm:gap-2 mt-2 flex-wrap whitespace-nowrap text-[10px] sm:text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
                             task.completed === 1
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -2100,13 +2114,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             {task.completed === 1 ? '완료' : '예정'}
                           </span>
                           {task.rowNumber && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-gray-500">
                               이랑 {task.rowNumber}
                             </span>
                           )}
                           {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
-                            <span className="text-xs text-blue-600">
-                              {task.scheduledDate} ~ {(task as any).endDate}
+                            <span className="text-blue-600">
+                              {formatRangeYyMmDd(task.scheduledDate, (task as any).endDate)}
                             </span>
                           )}
                         </div>
