@@ -80,6 +80,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     pointerId: number;
     dateStr: string;
     rowNumber: number;
+    lastX?: number;
+    lastY?: number;
   } | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const edgeScrollDirectionRef = useRef<-1 | 0 | 1>(0);
@@ -399,7 +401,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
-    pendingPointerInfoRef.current = null;
+    // pendingPointerInfoRef는 handleDragStart에서 초기화하거나
+    // 드래그가 시작되지 않은 경우에만 초기화
+    // (handleGlobalPointerMove에서 사용할 수 있도록 유지)
     edgeScrollDirectionRef.current = 0;
   }, []);
 
@@ -492,11 +496,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       return;
     }
 
-    container.style.touchAction = "pan-x pan-y";
+    // 드래그 중이거나 롱프레스 대기 중일 때는 스크롤 방지
+    if (isDraggingDates || pendingPointerInfoRef.current) {
+      container.style.touchAction = "none";
+    } else {
+      container.style.touchAction = "pan-x pan-y";
+    }
 
     const handleTouchMove = (event: TouchEvent) => {
-      if (!isDraggingDates) return;
-      event.preventDefault();
+      // 드래그 중이거나 롱프레스 대기 중일 때 터치 이동 방지
+      if (isDraggingDates || pendingPointerInfoRef.current) {
+        event.preventDefault();
+      }
     };
 
     container.addEventListener("touchmove", handleTouchMove, { passive: false });
@@ -548,12 +559,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         event.pointerType === "mouse" || event.pointerType === "pen";
 
       if (event.pointerType === "touch") {
+        // 터치 이벤트: 롱프레스 타이머 시작
         pendingPointerInfoRef.current = {
           pointerId: event.pointerId,
           dateStr,
           rowNumber,
         };
         startLongPressTimer(dateStr, rowNumber);
+        // 터치 이벤트에서도 기본 동작 방지 (드래그 시작을 위해)
+        event.preventDefault();
         return;
       }
 
@@ -567,12 +581,58 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
   const handleGlobalPointerMove = useCallback(
     (event: PointerEvent) => {
-      if (!isDraggingDates) return;
+      if (!isDraggingDates) {
+        // 드래그가 시작되지 않았지만 롱프레스 타이머가 실행 중인 경우
+        // 터치 이동이 감지되면 롱프레스 타이머를 취소하고 드래그를 시작할 수 있도록 함
+        if (
+          pendingPointerInfoRef.current &&
+          event.pointerId === pendingPointerInfoRef.current.pointerId &&
+          event.pointerType === "touch"
+        ) {
+          // 롱프레스 타이머가 아직 완료되지 않았지만 이동이 감지된 경우
+          // 약간의 이동 허용 (롱프레스 중 작은 이동은 무시)
+          const moveThreshold = 10; // 픽셀 단위
+          
+          // 첫 이동 감지 시 초기 위치 저장
+          if (pendingPointerInfoRef.current.lastX === undefined || 
+              pendingPointerInfoRef.current.lastY === undefined) {
+            pendingPointerInfoRef.current.lastX = event.clientX;
+            pendingPointerInfoRef.current.lastY = event.clientY;
+            return; // 첫 이동은 무시 (작은 떨림 방지)
+          }
+          
+          const dx = Math.abs(event.clientX - pendingPointerInfoRef.current.lastX);
+          const dy = Math.abs(event.clientY - pendingPointerInfoRef.current.lastY);
+          
+          if (dx > moveThreshold || dy > moveThreshold) {
+            // 충분히 이동했으면 롱프레스 타이머 취소하고 드래그 시작
+            cancelLongPressTimer();
+            if (pendingPointerInfoRef.current) {
+              handleDragStart(
+                pendingPointerInfoRef.current.dateStr,
+                pendingPointerInfoRef.current.rowNumber,
+                pendingPointerInfoRef.current.pointerId
+              );
+            }
+          } else {
+            // 작은 이동이면 위치 업데이트만 (계속 추적)
+            pendingPointerInfoRef.current.lastX = event.clientX;
+            pendingPointerInfoRef.current.lastY = event.clientY;
+          }
+        }
+        return;
+      }
+      
       if (
         activePointerIdRef.current !== null &&
         event.pointerId !== activePointerIdRef.current
       ) {
         return;
+      }
+
+      // 터치 드래그 중에는 기본 스크롤 동작 방지
+      if (event.pointerType === "touch" && isDraggingDates) {
+        event.preventDefault();
       }
 
       const element = document.elementFromPoint(
@@ -600,19 +660,28 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
       handleDragMove(dateStr, Number(rowAttr));
     },
-    [handleDragMove, isDraggingDates, viewMode],
+    [handleDragMove, isDraggingDates, viewMode, cancelLongPressTimer, handleDragStart],
   );
 
   const handleCellPointerEnter = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>, dateStr: string, rowNumber: number) => {
+      // 터치 이벤트는 pointerenter가 제대로 작동하지 않을 수 있으므로
+      // handleGlobalPointerMove에서 처리하도록 함
+      if (event.pointerType === "touch") {
+        // 터치 이벤트는 handleGlobalPointerMove에서 처리
+        return;
+      }
+      
       if (
         event.pointerType !== "mouse" &&
-        event.pointerType !== "pen" &&
-        !(event.pointerType === "touch" && isDraggingDates)
+        event.pointerType !== "pen"
       ) {
         return;
       }
-      handleDragMove(dateStr, rowNumber);
+      
+      if (isDraggingDates) {
+        handleDragMove(dateStr, rowNumber);
+      }
     },
     [handleDragMove, isDraggingDates],
   );
@@ -623,24 +692,27 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       if (isDraggingDates) {
         event.preventDefault();
         finalizeDragSelection();
+      } else if (pendingPointerInfoRef.current) {
+        // 드래그가 시작되지 않았고 롱프레스도 완료되지 않은 경우 초기화
+        pendingPointerInfoRef.current = null;
+        activePointerIdRef.current = null;
       }
     },
     [cancelLongPressTimer, finalizeDragSelection, isDraggingDates],
   );
 
   useEffect(() => {
-    if (!isDraggingDates) return;
-
+    // 드래그 중이거나 롱프레스 대기 중일 때 포인터 이동 감지
     const pointerMoveListener = (event: PointerEvent) => {
       handleGlobalPointerMove(event);
     };
 
-    window.addEventListener("pointermove", pointerMoveListener);
+    window.addEventListener("pointermove", pointerMoveListener, { passive: false });
 
     return () => {
       window.removeEventListener("pointermove", pointerMoveListener);
     };
-  }, [handleGlobalPointerMove, isDraggingDates]);
+  }, [handleGlobalPointerMove]);
 
   useEffect(() => {
     if (!isDraggingDates) return;
