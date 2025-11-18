@@ -137,7 +137,7 @@ export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] =
     calendarDays.forEach((dayInfo, index) => {
       if (dayInfo.day === null) return; // 빈 셀은 건너뛰기
       
-      const dayDate = new Date(dayInfo.year, dayInfo.month - 1, dayInfo.day); // month는 0-based
+      const dayDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day); // month는 이미 0-based
       
       if (startDayIndex === -1 && dayDate >= startDate && dayDate <= endDate) {
         startDayIndex = index;
@@ -180,7 +180,7 @@ export const getTaskGroups = (tasks: Task[], calendarDays: any[]): TaskGroup[] =
     calendarDays.forEach((dayInfo, index) => {
       if (dayInfo.day === null) return;
       
-      const dayDate = new Date(dayInfo.year, dayInfo.month - 1, dayInfo.day);
+      const dayDate = new Date(dayInfo.year, dayInfo.month, dayInfo.day); // month는 이미 0-based
       
       if (startDayIndex === -1 && dayDate >= startDate && dayDate <= endDate) {
         startDayIndex = index;
