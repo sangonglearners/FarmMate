@@ -510,24 +510,33 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       }
     };
 
+    const handleTouchStart = (event: TouchEvent) => {
+      // 롱프레스 대기 중이면 기본 동작 방지
+      if (pendingPointerInfoRef.current) {
+        event.preventDefault();
+      }
+    };
+
     container.addEventListener("touchmove", handleTouchMove, { passive: false });
+    container.addEventListener("touchstart", handleTouchStart, { passive: false });
 
     return () => {
       container.style.touchAction = "";
       container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchstart", handleTouchStart);
     };
   }, [isDraggingDates, viewMode]);
 
   const handleDragMove = useCallback(
     (dateStr: string, rowNumber: number) => {
       if (!isDraggingDates) return;
-      if (dragRowNumber === null || dragRowNumber !== rowNumber) return;
+      // 날짜가 변경되면 드래그 범위 업데이트 (rowNumber 제한 없음)
       if (dragCurrentDate !== dateStr) {
         setDragCurrentDate(dateStr);
         setHasDragMoved(true);
       }
     },
-    [dragCurrentDate, dragRowNumber, isDraggingDates],
+    [dragCurrentDate, isDraggingDates],
   );
 
   const isDateWithinDragRange = useCallback(
@@ -535,10 +544,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       if (
         !isDraggingDates ||
         !dragStartDate ||
-        !dragCurrentDate ||
-        dragRowNumber === null ||
-        dragRowNumber !== rowNumber
+        !dragCurrentDate
       ) {
+        return false;
+      }
+
+      // 드래그 시작한 rowNumber와 같은 rowNumber에서만 시각적 표시
+      if (dragRowNumber !== null && dragRowNumber !== rowNumber) {
         return false;
       }
 
@@ -555,23 +567,23 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       if (viewMode !== "monthly") return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
 
-      const isPointerDrag =
-        event.pointerType === "mouse" || event.pointerType === "pen";
-
+      // 터치 이벤트 (핸드폰, 패드): 롱프레스 타이머 시작
       if (event.pointerType === "touch") {
-        // 터치 이벤트: 롱프레스 타이머 시작
         pendingPointerInfoRef.current = {
           pointerId: event.pointerId,
           dateStr,
           rowNumber,
+          lastX: event.clientX,
+          lastY: event.clientY,
         };
         startLongPressTimer(dateStr, rowNumber);
-        // 터치 이벤트에서도 기본 동작 방지 (드래그 시작을 위해)
+        // 터치 이벤트에서 기본 동작 방지 (스크롤 방지)
         event.preventDefault();
         return;
       }
 
-      if (isPointerDrag) {
+      // 마우스/펜 이벤트: 즉시 드래그 시작
+      if (event.pointerType === "mouse" || event.pointerType === "pen") {
         event.preventDefault();
         handleDragStart(dateStr, rowNumber, event.pointerId);
       }
@@ -581,31 +593,25 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
   const handleGlobalPointerMove = useCallback(
     (event: PointerEvent) => {
-      if (!isDraggingDates) {
-        // 드래그가 시작되지 않았지만 롱프레스 타이머가 실행 중인 경우
-        // 터치 이동이 감지되면 롱프레스 타이머를 취소하고 드래그를 시작할 수 있도록 함
+      // 터치 이벤트이고 드래그가 시작되지 않았지만 롱프레스 대기 중인 경우
+      if (
+        !isDraggingDates &&
+        pendingPointerInfoRef.current &&
+        event.pointerId === pendingPointerInfoRef.current.pointerId &&
+        event.pointerType === "touch"
+      ) {
+        // 롱프레스 타이머가 아직 완료되지 않았지만 이동이 감지된 경우
+        const moveThreshold = 5; // 픽셀 단위 (작은 이동 허용)
+        
         if (
-          pendingPointerInfoRef.current &&
-          event.pointerId === pendingPointerInfoRef.current.pointerId &&
-          event.pointerType === "touch"
+          pendingPointerInfoRef.current.lastX !== undefined &&
+          pendingPointerInfoRef.current.lastY !== undefined
         ) {
-          // 롱프레스 타이머가 아직 완료되지 않았지만 이동이 감지된 경우
-          // 약간의 이동 허용 (롱프레스 중 작은 이동은 무시)
-          const moveThreshold = 10; // 픽셀 단위
-          
-          // 첫 이동 감지 시 초기 위치 저장
-          if (pendingPointerInfoRef.current.lastX === undefined || 
-              pendingPointerInfoRef.current.lastY === undefined) {
-            pendingPointerInfoRef.current.lastX = event.clientX;
-            pendingPointerInfoRef.current.lastY = event.clientY;
-            return; // 첫 이동은 무시 (작은 떨림 방지)
-          }
-          
           const dx = Math.abs(event.clientX - pendingPointerInfoRef.current.lastX);
           const dy = Math.abs(event.clientY - pendingPointerInfoRef.current.lastY);
           
+          // 충분히 이동했으면 롱프레스 타이머 취소하고 드래그 시작
           if (dx > moveThreshold || dy > moveThreshold) {
-            // 충분히 이동했으면 롱프레스 타이머 취소하고 드래그 시작
             cancelLongPressTimer();
             if (pendingPointerInfoRef.current) {
               handleDragStart(
@@ -613,16 +619,39 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 pendingPointerInfoRef.current.rowNumber,
                 pendingPointerInfoRef.current.pointerId
               );
+              // 드래그 시작 후 바로 이동 처리
+              const element = document.elementFromPoint(
+                event.clientX,
+                event.clientY,
+              ) as HTMLElement | null;
+              const cellElement = element?.closest(
+                "[data-calendar-cell='true']",
+              ) as HTMLElement | null;
+              if (cellElement) {
+                const dateStr = cellElement.getAttribute("data-date");
+                const rowAttr = cellElement.getAttribute("data-row-number");
+                if (dateStr && rowAttr) {
+                  handleDragMove(dateStr, Number(rowAttr));
+                }
+              }
             }
           } else {
-            // 작은 이동이면 위치 업데이트만 (계속 추적)
+            // 작은 이동이면 위치만 업데이트
             pendingPointerInfoRef.current.lastX = event.clientX;
             pendingPointerInfoRef.current.lastY = event.clientY;
           }
+        } else {
+          // 첫 이동 감지 시 위치 저장
+          pendingPointerInfoRef.current.lastX = event.clientX;
+          pendingPointerInfoRef.current.lastY = event.clientY;
         }
         return;
       }
       
+      // 드래그가 시작되지 않았으면 리턴
+      if (!isDraggingDates) return;
+      
+      // 다른 포인터 ID는 무시
       if (
         activePointerIdRef.current !== null &&
         event.pointerId !== activePointerIdRef.current
@@ -631,7 +660,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       }
 
       // 터치 드래그 중에는 기본 스크롤 동작 방지
-      if (event.pointerType === "touch" && isDraggingDates) {
+      if (event.pointerType === "touch") {
         event.preventDefault();
       }
 
@@ -648,6 +677,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const rowAttr = cellElement.getAttribute("data-row-number");
       if (!dateStr || !rowAttr) return;
 
+      // 엣지 스크롤 처리
       if (viewMode === "monthly" && scrollContainerRef.current) {
         const containerRect = scrollContainerRef.current.getBoundingClientRect();
         const EDGE_THRESHOLD = 60;
