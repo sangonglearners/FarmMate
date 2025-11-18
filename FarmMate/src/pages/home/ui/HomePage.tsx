@@ -464,6 +464,7 @@ export default function HomePage() {
                   crops={crops}
                   onDateClick={handleDateClick}
                   selectedDate={selectedDate}
+                  showTaskGroups={false}
                 />
               )}
             </div>
