@@ -23,6 +23,9 @@ import {
   categorizeTasksByOwnership,
   excludeViewerAndCommenterTasks
 } from "@/shared/utils/task-filters";
+import type { Task } from "@shared/schema";
+import { useEffect } from "react";
+import { sendPageView } from "../../../shared/ga";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -31,8 +34,13 @@ export default function HomePage() {
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
+
+  // Google Analytics 페이지뷰 추적
+  useEffect(() => {
+    sendPageView('Home');
+  }, []);
 
   // 농장 목록 조회
   const { data: ownFarms = [] } = useOwnFarms();

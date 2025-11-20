@@ -15,8 +15,12 @@ import {
 import type { Crop } from "@shared/schema";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { Separator } from "@/components/ui/separator";
+import { sendPageView } from "../../../shared/ga";
 
 export default function FarmsPage() {
+  useEffect(() => {
+    sendPageView("farms");
+  }, []);
   const [isAddFarmDialogOpen, setIsAddFarmDialogOpen] = useState(false);
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
   const [editingFarm, setEditingFarm] = useState<FarmEntity | null>(null);
