@@ -14,6 +14,11 @@ import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
+import type { Task } from "@shared/schema";
+
+import { useEffect } from "react";
+import { sendPageView } from "../../../shared/ga";
+
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -22,8 +27,13 @@ export default function HomePage() {
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
+
+  // Google Analytics 페이지뷰 추적
+  useEffect(() => {
+    sendPageView('Home');
+  }, []);
 
   // 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장 ID 집합 (Home의 ToDo 연동에서만 제외)
   const { data: sharedCalendars = [] } = useSharedCalendars();
