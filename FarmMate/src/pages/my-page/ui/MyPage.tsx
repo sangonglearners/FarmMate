@@ -16,8 +16,13 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { clearCurrentUserTaskData, clearAllFrontendData } from '../../../shared/api/clearAllData';
 import { Separator } from '@/components/ui/separator';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import { sendPageView } from "../../../shared/ga";
 
 export default function MyPage() {
+  useEffect(() => {
+    sendPageView("my_page");
+  }, []);
+
   const [showLogout, setShowLogout] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showClearData, setShowClearData] = useState(false);
