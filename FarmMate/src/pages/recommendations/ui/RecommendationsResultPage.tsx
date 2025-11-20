@@ -6,6 +6,8 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { RecommendationResult, saveRecommendationResult } from '../../../shared/api/recommendation';
 
+import { sendPageView } from "../../../shared/ga";
+
 // Mock 데이터 (API 응답 형식)
 const mockResult = {
   ok: true,
@@ -204,6 +206,7 @@ export default function RecommendationsResultPage() {
   const [visibleCount, setVisibleCount] = useState(3); // 처음엔 3개만 표시
 
   useEffect(() => {
+    sendPageView("recommendation");
     // 페이지 로드 시 스크롤을 맨 위로
     window.scrollTo(0, 0);
     
@@ -410,10 +413,20 @@ export default function RecommendationsResultPage() {
         {/* Action Buttons */}
         <div className="flex flex-col space-y-4 pt-4">
           <Button
-            onClick={handleSaveToPlan}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSaveToPlan();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              if (selectedCard !== null) {
+                handleSaveToPlan();
+              }
+            }}
             disabled={selectedCard === null}
             className="w-full h-12 text-lg"
             size="lg"
+            style={{ touchAction: 'manipulation' }}
           >
             추천 결과 저장하기
           </Button>

@@ -1966,6 +1966,7 @@ export default function AddTaskDialog({
                   onTouchStart={(e) => {
                     // iOS에서 터치 이벤트로 form submit이 제대로 작동하도록 함
                     e.stopPropagation();
+                    e.preventDefault();
                     console.log("💾 저장하기 버튼 터치됨 (iOS)", {
                       registrationMode,
                       farmId: form.getValues("farmId"),
@@ -1973,7 +1974,13 @@ export default function AddTaskDialog({
                       scheduledDate: form.getValues("scheduledDate"),
                       endDate: form.getValues("endDate"),
                     });
-                    // form submit이 자동으로 실행되도록 함 (type="submit"이 있으므로)
+                    // iOS에서 명시적으로 form submit 호출
+                    if (!createMutation.isPending && 
+                        !updateMutation.isPending && 
+                        !bulkCreateMutation.isPending && 
+                        !deleteMutation.isPending) {
+                      form.handleSubmit(onSubmit)();
+                    }
                   }}
                   onClick={(e) => {
                     console.log("💾 저장하기 버튼 클릭됨", {
@@ -1984,6 +1991,8 @@ export default function AddTaskDialog({
                       endDate: form.getValues("endDate"),
                       formValues: form.getValues()
                     });
+                    // 클릭 이벤트도 명시적으로 처리
+                    e.stopPropagation();
                   }}
                 >
                   {createMutation.isPending ||
