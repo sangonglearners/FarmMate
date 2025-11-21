@@ -861,11 +861,10 @@ export default function AddTaskDialog({
       console.log("taskApi.createTask에 전달할 데이터:", taskToCreate);
       return await taskApi.createTask(taskToCreate);
     },
-    onSuccess: () => {
-      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
-      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
+    onSuccess: async () => {
+      // 쿼리 무효화 및 재조회를 기다림 (타이밍 이슈 해결)
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
 
       toast({
         title: "일정이 등록되었습니다.",
@@ -985,11 +984,10 @@ export default function AddTaskDialog({
       
       return results;
     },
-    onSuccess: () => {
-      // 모든 tasks 관련 쿼리를 무효화하여 캘린더들이 자동으로 새로고침되도록 함
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "", end: "" }] });
-      queryClient.invalidateQueries({ queryKey: ["tasks", { start: "2020-01-01", end: "2030-12-31" }] });
+    onSuccess: async () => {
+      // 쿼리 무효화 및 재조회를 기다림 (타이밍 이슈 해결)
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
 
       toast({
         title: "일정이 등록되었습니다.",
