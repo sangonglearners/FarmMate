@@ -752,11 +752,20 @@ export default function BatchTaskEditDialog({
                         <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                           <Calendar
                             mode="single"
-                            selected={new Date(task.startDate)}
+                            selected={(() => {
+                              // 문자열 날짜를 로컬 타임존으로 파싱 (YYYY-MM-DD 형식)
+                              const [year, month, day] = task.startDate.split('-').map(Number);
+                              return new Date(year, month - 1, day);
+                            })()}
                             onSelect={(date) => {
                               if (date) {
+                                // 로컬 타임존의 날짜를 직접 포맷팅하여 타임존 문제 방지
+                                const year = date.getFullYear();
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const dateString = `${year}-${month}-${day}`;
                                 const newTasks = [...form.getValues("tasks")];
-                                newTasks[index].startDate = format(date, "yyyy-MM-dd");
+                                newTasks[index].startDate = dateString;
                                 form.setValue("tasks", newTasks);
                               }
                             }}
@@ -784,10 +793,18 @@ export default function BatchTaskEditDialog({
                         <PopoverContent className="w-auto p-0" align="start" sideOffset={5} collisionPadding={10}>
                           <Calendar
                             mode="single"
-                            selected={new Date(task.endDate)}
+                            selected={(() => {
+                              // 문자열 날짜를 로컬 타임존으로 파싱 (YYYY-MM-DD 형식)
+                              const [year, month, day] = task.endDate.split('-').map(Number);
+                              return new Date(year, month - 1, day);
+                            })()}
                             onSelect={(date) => {
                               if (date) {
-                                const newEndDate = format(date, "yyyy-MM-dd");
+                                // 로컬 타임존의 날짜를 직접 포맷팅하여 타임존 문제 방지
+                                const year = date.getFullYear();
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const newEndDate = `${year}-${month}-${day}`;
                                 handleTaskEndDateChange(index, newEndDate);
                               }
                             }}
