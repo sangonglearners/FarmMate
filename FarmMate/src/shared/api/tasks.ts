@@ -255,6 +255,8 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
+    // RLS 정책에 따라 자신의 작업과 공유받은 작업 모두 업데이트 가능
+    // user_id 조건을 제거하여 RLS가 자동으로 권한을 체크하도록 함
     const { data, error } = await supabase
       .from('tasks_v1')
       .update({
@@ -262,7 +264,6 @@ export const taskApi = {
         completed_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 완료 가능
       .select()
       .single();
 
@@ -272,7 +273,7 @@ export const taskApi = {
     }
 
     if (!data) {
-      throw new Error("작업을 찾을 수 없습니다.");
+      throw new Error("작업을 찾을 수 없거나 완료 권한이 없습니다.");
     }
 
     return toTask(data);
@@ -284,6 +285,8 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
+    // RLS 정책에 따라 자신의 작업과 공유받은 작업 모두 업데이트 가능
+    // user_id 조건을 제거하여 RLS가 자동으로 권한을 체크하도록 함
     const { data, error } = await supabase
       .from('tasks_v1')
       .update({
@@ -291,7 +294,6 @@ export const taskApi = {
         completed_at: null,
       })
       .eq('id', id)
-      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 완료 취소 가능
       .select()
       .single();
 
@@ -301,7 +303,7 @@ export const taskApi = {
     }
 
     if (!data) {
-      throw new Error("작업을 찾을 수 없습니다.");
+      throw new Error("작업을 찾을 수 없거나 완료 취소 권한이 없습니다.");
     }
 
     return toTask(data);

@@ -35,30 +35,111 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
 
   console.log("TodoList 렌더링됨:", { tasks, selectedDate });
 
-  // 로컬 스토리지에서 날짜별 완료 상태 로드
+  // 로컬 스토리지에서 날짜별 완료 상태 로드 및 데이터베이스 완료 상태 동기화
   useEffect(() => {
     const loadLocalCompletions = () => {
       try {
         const storageKey = `task_completions_${selectedDate}`;
         const stored = localStorage.getItem(storageKey);
+        const completionMap = new Map<string, boolean>();
+        
+        console.log("완료 상태 로드 시작:", { selectedDate, storageKey, stored });
+        
+        // 로컬 스토리지에서 완료 상태 로드
         if (stored) {
           const completions = JSON.parse(stored);
-          const completionMap = new Map<string, boolean>();
+          console.log("로컬 스토리지 완료 상태:", completions);
           Object.entries(completions).forEach(([taskId, completed]) => {
             completionMap.set(taskId, completed as boolean);
           });
-          setLocalCompletions(completionMap);
-        } else {
-          setLocalCompletions(new Map());
         }
+        
+        // 데이터베이스의 완료 상태로 동기화
+        // 로컬 스토리지에 true가 있고 DB가 0인 경우, 로컬 스토리지 값을 우선 사용하고 백그라운드에서 동기화
+        const syncPromises: Promise<void>[] = [];
+        
+        tasks.forEach((task) => {
+          const isZucchini = task.title?.includes('쥬키니') || task.title?.includes('zucchini');
+          const localStorageValue = completionMap.get(task.id);
+          
+          // 데이터베이스의 completed 값을 우선적으로 사용
+          if (task.completed === 1) {
+            completionMap.set(task.id, true);
+            if (isZucchini) {
+              console.log(`쥬키니 작업 ${task.id} 완료 상태: DB에서 completed=1로 설정됨`);
+            }
+          } else if (task.completed === 0) {
+            // 로컬 스토리지에 true가 있는데 DB가 0인 경우 (동기화 불일치)
+            if (localStorageValue === true) {
+              console.warn(`쥬키니 작업 ${task.id} 동기화 불일치 감지:`, {
+                taskId: task.id,
+                title: task.title,
+                localStorageValue: true,
+                dbCompleted: 0,
+                action: "로컬 스토리지 값 우선 사용, 백그라운드에서 DB 동기화 시도"
+              });
+              
+              // 로컬 스토리지 값을 우선 사용 (즉시 UI 반영)
+              completionMap.set(task.id, true);
+              
+              // 백그라운드에서 데이터베이스 동기화 시도
+              syncPromises.push(
+                taskApi.completeTask(task.id)
+                  .then(() => {
+                    console.log(`쥬키니 작업 ${task.id} DB 동기화 성공: completed=1로 업데이트됨`);
+                    // 동기화 성공 후 작업 목록 새로고침
+                    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                  })
+                  .catch((error) => {
+                    console.error(`쥬키니 작업 ${task.id} DB 동기화 실패:`, error);
+                  })
+              );
+            } else {
+              // 로컬 스토리지도 false이면 그대로 false
+              completionMap.set(task.id, false);
+              if (isZucchini) {
+                console.log(`쥬키니 작업 ${task.id} 완료 상태: DB와 로컬 모두 false`);
+              }
+            }
+          } else {
+            // completed 값이 없거나 예상치 못한 값인 경우
+            if (!completionMap.has(task.id)) {
+              completionMap.set(task.id, false);
+            }
+            if (isZucchini) {
+              console.log(`쥬키니 작업 ${task.id} 완료 상태:`, {
+                taskId: task.id,
+                title: task.title,
+                dbCompleted: task.completed,
+                finalValue: completionMap.get(task.id),
+                note: "completed 값이 예상치 못한 형태"
+              });
+            }
+          }
+        });
+        
+        // 백그라운드 동기화 실행 (결과를 기다리지 않음)
+        if (syncPromises.length > 0) {
+          Promise.all(syncPromises).catch((error) => {
+            console.error("백그라운드 동기화 중 오류:", error);
+          });
+        }
+        
+        console.log("최종 완료 상태 맵:", Array.from(completionMap.entries()));
+        setLocalCompletions(completionMap);
       } catch (error) {
         console.error("로컬 완료 상태 로드 실패:", error);
-        setLocalCompletions(new Map());
+        // 에러 발생 시 데이터베이스 상태로 초기화
+        const completionMap = new Map<string, boolean>();
+        tasks.forEach(task => {
+          completionMap.set(task.id, task.completed === 1);
+        });
+        setLocalCompletions(completionMap);
       }
     };
 
     loadLocalCompletions();
-  }, [selectedDate]);
+  }, [selectedDate, tasks]);
 
   // 로컬 스토리지에 완료 상태 저장
   const saveLocalCompletions = (completions: Map<string, boolean>) => {
@@ -80,20 +161,44 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
     
     setCompletingTasks(prev => new Set(prev).add(task.id));
     
+    const isCurrentlyCompleted = localCompletions.get(task.id) ?? (task.completed === 1);
+    const newCompletedState = !isCurrentlyCompleted;
+    
+    // 즉시 UI 업데이트를 위해 로컬 상태 먼저 업데이트
+    const newCompletions = new Map(localCompletions);
+    newCompletions.set(task.id, newCompletedState);
+    setLocalCompletions(newCompletions);
+    
+    // 로컬 스토리지에 저장
+    saveLocalCompletions(newCompletions);
+    
     try {
-      const isCurrentlyCompleted = localCompletions.get(task.id) || false;
-      const newCompletedState = !isCurrentlyCompleted;
+      // 데이터베이스에 완료 상태 저장
+      if (newCompletedState) {
+        console.log("작업 완료 처리 시작:", task.id);
+        await taskApi.completeTask(task.id);
+        console.log("작업 완료 처리 성공:", task.id);
+      } else {
+        console.log("작업 완료 취소 시작:", task.id);
+        await taskApi.uncompleteTask(task.id);
+        console.log("작업 완료 취소 성공:", task.id);
+      }
       
-      // 로컬 상태 업데이트
-      const newCompletions = new Map(localCompletions);
-      newCompletions.set(task.id, newCompletedState);
-      setLocalCompletions(newCompletions);
-      
-      // 로컬 스토리지에 저장
-      saveLocalCompletions(newCompletions);
+      // 작업 목록 새로고침
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       
     } catch (error) {
       console.error("작업 상태 변경 실패:", error);
+      console.error("에러 상세:", error);
+      
+      // 에러 발생 시 로컬 상태 롤백
+      const rollbackCompletions = new Map(localCompletions);
+      rollbackCompletions.set(task.id, isCurrentlyCompleted);
+      setLocalCompletions(rollbackCompletions);
+      saveLocalCompletions(rollbackCompletions);
+      
+      // 사용자에게 에러 알림
+      alert(`작업 완료 상태 변경에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setCompletingTasks(prev => {
         const newSet = new Set(prev);
@@ -104,24 +209,31 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
   };
 
   const formatDisplayDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (dateStr === today.toISOString().split('T')[0]) {
+    const dateOnly = new Date(year, month - 1, day);
+    dateOnly.setHours(0, 0, 0, 0);
+    
+    if (dateOnly.getTime() === today.getTime()) {
       return "오늘";
-    } else if (dateStr === tomorrow.toISOString().split('T')[0]) {
+    } else if (dateOnly.getTime() === tomorrow.getTime()) {
       return "내일";
     } else {
-      return `${date.getMonth() + 1}/${date.getDate()}`;
+      return `${month}/${day}`;
     }
   };
 
   // 할 일 목록을 완료 상태에 따라 정렬 (미완료 -> 완료 순서)
   const sortedTasks = [...tasks].sort((a, b) => {
-    const aCompleted = localCompletions.get(a.id) || false;
-    const bCompleted = localCompletions.get(b.id) || false;
+    const aCompleted = localCompletions.get(a.id) ?? (a.completed === 1);
+    const bCompleted = localCompletions.get(b.id) ?? (b.completed === 1);
     
     // 미완료가 먼저, 완료된 것이 나중에 오도록 정렬
     if (aCompleted && !bCompleted) return 1;
@@ -134,7 +246,20 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
   return (
     <div className="space-y-2">
       {sortedTasks.map((task) => {
-        const isCompleted = localCompletions.get(task.id) || false;
+        const isCompleted = localCompletions.get(task.id) ?? (task.completed === 1);
+        const isZucchini = task.title?.includes('쥬키니') || task.title?.includes('zucchini');
+        
+        // 쥬키니 작업의 경우 상세 로그 출력
+        if (isZucchini) {
+          console.log(`쥬키니 작업 렌더링:`, {
+            taskId: task.id,
+            title: task.title,
+            dbCompleted: task.completed,
+            localCompletionsValue: localCompletions.get(task.id),
+            isCompleted: isCompleted,
+            localCompletionsMap: Array.from(localCompletions.entries())
+          });
+        }
         
         return (
           <div
@@ -173,6 +298,8 @@ export default function TodoList({ tasks, selectedDate, onTaskClick }: TodoListP
                 }`}>
                   {task.isGroup && task.groupStartDate && task.groupEndDate
                     ? `${formatDisplayDate(task.groupStartDate)} - ${formatDisplayDate(task.groupEndDate)}`
+                    : (task as any).endDate && (task as any).endDate !== task.scheduledDate
+                    ? formatDisplayDate(selectedDate) // 날짜 범위가 있는 작업은 선택한 날짜 표시
                     : formatDisplayDate(task.scheduledDate)
                   }
                 </p>

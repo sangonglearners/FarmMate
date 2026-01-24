@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useEffect, useState } from "react";
 
 interface RevenueData {
   period: string; // week, day, month, year
@@ -11,6 +12,53 @@ interface TrendChartProps {
   data: RevenueData[];
   periodType: "daily" | "weekly" | "monthly" | "yearly";
 }
+
+// CSS 변수에서 primary 색상을 읽어오는 함수
+const getPrimaryColor = (): string => {
+  if (typeof window === "undefined") return "#5cb85c"; // 기본값 (hsl(122, 39%, 49%)의 hex 근사값)
+  
+  const root = document.documentElement;
+  const primaryHsl = getComputedStyle(root).getPropertyValue("--primary").trim();
+  
+  // hsl(122, 39%, 49%) 형식을 hex로 변환
+  if (primaryHsl.startsWith("hsl")) {
+    const matches = primaryHsl.match(/\d+/g);
+    if (matches && matches.length >= 3) {
+      const h = parseInt(matches[0]);
+      const s = parseInt(matches[1]) / 100;
+      const l = parseInt(matches[2]) / 100;
+      
+      // HSL to RGB 변환
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l - c / 2;
+      
+      let r = 0, g = 0, b = 0;
+      
+      if (h >= 0 && h < 60) {
+        r = c; g = x; b = 0;
+      } else if (h >= 60 && h < 120) {
+        r = x; g = c; b = 0;
+      } else if (h >= 120 && h < 180) {
+        r = 0; g = c; b = x;
+      } else if (h >= 180 && h < 240) {
+        r = 0; g = x; b = c;
+      } else if (h >= 240 && h < 300) {
+        r = x; g = 0; b = c;
+      } else {
+        r = c; g = 0; b = x;
+      }
+      
+      r = Math.round((r + m) * 255);
+      g = Math.round((g + m) * 255);
+      b = Math.round((b + m) * 255);
+      
+      return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+    }
+  }
+  
+  return "#5cb85c"; // 기본값
+};
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -35,6 +83,12 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function TrendChart({ data, periodType }: TrendChartProps) {
+  const [primaryColor, setPrimaryColor] = useState<string>("#5cb85c");
+
+  useEffect(() => {
+    setPrimaryColor(getPrimaryColor());
+  }, []);
+
   return (
     <Card className="rounded-lg shadow-sm">
       <CardHeader>
@@ -59,9 +113,9 @@ export function TrendChart({ data, periodType }: TrendChartProps) {
               <Line 
                 type="monotone" 
                 dataKey="value" 
-                stroke="#3b82f6" 
+                stroke={primaryColor} 
                 strokeWidth={2}
-                dot={{ fill: "#3b82f6", r: 4 }}
+                dot={{ fill: primaryColor, r: 4 }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>

@@ -14,6 +14,7 @@ import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
+import { filterTasksByDate } from "@/shared/utils/task-filter";
 import type { Task } from "@shared/schema";
 
 import { useEffect } from "react";
@@ -165,11 +166,14 @@ export default function HomePage() {
         const representative = groupTasks[0];
         
         // 그룹의 전체 날짜 범위 계산
+        // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
         const allDates: Date[] = [];
         groupTasks.forEach(t => {
-          allDates.push(new Date(t.scheduledDate));
+          const [year, month, day] = t.scheduledDate.split('-').map(Number);
+          allDates.push(new Date(year, month - 1, day));
           if (t.endDate) {
-            allDates.push(new Date(t.endDate));
+            const [endYear, endMonth, endDay] = t.endDate.split('-').map(Number);
+            allDates.push(new Date(endYear, endMonth - 1, endDay));
           }
         });
         const startDate = new Date(Math.min(...allDates.map(d => d.getTime())));
@@ -196,7 +200,7 @@ export default function HomePage() {
 
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
   // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
-  const selectedDateTasks = tasks.filter(task => {
+  const selectedDateTasks = filterTasksByDate(tasks, selectedDate).filter(task => {
     // 홈 ToDo에는 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장의 작업은 제외
     if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) {
       return false;
@@ -205,22 +209,7 @@ export default function HomePage() {
     if (task.taskType === "재배") {
       return false;
     }
-    
-    // 정확한 날짜 매칭
-    if (task.scheduledDate === selectedDate) {
-      return true;
-    }
-    
-    // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
-    if ((task as any).endDate) {
-      const taskStartDate = new Date(task.scheduledDate);
-      const taskEndDate = new Date((task as any).endDate);
-      const currentDate = new Date(selectedDate);
-      
-      return currentDate >= taskStartDate && currentDate <= taskEndDate;
-    }
-    
-    return false;
+    return true;
   });
 
   // 일괄등록된 작업들을 그룹화하여 표시
@@ -235,12 +224,23 @@ export default function HomePage() {
         return false;
       }
       
-      const taskDate = new Date(task.scheduledDate);
-      const nextWeek = new Date();
+      // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
+      const [taskYear, taskMonth, taskDay] = task.scheduledDate.split('-').map(Number);
+      const taskDate = new Date(taskYear, taskMonth - 1, taskDay);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const nextWeek = new Date(today);
       nextWeek.setDate(nextWeek.getDate() + 7);
-      return taskDate > new Date() && taskDate <= nextWeek;
+      return taskDate > today && taskDate <= nextWeek;
     })
-    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+    .sort((a, b) => {
+      // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
+      const [aYear, aMonth, aDay] = a.scheduledDate.split('-').map(Number);
+      const [bYear, bMonth, bDay] = b.scheduledDate.split('-').map(Number);
+      const aDate = new Date(aYear, aMonth - 1, aDay);
+      const bDate = new Date(bYear, bMonth - 1, bDay);
+      return aDate.getTime() - bDate.getTime();
+    })
     .slice(0, 5);
 
   // Get overdue tasks
@@ -262,7 +262,9 @@ export default function HomePage() {
   };
 
   const formatDisplayDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
@@ -274,8 +276,9 @@ export default function HomePage() {
   };
 
   const formatSelectedDate = () => {
-    const date = new Date(selectedDate);
-    return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+    // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    return `${month}월 ${day}일`;
   };
 
   const formatCurrentPeriod = () => {
