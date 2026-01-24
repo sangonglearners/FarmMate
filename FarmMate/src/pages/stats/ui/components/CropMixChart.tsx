@@ -78,20 +78,24 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
           
           {/* 오른쪽: 작물 구성 텍스트 */}
           <div className="flex-1 space-y-3 pt-8">
-            {data.map((crop, index) => (
-              <div key={crop.name} className="flex items-center gap-3">
-                <div 
-                  className="w-4 h-4 rounded-full flex-shrink-0" 
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{crop.name}</p>
-                  <p className="text-xs text-gray-600">
-                    이랑 {crop.value}개 · {crop.percentage.toFixed(2)}%
-                  </p>
+            {data.length > 0 ? (
+              data.map((crop, index) => (
+                <div key={crop.name} className="flex items-center gap-3">
+                  <div 
+                    className="w-4 h-4 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{crop.name}</p>
+                    <p className="text-xs text-gray-600">
+                      이랑 {crop.value}개 · {crop.percentage.toFixed(2)}%
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">등록된 작물이 없습니다</p>
+            )}
           </div>
         </div>
       </CardContent>

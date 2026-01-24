@@ -13,6 +13,7 @@ import { CalendarShareDialog } from "@/features/calendar-share/ui";
 import { useUserRoleForCalendar, useSharedFarmIds } from "@/features/calendar-share";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarCommentsPanel } from "@/features/calendar-comments";
+import { isDateInTaskRange } from "@/shared/utils/task-filter";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -350,21 +351,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       
       const filteredTasks = memoizedTasks.filter(task => {
         // 날짜 매칭 로직: 정확한 날짜 매칭 또는 날짜 범위 내 포함
-        let isDateMatch = false;
-        
-        if (task.scheduledDate === dateStr) {
-          // 정확한 날짜 매칭
-          isDateMatch = true;
-        } else if ((task as any).endDate) {
-          // 날짜 범위가 있는 작업의 경우 범위 내 포함 여부 확인
-          const taskStartDate = new Date(task.scheduledDate);
-          const taskEndDate = new Date((task as any).endDate);
-          const currentDate = new Date(dateStr);
-          
-          isDateMatch = currentDate >= taskStartDate && currentDate <= taskEndDate;
-        }
-        
-        if (!isDateMatch) return false;
+        if (!isDateInTaskRange(task, dateStr)) return false;
         if (task.farmId !== selectedFarm?.id) return false; // 선택된 농장의 작업만 표시
         
         // 이랑 번호 매칭 로직 복원
