@@ -5,6 +5,7 @@ import { Router, Route } from 'wouter';
 import HomePage from './pages/home/ui/HomePage';
 import { FarmsPage } from './pages/farms';
 import CalendarPage from './pages/calendar/ui/CalendarPage';
+import StatsPage from './pages/stats';
 import MyPage from './pages/my-page/ui/MyPage';
 import NotFound from './pages/not-found';
 import Layout from './components/layout/layout';
@@ -36,6 +37,7 @@ function MainApp() {
           <Route path="/farms" component={FarmsPage} />
           <Route path="/crops" component={FarmsPage} />
           <Route path="/calendar" component={CalendarPage} />
+          <Route path="/stats" component={StatsPage} />
           <Route path="/recommendations/input" component={RecommendationsInputPage} />
           <Route path="/recommendations/loading" component={RecommendationsLoadingPage} />
           <Route path="/recommendations/result" component={RecommendationsResultPage} />

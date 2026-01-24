@@ -1813,11 +1813,12 @@ export default function AddTaskDialog({
                               variant="outline"
                               className="w-full pl-3 text-left font-normal"
                             >
-                              {field.value ? (
-                                format(new Date(field.value), "yyyy년 MM월 dd일", {
-                                  locale: ko,
-                                })
-                              ) : (
+                              {field.value ? (() => {
+                                // 문자열 날짜를 로컬 타임존으로 파싱하여 표시
+                                const [year, month, day] = field.value.split('-').map(Number);
+                                const date = new Date(year, month - 1, day);
+                                return format(date, "yyyy년 MM월 dd일", { locale: ko });
+                              })() : (
                                 <span>날짜를 선택해주세요</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -1827,10 +1828,20 @@ export default function AddTaskDialog({
                         <DialogContent className="w-auto p-6 flex items-center justify-center">
                           <Calendar
                             mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
+                            selected={field.value ? (() => {
+                              // 문자열 날짜를 로컬 타임존으로 파싱 (YYYY-MM-DD 형식)
+                              const [year, month, day] = field.value.split('-').map(Number);
+                              return new Date(year, month - 1, day);
+                            })() : undefined}
                             onSelect={(date) => {
                               if (date) {
-                                field.onChange(format(date, "yyyy-MM-dd"));
+                                // 로컬 타임존의 날짜를 직접 포맷팅하여 타임존 문제 방지
+                                const year = date.getFullYear();
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const dateString = `${year}-${month}-${day}`;
+                                console.log("시작 날짜 선택:", dateString, "선택한 날짜:", date);
+                                field.onChange(dateString);
                                 setOpen(false);
                               }
                             }}
@@ -1869,11 +1880,12 @@ export default function AddTaskDialog({
                                 variant="outline"
                                 className="w-full pl-3 text-left font-normal"
                               >
-                                {field.value ? (
-                                  format(new Date(field.value), "yyyy년 MM월 dd일", {
-                                    locale: ko,
-                                  })
-                                ) : (
+                                {field.value ? (() => {
+                                  // 문자열 날짜를 로컬 타임존으로 파싱하여 표시
+                                  const [year, month, day] = field.value.split('-').map(Number);
+                                  const date = new Date(year, month - 1, day);
+                                  return format(date, "yyyy년 MM월 dd일", { locale: ko });
+                                })() : (
                                   <span>종료 날짜를 선택해주세요</span>
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -1883,10 +1895,20 @@ export default function AddTaskDialog({
                           <DialogContent className="w-auto p-6 flex items-center justify-center">
                             <Calendar
                               mode="single"
-                              selected={field.value ? new Date(field.value) : undefined}
+                              selected={field.value ? (() => {
+                                // 문자열 날짜를 로컬 타임존으로 파싱 (YYYY-MM-DD 형식)
+                                const [year, month, day] = field.value.split('-').map(Number);
+                                return new Date(year, month - 1, day);
+                              })() : undefined}
                               onSelect={(date) => {
                                 if (date) {
-                                  field.onChange(format(date, "yyyy-MM-dd"));
+                                  // 로컬 타임존의 날짜를 직접 포맷팅하여 타임존 문제 방지
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  const day = String(date.getDate()).padStart(2, '0');
+                                  const dateString = `${year}-${month}-${day}`;
+                                  console.log("종료 날짜 선택:", dateString, "선택한 날짜:", date);
+                                  field.onChange(dateString);
                                   setOpen(false);
                                 }
                               }}
