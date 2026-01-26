@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreVertical, Edit, Trash2, MapPin, Sprout } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, MapPin, Sprout, BookOpen } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Settings, Camera } from 'lucide-react';
@@ -165,6 +165,21 @@ export default function MyPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-2">마이페이지</h1>
         <p className="text-gray-600 text-sm">나의 정보를 확인할 수 있습니다</p>
       </div>
+
+      {/* 장부 관리 버튼 */}
+      <Card>
+        <CardContent className="p-4">
+          <Link href="/ledger-management">
+            <Button variant="outline" className="w-full justify-start h-14">
+              <BookOpen className="w-5 h-5 mr-3" />
+              <div className="flex flex-col items-start">
+                <span className="font-medium">📖 장부 관리</span>
+                <span className="text-xs text-gray-500">매출 및 비용 내역을 관리합니다</span>
+              </div>
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center justify-end -mt-2">
         <DropdownMenu>

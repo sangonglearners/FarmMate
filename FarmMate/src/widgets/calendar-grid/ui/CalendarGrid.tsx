@@ -15,11 +15,12 @@ interface CalendarGridProps {
   tasks: Task[];
   crops: Crop[];
   onDateClick: (date: string) => void;
+  onTaskClick?: (task: Task) => void; // 일지 클릭 핸들러
   selectedDate?: string;
   showTaskGroups?: boolean; // 연속된 일정 박스 표시 여부 (기본값: false)
 }
 
-export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, selectedDate, showTaskGroups = false }: CalendarGridProps) {
+export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, onTaskClick, selectedDate, showTaskGroups = false }: CalendarGridProps) {
   const days = getCalendarDays(currentDate);
   const today = new Date();
   
@@ -60,7 +61,7 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
         return (
           <div
             key={`task-${groupIndex}`}
-            className={`absolute ${taskColor} rounded-lg text-xs font-medium overflow-hidden`}
+            className={`absolute ${taskColor} rounded-lg text-xs font-medium overflow-hidden cursor-pointer hover:opacity-80 transition-opacity`}
             style={{
               left,
               width,
@@ -72,6 +73,12 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
               border: '1px solid rgba(0, 0, 0, 0.1)'
             }}
             title={`${cropName} - ${taskGroup.task.taskType}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onTaskClick) {
+                onTaskClick(taskGroup.task);
+              }
+            }}
           >
             <div className="truncate px-1 py-1">
               {cropName && `${cropName} - `}{taskGroup.task.taskType}
@@ -140,7 +147,7 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
                   {singleDayTasks.slice(0, 3).map((task: Task) => (
                     <div
                       key={task.id}
-                      className={`text-xs px-1 py-0.5 rounded break-words leading-tight ${getTaskColor(task.taskType)}`}
+                      className={`text-xs px-1 py-0.5 rounded break-words leading-tight cursor-pointer hover:opacity-80 transition-opacity ${getTaskColor(task.taskType)}`}
                       style={{
                         display: '-webkit-box',
                         WebkitLineClamp: 1,
@@ -151,6 +158,12 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, s
                         marginBottom: '2px'
                       }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onTaskClick) {
+                          onTaskClick(task);
+                        }
+                      }}
                     >
                       {task.title || `${getCropName(crops, task.cropId)} ${task.taskType}`}
                     </div>
