@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, subWeeks, subMonths, subYears } from "date-fns";
 import { useTasks } from "@/features/task-management";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
+import { listLedgers } from "@/shared/api/ledgers";
 import { KPICard } from "./components/KPICard";
 import { TrendChart } from "./components/TrendChart";
 import { CropMixChart } from "./components/CropMixChart";
@@ -18,35 +21,135 @@ interface RevenueData {
   change?: number;
 }
 
-// 가데이터 생성 함수 (수출액 트렌드 차트용)
-const generateRevenueData = (periodType: PeriodType): RevenueData[] => {
-  const baseValue = 8000000; // 기본값 800만원
-  
+// 실제 장부 데이터를 기반으로 매출액 데이터 생성 (작업 날짜 기준)
+const generateRevenueDataFromLedgers = (
+  ledgers: any[],
+  tasks: Task[],
+  periodType: PeriodType
+): RevenueData[] => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  today.setHours(0, 0, 0, 0);
+
   switch (periodType) {
-    case "daily":
-      return Array.from({ length: 7 }, (_, i) => ({
-        period: ["월", "화", "수", "목", "금", "토", "일"][i],
-        value: baseValue + Math.random() * 2000000 - 1000000,
-        change: Math.random() * 20 - 10, // -10% ~ +10%
-      }));
-    case "weekly":
-      return Array.from({ length: 8 }, (_, i) => ({
-        period: `W${i + 1}`,
-        value: baseValue + Math.random() * 2000000 - 1000000,
-        change: Math.random() * 20 - 10,
-      }));
-    case "monthly":
-      return Array.from({ length: 12 }, (_, i) => ({
-        period: ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"][i],
-        value: baseValue + Math.random() * 2000000 - 1000000,
-        change: Math.random() * 20 - 10,
-      }));
-    case "yearly":
-      return Array.from({ length: 5 }, (_, i) => ({
-        period: `${2020 + i}년`,
-        value: baseValue + Math.random() * 2000000 - 1000000,
-        change: Math.random() * 20 - 10,
-      }));
+    case "daily": {
+      // 이번 주 월요일부터 일요일까지
+      const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+      const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+      
+      return days.map((day) => {
+        const dayStr = format(day, "yyyy-MM-dd");
+        const dayName = ["일", "월", "화", "수", "목", "금", "토"][day.getDay()];
+        
+        // 해당 날짜의 작업에 연결된 장부의 매출액 합계 (작업 종료 날짜 기준)
+        const revenue = ledgers
+          .filter((ledger) => {
+            if (!ledger.taskId) return false;
+            const task = tasks.find(t => t.id === ledger.taskId);
+            if (!task) return false;
+            // 작업 종료 날짜 (endDate가 있으면 endDate, 없으면 scheduledDate)
+            const taskEndDate = (task as any).endDate || task.scheduledDate;
+            return taskEndDate === dayStr;
+          })
+          .reduce((sum, ledger) => sum + (ledger.revenueAmount || 0), 0);
+        
+        return {
+          period: dayName,
+          value: revenue,
+        };
+      });
+    }
+    case "weekly": {
+      // 최근 8주
+      const weeks = eachWeekOfInterval(
+        {
+          start: subWeeks(today, 7),
+          end: today,
+        },
+        { weekStartsOn: 1 }
+      );
+      
+      return weeks.slice(-8).map((weekStart, index) => {
+        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+        const weekStartStr = format(weekStart, "yyyy-MM-dd");
+        const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+        
+        const revenue = ledgers
+          .filter((ledger) => {
+            if (!ledger.taskId) return false;
+            const task = tasks.find(t => t.id === ledger.taskId);
+            if (!task) return false;
+            // 작업 종료 날짜 (endDate가 있으면 endDate, 없으면 scheduledDate)
+            const taskEndDate = (task as any).endDate || task.scheduledDate;
+            return taskEndDate >= weekStartStr && taskEndDate <= weekEndStr;
+          })
+          .reduce((sum, ledger) => sum + (ledger.revenueAmount || 0), 0);
+        
+        return {
+          period: `W${index + 1}`,
+          value: revenue,
+        };
+      });
+    }
+    case "monthly": {
+      // 올해 1월부터 현재까지
+      const yearStart = startOfYear(today);
+      const months = eachMonthOfInterval({ start: yearStart, end: today });
+      
+      return months.map((month) => {
+        const monthStart = startOfMonth(month);
+        const monthEnd = endOfMonth(month);
+        const monthStartStr = format(monthStart, "yyyy-MM-dd");
+        const monthEndStr = format(monthEnd, "yyyy-MM-dd");
+        
+        const revenue = ledgers
+          .filter((ledger) => {
+            if (!ledger.taskId) return false;
+            const task = tasks.find(t => t.id === ledger.taskId);
+            if (!task) return false;
+            // 작업 종료 날짜 (endDate가 있으면 endDate, 없으면 scheduledDate)
+            const taskEndDate = (task as any).endDate || task.scheduledDate;
+            return taskEndDate >= monthStartStr && taskEndDate <= monthEndStr;
+          })
+          .reduce((sum, ledger) => sum + (ledger.revenueAmount || 0), 0);
+        
+        return {
+          period: `${month.getMonth() + 1}월`,
+          value: revenue,
+        };
+      });
+    }
+    case "yearly": {
+      // 최근 5년
+      const years = eachYearOfInterval({
+        start: subYears(today, 4),
+        end: today,
+      });
+      
+      return years.map((year) => {
+        const yearStart = startOfYear(year);
+        const yearEnd = endOfYear(year);
+        const yearStartStr = format(yearStart, "yyyy-MM-dd");
+        const yearEndStr = format(yearEnd, "yyyy-MM-dd");
+        
+        const revenue = ledgers
+          .filter((ledger) => {
+            if (!ledger.taskId) return false;
+            const task = tasks.find(t => t.id === ledger.taskId);
+            if (!task) return false;
+            // 작업 종료 날짜 (endDate가 있으면 endDate, 없으면 scheduledDate)
+            const taskEndDate = (task as any).endDate || task.scheduledDate;
+            return taskEndDate >= yearStartStr && taskEndDate <= yearEndStr;
+          })
+          .reduce((sum, ledger) => sum + (ledger.revenueAmount || 0), 0);
+        
+        return {
+          period: `${year.getFullYear()}년`,
+          value: revenue,
+        };
+      });
+    }
   }
 };
 
@@ -60,6 +163,12 @@ export default function StatsPage() {
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
   const { data: farms = [] } = useFarms();
   const { data: crops = [] } = useCrops();
+  
+  // 장부 데이터 조회
+  const { data: allLedgers = [], isLoading: ledgersLoading } = useQuery({
+    queryKey: ["ledgers"],
+    queryFn: () => listLedgers(),
+  });
 
   // 필터에 따라 작업 필터링
   const tasks = useMemo(() => {
@@ -105,20 +214,26 @@ export default function StatsPage() {
     }
   }, [allTasks, periodType]);
 
-  // 수출액 트렌드 차트 데이터 (가데이터)
-  const revenueData = useMemo(() => generateRevenueData(periodType), [periodType]);
+  // 매출액 트렌드 차트 데이터 (실제 장부 데이터 기반, 작업 종료 날짜 기준)
+  const revenueData = useMemo(() => {
+    return generateRevenueDataFromLedgers(allLedgers, allTasks, periodType);
+  }, [allLedgers, allTasks, periodType]);
   
-  // 수출액 KPI 계산 (가데이터 기반)
+  // 매출액 KPI 계산 (실제 데이터 기반)
   const averageRevenue = useMemo(() => {
     if (revenueData.length === 0) return 0;
-    return revenueData.reduce((sum, item) => sum + item.value, 0) / revenueData.length;
+    const nonZeroData = revenueData.filter(item => item.value > 0);
+    if (nonZeroData.length === 0) return 0;
+    return nonZeroData.reduce((sum, item) => sum + item.value, 0) / nonZeroData.length;
   }, [revenueData]);
 
   const previousPeriodAverage = useMemo(() => {
     if (revenueData.length === 0) return 0;
     const halfLength = Math.floor(revenueData.length / 2);
     const firstHalf = revenueData.slice(0, halfLength);
-    return firstHalf.reduce((sum, item) => sum + item.value, 0) / firstHalf.length;
+    const nonZeroFirstHalf = firstHalf.filter(item => item.value > 0);
+    if (nonZeroFirstHalf.length === 0) return 0;
+    return nonZeroFirstHalf.reduce((sum, item) => sum + item.value, 0) / nonZeroFirstHalf.length;
   }, [revenueData]);
 
   const revenueChange = useMemo(() => {
@@ -383,7 +498,7 @@ export default function StatsPage() {
     });
   }, [farms, tasks, user?.id]);
 
-  if (tasksLoading) {
+  if (tasksLoading || ledgersLoading) {
     return (
       <div className="p-4 space-y-6">
         <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
@@ -424,7 +539,7 @@ export default function StatsPage() {
       {/* KPI 카드들 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <KPICard
-          title="평균 수출액"
+          title="평균 매출액"
           value={`₩${Math.round(averageRevenue).toLocaleString()}`}
           change={revenueChange}
           formula="현재 기간 평균값"
@@ -436,7 +551,7 @@ export default function StatsPage() {
         />
       </div>
 
-      {/* 수출액 추이 차트 */}
+      {/* 매출액 추이 차트 */}
       <TrendChart data={revenueData} periodType={periodType} />
 
       {/* 작물 구성 차트 - 항상 표시 */}
