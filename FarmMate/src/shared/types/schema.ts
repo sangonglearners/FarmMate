@@ -66,6 +66,29 @@ export const cropRecommendations = pgTable("crop_recommendations", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Ledgers table (장부)
+export const ledgers = pgTable("ledgers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  taskId: varchar("task_id"), // tasks 테이블 FK - 연동 핵심
+  revenueAmount: integer("revenue_amount"), // 총 매출액
+  harvestQuantity: integer("harvest_quantity"), // 수확량
+  harvestUnit: text("harvest_unit"), // 수확 단위 - kg, g, box, 포대, 근 등
+  qualityGrade: text("quality_grade"), // 품질 등급 - 최상, 상, 중, 하
+  salesChannel: text("sales_channel"), // 판매처
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Expense items table (비용 항목)
+export const expenseItems = pgTable("expense_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ledgerId: varchar("ledger_id").notNull(), // ledgers 테이블 FK
+  category: text("category").notNull(), // 비용 카테고리명 - 종자/묘목비, 비료/퇴비, 농약/방제비, 인건비(외부인력), 자재비(비닐, 지주대 등), 기계/유류비, 기타
+  cost: integer("cost").notNull(), // 해당 카테고리 비용
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Schema definitions
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -97,6 +120,18 @@ export const insertRecommendationSchema = createInsertSchema(cropRecommendations
   createdAt: true,
 });
 
+export const insertLedgerSchema = createInsertSchema(ledgers).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertExpenseItemSchema = createInsertSchema(expenseItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -112,3 +147,9 @@ export type Task = typeof tasks.$inferSelect;
 
 export type InsertRecommendation = z.infer<typeof insertRecommendationSchema>;
 export type CropRecommendation = typeof cropRecommendations.$inferSelect;
+
+export type InsertLedger = z.infer<typeof insertLedgerSchema>;
+export type Ledger = typeof ledgers.$inferSelect;
+
+export type InsertExpenseItem = z.infer<typeof insertExpenseItemSchema>;
+export type ExpenseItem = typeof expenseItems.$inferSelect;
