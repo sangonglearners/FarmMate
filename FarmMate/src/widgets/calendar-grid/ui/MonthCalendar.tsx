@@ -123,7 +123,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           return (
             <div
               key={index}
-              className={`h-12 md:h-20 p-0.5 md:p-1 ${borderColor} rounded-lg cursor-pointer transition-colors flex flex-col overflow-hidden ${backgroundColor} ${
+              className={`h-16 md:h-22 p-0.5 md:p-1.5 ${borderColor} rounded-lg cursor-pointer transition-colors flex flex-col overflow-hidden ${backgroundColor} ${
                 !isSelected && !todayCheck ? 'hover:bg-gray-50' : ''
               } ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
@@ -140,7 +140,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
               
               {/* 홈 캘린더: 모든 일정을 개별적으로 표시 */}
               {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
-                <div className="space-y-0.5 flex-1 overflow-hidden">
+                <div className="space-y-0.5 flex-1 min-h-0 overflow-hidden">
                   {singleDayTasks.slice(0, 2).map((task, taskIndex) => {
                     const taskColor = getTaskColor(task.taskType);
                     
@@ -160,10 +160,10 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                     return (
                       <div
                         key={`${task.id}-${dayInfo.day}`}
-                        className={`${taskColor} rounded px-0.5 md:px-1 py-0 md:py-0.5 text-[10px] md:text-xs truncate cursor-pointer hover:opacity-80 transition-opacity`}
+                        className={`${taskColor} rounded px-0.5 md:px-1 py-0 text-[9px] md:text-[10px] leading-tight truncate cursor-pointer hover:opacity-80 transition-opacity`}
                         style={{
-                          marginBottom: '1px',
-                          maxHeight: '0.875rem',
+                          marginBottom: '2px',
+                          maxHeight: '0.8rem',
                           overflow: 'hidden'
                         }}
                         title={`${displayText}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
@@ -177,8 +177,8 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                     );
                   })}
                   {singleDayTasks.length > 2 && (
-                    <div className="text-[10px] md:text-xs text-gray-500">
-                      +{singleDayTasks.length - 2}개 더
+                    <div className="text-[8px] md:text-[9px] text-gray-500 font-medium leading-tight">
+                      +{singleDayTasks.length - 2}개
                     </div>
                   )}
                 </div>

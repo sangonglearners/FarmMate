@@ -16,26 +16,26 @@ interface CalendarGridProps {
   crops: Crop[];
   onDateClick: (date: string) => void;
   selectedDate?: string;
+  showTaskGroups?: boolean; // 연속된 일정 박스 표시 여부 (기본값: false)
 }
 
-export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, selectedDate }: CalendarGridProps) {
+export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, selectedDate, showTaskGroups = false }: CalendarGridProps) {
   const days = getCalendarDays(currentDate);
   const today = new Date();
   
-  // 연속된 일정 그룹화 (14일 주간 뷰용)
-  const calendarDaysData = days.map((dayInfo, index) => ({
+  // 연속된 일정 그룹화 (14일 주간 뷰용) - showTaskGroups가 true일 때만 계산
+  const calendarDaysData = showTaskGroups ? days.map((dayInfo, index) => ({
     day: dayInfo.day,
     isCurrentMonth: dayInfo.date.getMonth() === currentDate.getMonth(),
     month: dayInfo.date.getMonth(),
     year: dayInfo.date.getFullYear()
-  }));
-  const taskGroups = getTaskGroups(tasks, calendarDaysData);
+  })) : [];
+  const taskGroups = showTaskGroups ? getTaskGroups(tasks, calendarDaysData) : [];
 
   return (
     <div className="relative">
-      {/* 연속된 일정 박스들 렌더링 - 홈화면에서는 비활성화 */}
-      {/* 연속된 일정 박스들 렌더링 */}
-      {taskGroups.map((taskGroup, groupIndex) => {
+      {/* 연속된 일정 박스들 렌더링 - showTaskGroups가 true일 때만 표시 */}
+      {showTaskGroups && taskGroups.map((taskGroup, groupIndex) => {
         if (!taskGroup.task.endDate || taskGroup.startDayIndex === taskGroup.endDayIndex) {
           // 단일 날짜 일정은 기존 방식으로 렌더링하지 않음 (아래에서 처리)
           return null;

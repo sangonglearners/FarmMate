@@ -1,7 +1,20 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { ChevronLeft, ChevronRight, Plus, Share2 } from "lucide-react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
@@ -33,10 +46,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
   
+  // 더보기 클릭 시 전체 작업 목록 표시를 위한 상태
+  const [showAllTasksDialog, setShowAllTasksDialog] = useState<{
+    rowNumber: number;
+    date: string;
+    tasks: Task[];
+  } | null>(null);
+  
   // 공유 다이얼로그 상태
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [overflowTaskGroups, setOverflowTaskGroups] = useState<TaskGroup[] | null>(null);
-  const [overflowDialogTitle, setOverflowDialogTitle] = useState<string>("");
   
   // 현재 사용자 정보 가져오기 (먼저 선언)
   const { user } = useAuth();
@@ -53,9 +71,32 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [selectedDateForTask, setSelectedDateForTask] = useState<string>("");
+  const [selectedEndDateForTask, setSelectedEndDateForTask] = useState<string | null>(null);
   const [selectedCellDate, setSelectedCellDate] = useState<string | null>(null);
+  const [selectedRowNumberForTask, setSelectedRowNumberForTask] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pendingPointerInfoRef = useRef<{
+    pointerId: number;
+    dateStr: string;
+    rowNumber: number;
+  } | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
+  const edgeScrollDirectionRef = useRef<-1 | 0 | 1>(0);
+  const autoScrollAnimationRef = useRef<number | null>(null);
+  const LONG_PRESS_DELAY = 600;
+  const [isDraggingDates, setIsDraggingDates] = useState(false);
+  const [dragStartDate, setDragStartDate] = useState<string | null>(null);
+  const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null);
+  const [dragRowNumber, setDragRowNumber] = useState<number | null>(null);
+  const [hasDragMoved, setHasDragMoved] = useState(false);
+
+  // 메모에서 이미지 URL을 안 보이게 하기 위한 렌더링 유틸
+  const stripImageUrls = (text?: string | null) => {
+    if (!text) return "";
+    return text.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim();
+  };
   
   // 화면 크기 감지
   useEffect(() => {
@@ -104,13 +145,37 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   }, [myFarms, friendFarms, selectedFarm]);
 
-  const handleExportCsv = () => {
+  const buildCsvForSelectedFarm = () => {
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
-      const headers = ["농장", "시작일", "종료일", "이랑", "일"];
-      const filtered = selectedFarm
+      const headers = ["농장", "시작일", "종료일", "이랑", "일", "메모", "이미지"];
+
+      // 기간 계산: 월간 → 해당 월, 연간 → 해당 연도
+      let periodStart: Date | null = null;
+      let periodEnd: Date | null = null;
+      if (viewMode === "monthly") {
+        const y = monthlyDate.getFullYear();
+        const m = monthlyDate.getMonth();
+        periodStart = new Date(y, m, 1);
+        periodEnd = new Date(y, m + 1, 0);
+      } else if (viewMode === "yearly") {
+        const y = yearlyDate.getFullYear();
+        periodStart = new Date(y, 0, 1);
+        periodEnd = new Date(y + 1, 0, 0);
+      }
+
+      const isOverlapping = (task: any) => {
+        if (!periodStart || !periodEnd) return true;
+        const taskStart = new Date(task.scheduledDate);
+        const taskEnd = task.endDate ? new Date(task.endDate) : taskStart;
+        return taskStart <= periodEnd && taskEnd >= periodStart;
+      };
+
+      const filtered = (selectedFarm
         ? memoizedTasks.filter(t => t.farmId === selectedFarm.id)
-        : memoizedTasks;
+        : memoizedTasks
+      ).filter(isOverlapping);
+
       const escapeCsv = (value: unknown): string => {
         if (value === null || value === undefined) return "";
         const str = String(value);
@@ -121,16 +186,38 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       };
       const rows = filtered.map(t => {
         const farmName = t.farmId ? farmIdToName.get(t.farmId) ?? "" : "";
+        const descRaw = (t as any).description ?? "";
+        const imageUrls = typeof descRaw === "string"
+          ? (descRaw.match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi) || [])
+          : [];
+        // 메모 텍스트는 이미지 URL 제거
+        const desc = typeof descRaw === "string"
+          ? descRaw.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim()
+          : "";
+        // 수식 대신 원본 URL 그대로 넣기
+        const imageCell = imageUrls.length > 0 ? imageUrls[0] : "";
         const cols = [
           farmName,
           t.scheduledDate,
           t.endDate ?? "",
           t.rowNumber ?? "",
           t.title,
+          desc,
+          imageCell,
         ];
         return cols.map(escapeCsv).join(",");
       });
       const csv = [headers.join(","), ...rows].join("\n");
+      return csv;
+    } catch (e) {
+      console.error("CSV build failed", e);
+      throw e;
+    }
+  };
+
+  const handleExportCsv = () => {
+    try {
+      const csv = buildCsvForSelectedFarm();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -146,6 +233,465 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       alert("CSV 내보내기에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
+
+  const handleExportGoogleSheets = async () => {
+    try {
+      const csv = buildCsvForSelectedFarm();
+      const filename = `FarmMate 캘린더 ${new Date().toISOString().split("T")[0]}`;
+      const sheetId = await uploadCsvToGoogleAsSheet(csv, filename);
+      if (sheetId) {
+        window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, "_blank");
+      }
+    } catch (e) {
+      console.error("Google Sheets export failed", e);
+      alert("구글 시트 내보내기에 실패했습니다. 설정을 확인하고 다시 시도해주세요.");
+    }
+  };
+
+  // ---- Google Sheets 업로드 유틸 (컴포넌트 내에 포함) ----
+  async function uploadCsvToGoogleAsSheet(csv: string, filename: string): Promise<string> {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+    if (!clientId) {
+      throw new Error("VITE_GOOGLE_CLIENT_ID 가 설정되어 있지 않습니다.");
+    }
+
+    await ensureGoogleApisLoaded();
+    const accessToken = await requestGoogleAccessToken(clientId, [
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets",
+    ]);
+
+    const metadata = {
+      name: filename.endsWith(".csv") ? filename.replace(/\.csv$/i, "") : filename,
+      mimeType: "application/vnd.google-apps.spreadsheet",
+    };
+
+    const boundary = "farmmate_boundary_" + Math.random().toString(36).slice(2);
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelim = `\r\n--${boundary}--`;
+
+    const multipartBody =
+      delimiter +
+      "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+      JSON.stringify(metadata) +
+      delimiter +
+      "Content-Type: text/csv; charset=UTF-8\r\n\r\n" +
+      csv +
+      closeDelim;
+
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body: multipartBody,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Drive upload failed: ${res.status} ${text}`);
+    }
+    const json = await res.json() as { id?: string };
+    if (!json.id) {
+      throw new Error("파일 ID를 받지 못했습니다.");
+    }
+    return json.id;
+  }
+
+  // 통일된 날짜 포맷: YY.MM.DD
+  const formatYyMmDd = (d: string | Date): string => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yy}.${mm}.${dd}`;
+  };
+
+  const formatRangeYyMmDd = (start: string | Date, end: string | Date): string => {
+    const s = formatYyMmDd(start);
+    const e = formatYyMmDd(end);
+    return s && e ? `${s}~${e}` : s || e || '';
+  };
+
+  // MM.DD 전용 포맷 (달력 상단 박스에만 사용)
+  const formatMmDd = (d: string | Date): string => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${mm}.${dd}`;
+  };
+  const formatRangeMmDd = (start: string | Date, end: string | Date): string => {
+    const s = formatMmDd(start);
+    const e = formatMmDd(end);
+    return s && e ? `${s}~${e}` : s || e || '';
+  };
+
+  function ensureGoogleApisLoaded(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const ensureScript = (src: string, id: string) =>
+        new Promise<void>((res, rej) => {
+          if (document.getElementById(id)) return res();
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.defer = true;
+          s.id = id;
+          s.onload = () => res();
+          s.onerror = () => rej(new Error(`Failed to load ${src}`));
+          document.head.appendChild(s);
+        });
+
+      Promise.all([
+        ensureScript("https://accounts.google.com/gsi/client", "google_gsi_script"),
+        ensureScript("https://apis.google.com/js/api.js", "google_api_script"),
+      ])
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  function requestGoogleAccessToken(clientId: string, scopes: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      // @ts-ignore
+      if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+        return reject(new Error("Google OAuth 클라이언트를 불러오지 못했습니다."));
+      }
+      // @ts-ignore
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: scopes.join(" "),
+        callback: (resp: any) => {
+          if (resp && resp.access_token) {
+            resolve(resp.access_token);
+          } else {
+            reject(new Error("액세스 토큰을 받지 못했습니다."));
+          }
+        },
+        error_callback: (err: any) => reject(err),
+      });
+      tokenClient.requestAccessToken();
+    });
+  }
+
+  const handleDateSelection = useCallback((dateStr: string, rowNumber?: number | null) => {
+    setSelectedCellDate(dateStr);
+    setSelectedRowNumberForTask(
+      typeof rowNumber === "number" ? rowNumber : null,
+    );
+    onDateClick(dateStr);
+  }, [onDateClick]);
+
+  const openAddTaskShortcut = useCallback((dateStr: string, rowNumber?: number | null, endDate?: string | null) => {
+    if (!canCreateTask) return;
+    handleDateSelection(dateStr, rowNumber);
+    setSelectedDateForTask(dateStr);
+    setSelectedEndDateForTask(endDate ?? null);
+    setSelectedRowNumberForTask(
+      typeof rowNumber === "number" ? rowNumber : null,
+    );
+    setShowAddTaskDialog(true);
+  }, [canCreateTask, handleDateSelection]);
+
+  const cancelLongPressTimer = useCallback(() => {
+    if (longPressTimeoutRef.current !== null) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    pendingPointerInfoRef.current = null;
+    edgeScrollDirectionRef.current = 0;
+  }, []);
+
+  const resetDragState = useCallback(() => {
+    setIsDraggingDates(false);
+    setDragStartDate(null);
+    setDragCurrentDate(null);
+    setDragRowNumber(null);
+    setHasDragMoved(false);
+    activePointerIdRef.current = null;
+    pendingPointerInfoRef.current = null;
+    edgeScrollDirectionRef.current = 0;
+  }, []);
+
+  const finalizeDragSelection = useCallback(() => {
+    if (
+      !isDraggingDates ||
+      !dragStartDate ||
+      !dragCurrentDate ||
+      dragRowNumber === null
+    ) {
+      resetDragState();
+      return;
+    }
+
+    const [start, end] =
+      dragStartDate <= dragCurrentDate
+        ? [dragStartDate, dragCurrentDate]
+        : [dragCurrentDate, dragStartDate];
+
+    const isRangeSelection = hasDragMoved && start !== end;
+
+    if (isRangeSelection && canCreateTask && viewMode === "monthly") {
+      openAddTaskShortcut(start, dragRowNumber, end);
+    } else if (!isRangeSelection) {
+      handleDateSelection(start, dragRowNumber);
+    }
+
+    resetDragState();
+  }, [
+    canCreateTask,
+    dragCurrentDate,
+    dragRowNumber,
+    dragStartDate,
+    hasDragMoved,
+    handleDateSelection,
+    isDraggingDates,
+    openAddTaskShortcut,
+    resetDragState,
+    viewMode,
+  ]);
+
+  const handleDragStart = useCallback(
+    (dateStr: string, rowNumber: number, pointerId?: number | null) => {
+      if (viewMode !== "monthly" || !canCreateTask) return;
+      cancelLongPressTimer();
+      setIsDraggingDates(true);
+      setDragStartDate(dateStr);
+      setDragCurrentDate(dateStr);
+      setDragRowNumber(rowNumber);
+      setHasDragMoved(false);
+      activePointerIdRef.current = pointerId ?? null;
+      pendingPointerInfoRef.current = null;
+    },
+    [canCreateTask, cancelLongPressTimer, viewMode],
+  );
+
+  const startLongPressTimer = (dateStr: string, rowNumber: number) => {
+    if (viewMode !== "monthly" || !canCreateTask) return;
+    cancelLongPressTimer();
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      handleDragStart(
+        dateStr,
+        rowNumber,
+        pendingPointerInfoRef.current?.pointerId ?? null,
+      );
+    }, LONG_PRESS_DELAY);
+  };
+
+  useEffect(() => {
+    return () => cancelLongPressTimer();
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (viewMode !== "monthly") {
+      container.style.touchAction = "";
+      return;
+    }
+
+    container.style.touchAction = "pan-x pan-y";
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!isDraggingDates) return;
+      event.preventDefault();
+    };
+
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+    return () => {
+      container.style.touchAction = "";
+      container.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [isDraggingDates, viewMode]);
+
+  const handleDragMove = useCallback(
+    (dateStr: string, rowNumber: number) => {
+      if (!isDraggingDates) return;
+      if (dragRowNumber === null || dragRowNumber !== rowNumber) return;
+      if (dragCurrentDate !== dateStr) {
+        setDragCurrentDate(dateStr);
+        setHasDragMoved(true);
+      }
+    },
+    [dragCurrentDate, dragRowNumber, isDraggingDates],
+  );
+
+  const isDateWithinDragRange = useCallback(
+    (rowNumber: number, targetDate: string) => {
+      if (
+        !isDraggingDates ||
+        !dragStartDate ||
+        !dragCurrentDate ||
+        dragRowNumber === null ||
+        dragRowNumber !== rowNumber
+      ) {
+        return false;
+      }
+
+      const min = dragStartDate < dragCurrentDate ? dragStartDate : dragCurrentDate;
+      const max = dragStartDate > dragCurrentDate ? dragStartDate : dragCurrentDate;
+
+      return targetDate >= min && targetDate <= max;
+    },
+    [dragCurrentDate, dragRowNumber, dragStartDate, isDraggingDates],
+  );
+
+  const handleCellPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, dateStr: string, rowNumber: number) => {
+      if (viewMode !== "monthly") return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      const isPointerDrag =
+        event.pointerType === "mouse" || event.pointerType === "pen";
+
+      if (event.pointerType === "touch") {
+        pendingPointerInfoRef.current = {
+          pointerId: event.pointerId,
+          dateStr,
+          rowNumber,
+        };
+        startLongPressTimer(dateStr, rowNumber);
+        return;
+      }
+
+      if (isPointerDrag) {
+        event.preventDefault();
+        handleDragStart(dateStr, rowNumber, event.pointerId);
+      }
+    },
+    [handleDragStart, startLongPressTimer, viewMode],
+  );
+
+  const handleGlobalPointerMove = useCallback(
+    (event: PointerEvent) => {
+      if (!isDraggingDates) return;
+      if (
+        activePointerIdRef.current !== null &&
+        event.pointerId !== activePointerIdRef.current
+      ) {
+        return;
+      }
+
+      const element = document.elementFromPoint(
+        event.clientX,
+        event.clientY,
+      ) as HTMLElement | null;
+      const cellElement = element?.closest(
+        "[data-calendar-cell='true']",
+      ) as HTMLElement | null;
+
+      if (!cellElement) return;
+      const dateStr = cellElement.getAttribute("data-date");
+      const rowAttr = cellElement.getAttribute("data-row-number");
+      if (!dateStr || !rowAttr) return;
+
+      if (viewMode === "monthly" && scrollContainerRef.current) {
+        const containerRect = scrollContainerRef.current.getBoundingClientRect();
+        const EDGE_THRESHOLD = 60;
+        const isNearLeft = event.clientX - containerRect.left < EDGE_THRESHOLD;
+        const isNearRight = containerRect.right - event.clientX < EDGE_THRESHOLD;
+        edgeScrollDirectionRef.current = isNearLeft ? -1 : isNearRight ? 1 : 0;
+      } else {
+        edgeScrollDirectionRef.current = 0;
+      }
+
+      handleDragMove(dateStr, Number(rowAttr));
+    },
+    [handleDragMove, isDraggingDates, viewMode],
+  );
+
+  const handleCellPointerEnter = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, dateStr: string, rowNumber: number) => {
+      if (
+        event.pointerType !== "mouse" &&
+        event.pointerType !== "pen" &&
+        !(event.pointerType === "touch" && isDraggingDates)
+      ) {
+        return;
+      }
+      handleDragMove(dateStr, rowNumber);
+    },
+    [handleDragMove, isDraggingDates],
+  );
+
+  const handleCellPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      cancelLongPressTimer();
+      if (isDraggingDates) {
+        event.preventDefault();
+        finalizeDragSelection();
+      }
+    },
+    [cancelLongPressTimer, finalizeDragSelection, isDraggingDates],
+  );
+
+  useEffect(() => {
+    if (!isDraggingDates) return;
+
+    const pointerMoveListener = (event: PointerEvent) => {
+      handleGlobalPointerMove(event);
+    };
+
+    window.addEventListener("pointermove", pointerMoveListener);
+
+    return () => {
+      window.removeEventListener("pointermove", pointerMoveListener);
+    };
+  }, [handleGlobalPointerMove, isDraggingDates]);
+
+  useEffect(() => {
+    if (!isDraggingDates) return;
+
+    const handlePointerUp = () => {
+      finalizeDragSelection();
+    };
+
+    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("touchend", handlePointerUp);
+    window.addEventListener("touchcancel", resetDragState);
+
+    return () => {
+      window.removeEventListener("mouseup", handlePointerUp);
+      window.removeEventListener("touchend", handlePointerUp);
+      window.removeEventListener("touchcancel", resetDragState);
+    };
+  }, [finalizeDragSelection, isDraggingDates, resetDragState]);
+
+  useEffect(() => {
+    if (!isDraggingDates || viewMode !== "monthly") {
+      if (autoScrollAnimationRef.current !== null) {
+        cancelAnimationFrame(autoScrollAnimationRef.current);
+        autoScrollAnimationRef.current = null;
+      }
+      edgeScrollDirectionRef.current = 0;
+      return;
+    }
+
+    const SCROLL_SPEED = isMobile ? 6 : 12;
+
+    const step = () => {
+      if (!scrollContainerRef.current) return;
+      if (edgeScrollDirectionRef.current !== 0) {
+        scrollContainerRef.current.scrollLeft +=
+          edgeScrollDirectionRef.current * SCROLL_SPEED;
+      }
+      autoScrollAnimationRef.current = requestAnimationFrame(step);
+    };
+
+    autoScrollAnimationRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (autoScrollAnimationRef.current !== null) {
+        cancelAnimationFrame(autoScrollAnimationRef.current);
+        autoScrollAnimationRef.current = null;
+      }
+      edgeScrollDirectionRef.current = 0;
+    };
+  }, [isDraggingDates, viewMode, isMobile]);
 
   // 연간 뷰에서 현재 월로 스크롤하는 함수
   const scrollToCurrentMonth = () => {
@@ -796,15 +1342,26 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       <div className="flex flex-col gap-2">
         {/* 첫 번째 줄: CSV + 공유 + 댓글 버튼 */}
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCsv}
-            aria-label="CSV로 내보내기"
-            title="CSV로 내보내기"
-          >
-            <FileDown className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="CSV로 내보내기"
+                title="CSV로 내보내기"
+              >
+                <FileDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCsv}>
+                CSV로 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportGoogleSheets}>
+                구글 시트로 내보내기
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="sm"
@@ -946,6 +1503,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         <div 
           ref={scrollContainerRef} 
           className="overflow-auto max-h-[700px]"
+          style={{ WebkitUserSelect: "none", userSelect: "none" }}
         >
           <div 
             style={{
@@ -1001,9 +1559,33 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             {/* 이랑별 데이터 */}
             <div>
               {rowNumbers.map((rowNumber) => {
-                const continuousTaskGroups = viewMode === "yearly" 
+                const continuousTaskGroupsRaw = viewMode === "yearly" 
                   ? getYearlyTaskGroups(rowNumber)
                   : getContinuousTaskGroups(rowNumber);
+                
+                // ===== 우선순위 적용: 일괄등록 작업을 먼저 표시 =====
+                const continuousTaskGroups = [...continuousTaskGroupsRaw].sort((a, b) => {
+                  // taskGroupId가 있으면 일괄등록 (우선순위 높음)
+                  const aIsBatch = !!a.taskGroupId;
+                  const bIsBatch = !!b.taskGroupId;
+                  
+                  if (aIsBatch && !bIsBatch) return -1; // a가 일괄등록이면 앞으로
+                  if (!aIsBatch && bIsBatch) return 1;  // b가 일괄등록이면 뒤로
+                  return 0; // 같은 타입이면 순서 유지
+                });
+                
+                // 박스 높이와 간격 계산 (이랑 전체에서 사용)
+                const boxHeight = viewMode === "yearly" ? 40 : 32;
+                const boxSpacing = 4;
+                const topOffset = 8;
+                
+                // 연속 일정 박스를 위한 최소 높이 계산
+                const visibleBoxCount = Math.min(continuousTaskGroups.length, 2); // 2개만 표시
+                const isSingleBox = continuousTaskGroups.length === 1;
+                const singleBoxHeight = isSingleBox ? Math.max(boxHeight * 2.5, 80) : boxHeight;
+                const requiredHeight = isSingleBox 
+                  ? Math.max(singleBoxHeight + 16, 96)  // 최소 높이: 박스 높이 + 위아래 8px씩
+                  : topOffset + (visibleBoxCount * (boxHeight + boxSpacing)) + 10; // 하단 여백 10px
                 
                 return (
                   <div key={rowNumber} className="relative flex border-b border-gray-200 last:border-b-0">
@@ -1012,21 +1594,22 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       {rowNumber}
                     </div>
 
-                    {/* 연속된 일정 박스들을 위한 컨테이너 - 이랑 열 오른쪽부터 시작 */}
-                    <div className={`absolute ${isMobile ? 'left-[40px]' : 'left-[60px]'} right-0 top-0 bottom-0 pointer-events-none overflow-hidden`}>
-                    {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 2개까지만 표시 */}
+                    {/* 연속된 일정 박스들을 위한 컨테이너 - 상단에 표시 */}
+                    <div className={`absolute ${isMobile ? 'left-[40px]' : 'left-[60px]'} right-0 top-0 pointer-events-none overflow-visible`} style={{ height: '48%', maxHeight: '80px' }}>
+                    {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 2개까지 표시 */}
                     {(() => {
                       const maxVisibleLanes = 2;
-                      const gapSizePx = 4;
-                      const availablePercent = 90;
-                      const startOffsetPercent = (100 - availablePercent) / 2;
-                      const startOffset = `${startOffsetPercent}%`;
-
+                      const fixedBoxHeight = 28; // 고정 높이 (px) - 줄임
+                      const gapSizePx = 3; // 간격 - 줄임
+                      const topPadding = 4; // 상단 여백
+                              
                       const sortedGroups = [...continuousTaskGroups].sort((a, b) => {
-                        if (a.startDayIndex === b.startDayIndex) {
-                          return a.endDayIndex - b.endDayIndex;
+                        // 1순위: 시작일
+                        if (a.startDayIndex !== b.startDayIndex) {
+                          return a.startDayIndex - b.startDayIndex;
                         }
-                        return a.startDayIndex - b.startDayIndex;
+                        // 2순위: 종료일
+                        return a.endDayIndex - b.endDayIndex;
                       });
 
                       const lanes: number[] = [];
@@ -1057,21 +1640,11 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       });
 
                       const visibleGroups = groupsWithLane.filter((group) => group.laneIndex < maxVisibleLanes);
-                      const overflowGroups = groupsWithLane.filter((group) => group.laneIndex >= maxVisibleLanes);
-                      const overflowCount = overflowGroups.length;
 
                       return (
                         <>
                           {visibleGroups.map((taskGroup, groupIndex) => {
-                      const laneCountForGroup = Math.min(
-                        maxVisibleLanes,
-                        Math.max(1, taskGroup.overlapCount)
-                      );
-                      const laneHeight =
-                        laneCountForGroup === 1
-                          ? `${availablePercent}%`
-                          : `calc((${availablePercent}% - ${(laneCountForGroup - 1) * gapSizePx}px) / ${laneCountForGroup})`;
-                      const laneIndex = Math.min(taskGroup.laneIndex, laneCountForGroup - 1);
+                      const laneIndex = taskGroup.laneIndex;
                       // 일괄등록(group_id 있음)은 개별등록과 동일한 스타일 사용
                       const taskColor = taskGroup.taskGroupId 
                         ? getTaskColor(taskGroup.task) // 개별등록과 동일한 색상
@@ -1083,43 +1656,47 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       
                       // 시작 위치와 너비 계산
                       let leftPosition, boxWidth;
+                      const horizontalPadding = 4; // 좌우 여백
                       
                       if (viewMode === "yearly") {
-                        // 연간 뷰: 월간 뷰와 동일한 방식으로 셀을 완전히 채우도록 패딩 제거
+                        // 연간 뷰
                         const cellWidth = 100;
-                        leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
-                        boxWidth = `${spanUnits * cellWidth}px`;
+                        if (spanUnits === 1) {
+                          // 단일 셀: 여백을 두고 중앙 배치
+                          leftPosition = `${taskGroup.startDayIndex * cellWidth + horizontalPadding}px`;
+                          boxWidth = `${cellWidth - horizontalPadding * 2}px`;
+                        } else {
+                          // 여러 셀 걸침: 셀 경계까지
+                          leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
+                          boxWidth = `${spanUnits * cellWidth}px`;
+                        }
                       } else {
-                        // 월간 뷰: 셀을 완전히 채우도록 패딩 제거
-                        // 모바일에서 반응형 처리
+                        // 월간 뷰
                         const cellWidth = isMobile ? 70 : 120;
-                        leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
-                        boxWidth = `${spanUnits * cellWidth}px`;
+                        if (spanUnits === 1) {
+                          // 단일 셀: 여백을 두고 중앙 배치
+                          leftPosition = `${taskGroup.startDayIndex * cellWidth + horizontalPadding}px`;
+                          boxWidth = `${cellWidth - horizontalPadding * 2}px`;
+                        } else {
+                          // 여러 셀 걸침: 셀 경계까지
+                          leftPosition = `${taskGroup.startDayIndex * cellWidth}px`;
+                          boxWidth = `${spanUnits * cellWidth}px`;
+                        }
                       }
                       
                       // 구글 캘린더 스타일의 둥근 모서리 처리
                       let borderRadiusClass = '';
                       if (viewMode === "yearly") {
-                        // 연간 뷰: 하나의 연속된 박스
-                        if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
-                          // 한 달 안에만 있는 경우
-                          borderRadiusClass = 'rounded-lg';
-                        } else {
-                          // 여러 달에 걸친 경우 양쪽 둥글게
-                          borderRadiusClass = 'rounded-lg';
-                        }
+                        borderRadiusClass = 'rounded-lg';
                       } else {
-                        // 월간 뷰
                         if (taskGroup.startDayIndex === taskGroup.endDayIndex) {
-                          // 하루 일정은 모든 모서리 둥글게
                           borderRadiusClass = 'rounded-lg';
                         } else {
-                          // 연속 일정의 경우 - 월별로 올바른 둥근 모서리 적용
                           if (taskGroup.isFirstDay || taskGroup.startDayIndex === 0) {
-                            borderRadiusClass += 'rounded-l-lg'; // 첫 번째 날이면 왼쪽 둥글게
+                            borderRadiusClass += 'rounded-l-lg';
                           }
                           if (taskGroup.isLastDay || taskGroup.endDayIndex === currentPeriods.length - 1) {
-                            borderRadiusClass += ' rounded-r-lg'; // 마지막 날이면 오른쪽 둥글게
+                            borderRadiusClass += ' rounded-r-lg';
                           }
                         }
                       }
@@ -1127,79 +1704,19 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       // 제목 표시 로직
                       let displayTitle;
                       if (taskGroup.taskGroupId) {
-                        // 일괄등록된 작업: 작물명만 표시
                         displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
                       } else if (viewMode === "yearly") {
-                        // 연간 뷰: 작물명만 표시 (작업 유형 제외)
                         displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
                       } else {
-                        // 월간 뷰: 전체 제목 표시
                         displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       }
                       
-                      // 날짜 표시 로직
-                      const formatDateRange = (startDate: Date, endDate: Date) => {
-                        if (viewMode === "yearly") {
-                          // 연간 뷰: 연속된 날짜 범위를 하나의 문자열로 표시
-                          const startMonth = startDate.getMonth() + 1;
-                          const startDay = startDate.getDate();
-                          const endMonth = endDate.getMonth() + 1;
-                          const endDay = endDate.getDate();
-                          
-                          // 같은 날짜인 경우
-                          if (startDate.getTime() === endDate.getTime()) {
-                            return `${startMonth}/${startDay}`;
-                          }
-                          
-                          // 같은 월인 경우
-                          if (startMonth === endMonth) {
-                            return `${startMonth}/${startDay}~${endDay}`;
-                          }
-                          
-                          // 다른 월인 경우: 연속된 날짜 범위로 표시
-                          return `${startMonth}/${startDay}~${endMonth}/${endDay}`;
-                        } else {
-                          // 월간 뷰: 월/일 표시
-                          const startMonth = startDate.getMonth() + 1;
-                          const startDay = startDate.getDate();
-                          const endMonth = endDate.getMonth() + 1;
-                          const endDay = endDate.getDate();
-                          
-                          // 같은 날짜인 경우
-                          if (startDate.getTime() === endDate.getTime()) {
-                            return `${startMonth}/${startDay}`;
-                          }
-                          
-                          // 같은 월인 경우
-                          if (startMonth === endMonth) {
-                            return `${startMonth}/${startDay}~${endDay}`;
-                          }
-                          
-                          // 다른 월인 경우
-                          return `${startMonth}/${startDay}~${endMonth}/${endDay}`;
-                        }
-                      };
+                      // 날짜 표시 로직 (달력 박스: MM.DD~MM.DD)
+                      const dateRangeText = formatRangeMmDd(taskGroup.startDate, taskGroup.endDate);
                       
-                      const dateRangeText = formatDateRange(taskGroup.startDate, taskGroup.endDate);
-                      
-                      // 디버깅 정보
-                      console.log(`[DEBUG] 박스 위치 계산:`, {
-                        viewMode,
-                        taskId: taskGroup.task.id,
-                        title: displayTitle,
-                        startIndex: taskGroup.startDayIndex,
-                        endIndex: taskGroup.endDayIndex,
-                        spanUnits,
-                        totalUnits,
-                        calculatedLeft: leftPosition,
-                        calculatedWidth: boxWidth
-                      });
-                      
-                      // 겹치지 않도록 top 위치 계산 (가변 높이, 90% 영역 사용)
-                      const topValue =
-                        laneCountForGroup === 1
-                          ? startOffset
-                          : `calc(${startOffset} + ${laneIndex} * (${laneHeight} + ${gapSizePx}px))`;
+                      // top과 height 계산 (고정 높이 사용)
+                      const topValue = `${topPadding + laneIndex * (fixedBoxHeight + gapSizePx)}px`;
+                      const heightValue = `${fixedBoxHeight}px`;
                       
                       return (
                         <div
@@ -1209,24 +1726,19 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             left: leftPosition,
                             width: boxWidth,
                             top: topValue,
-                            height: laneHeight,
+                            height: heightValue,
                             zIndex: 5,
-                            position: 'absolute', // relative positioning for children in yearly view
-                            maxWidth: '100%' // 모든 뷰에서 최대 너비 제한 제거
+                            position: 'absolute',
+                            maxWidth: '100%'
                           }}
                           title={`${displayTitle} (${taskGroup.startDate.toISOString().split('T')[0]} ~ ${taskGroup.endDate.toISOString().split('T')[0]})`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            // 권한 체크: commenter나 viewer는 수정 불가
-                            if (!canEditTask) {
-                              return;
-                            }
                             setSelectedTask(taskGroup.task);
                             setIsEditDialogOpen(true);
                           }}
                         >
                           {viewMode === "yearly" ? (
-                            // 연간 뷰: 월간 뷰와 동일한 방식으로 텍스트 렌더링
                            <div className="flex flex-col truncate w-full px-1 py-1">
                               <div className={`truncate text-[10px] md:text-[11px] ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
@@ -1238,7 +1750,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               </div>
                             </div>
                           ) : (
-                            // 월간 뷰: 작업이 실제로 끝날 때만 종료 날짜 표시
                             <div className="flex flex-col truncate w-full px-1 py-1">
                               <div className={`truncate text-[10px] md:text-[11px] ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
@@ -1253,235 +1764,205 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         </div>
                       );
                     })}
-                          {overflowCount > 0 && (
-                            <button
-                              type="button"
-                              className="pointer-events-auto bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-200 transition-colors self-start"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOverflowTaskGroups(
-                                  overflowGroups.map(({ laneIndex: _lane, overlapCount: _overlap, ...rest }) => rest)
-                                );
-                                setOverflowDialogTitle(`${rowNumber}번 이랑 일정`);
-                              }}
-                              title={`${overflowCount}개 일정 더 보기`}
-                              style={{
-                                position: "absolute",
-                                left: "8px",
-                                bottom: `calc(${startOffset} + 2px)`
-                              }}
-                            >
-                              +{overflowCount}
-                            </button>
-                          )}
                         </>
                       );
                     })()}
                     </div>
 
-                    {/* 각 날짜/월의 작업 */}
+                    {/* 각 날짜/월의 작업 - 모든 작업 통합 표시 */}
                     {currentPeriods.map((dayInfo, index) => {
                       const periodTasks = getTasksForPeriod(rowNumber, dayInfo);
                       const isTodayCell = isToday(dayInfo);
                       
-                      // 멀티데이 일정과 taskGroupId가 있는 작업은 개별 셀에 표시하지 않음 (연속 박스로 표시됨)
-                      const displayTasks = periodTasks.filter(task => {
-                        // taskGroupId가 있는 작업은 제외 (연속 박스로 표시됨)
-                        if (task.taskGroupId) return false;
-                        
-                        // endDate가 없거나 시작일과 종료일이 같은 경우만 개별 셀에 표시
-                        if (!(task as any).endDate || task.scheduledDate === (task as any).endDate) return true;
-                        
-                        // 멀티데이 일정은 개별 셀에서 제외
-                        return false; // 멀티데이 일정은 항상 제외
+                      // 이 셀을 지나가는 연속 박스 개수 확인
+                      const continuousTasksInCell = continuousTaskGroups.filter(taskGroup => 
+                        taskGroup.startDayIndex <= index && taskGroup.endDayIndex >= index
+                      );
+                      
+                      // 연속 박스로 표시되는 모든 작업의 ID 수집 (중복 방지)
+                      const continuousTaskIds = new Set<string>();
+                      continuousTasksInCell.forEach(taskGroup => {
+                        taskGroup.tasks.forEach(task => continuousTaskIds.add(task.id));
                       });
                       
+                      // 이 셀의 모든 작업 중에서 연속 박스로 이미 표시된 작업 제외
+                      const remainingTasks = periodTasks.filter(task => {
+                        return !continuousTaskIds.has(task.id);
+                      });
+                      
+                      // 표시 가능한 총 슬롯: 2개
+                      const totalSlots = 2;
+                      
+                      // 상단 연속 박스가 차지하는 슬롯 (최대 2개까지만)
+                      const continuousBoxCount = Math.min(continuousTasksInCell.length, totalSlots);
+                      
+                      // 하단에 표시 가능한 단일 작업 슬롯
+                      const availableSlotsForSingleTasks = Math.max(0, totalSlots - continuousBoxCount);
+                      
+                      // 하단에 표시할 작업들 (연속 박스로 표시되지 않은 작업들)
+                      const displayTasks = remainingTasks.slice(0, availableSlotsForSingleTasks);
+                      
+                      // 전체 작업 개수 (연속 박스 + 나머지 작업)
+                      const totalTaskCount = continuousTasksInCell.length + remainingTasks.length;
+                      
+                      // 숨겨진 작업 개수 (전체 - 2)
+                      const hiddenTasksCount = Math.max(0, totalTaskCount - totalSlots);
+                      
+                      // 1개만 있는지 확인
+                      const isSingleTask = totalTaskCount === 1;
+                      
+                      // 셀의 최소 높이
+                      const cellMinHeight = 100;
+                      
+                      const cellDateStr = viewMode === "monthly"
+                        ? `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`
+                        : "";
+                      const dragSelectionActive =
+                        viewMode === "monthly" &&
+                        !!cellDateStr &&
+                        isDateWithinDragRange(rowNumber, cellDateStr);
+
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 min-h-[100px] cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
-                            viewMode === "monthly" && selectedCellDate === `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}` ? "bg-blue-50 border-blue-300 border-2" : ""
+                            viewMode === "monthly" && selectedCellDate === cellDateStr ? "bg-blue-50 border-blue-300 border-2" : ""
                           }`}
+                          data-calendar-cell="true"
+                          data-date={cellDateStr || ""}
+                          data-row-number={rowNumber}
+                          style={{
+                            minHeight: `${cellMinHeight}px`,
+                          }}
                           onClick={() => {
-                            if (viewMode === "monthly") {
-                              const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
-                              setSelectedCellDate(dateStr);
-                              onDateClick(dateStr);
+                            if (viewMode === "monthly" && !isDraggingDates) {
+                              handleDateSelection(cellDateStr, rowNumber);
                             }
                           }}
+                          onDoubleClick={(e) => {
+                            if (viewMode !== "monthly") return;
+                            e.stopPropagation();
+                            if (isDraggingDates) {
+                              resetDragState();
+                            }
+                            openAddTaskShortcut(cellDateStr, rowNumber);
+                          }}
+                          onPointerDown={(event) => handleCellPointerDown(event, cellDateStr, rowNumber)}
+                          onPointerEnter={(event) => handleCellPointerEnter(event, cellDateStr, rowNumber)}
+                          onPointerUp={handleCellPointerUp}
+                          onPointerLeave={cancelLongPressTimer}
+                          onPointerCancel={cancelLongPressTimer}
                         >
-                        {(() => {
-                          const maxVisible = 2;
-                          const visibleTasks = displayTasks.slice(0, Math.min(displayTasks.length, maxVisible));
-                          const isSingleTask = displayTasks.length === 1;
-                          const overflowCount = Math.max(0, displayTasks.length - maxVisible);
-
-                          return (
-                            <div
-                              className={`flex flex-col h-full ${isSingleTask ? "" : "gap-1"}`}
-                              style={
-                                isSingleTask
-                                  ? { alignItems: "center", justifyContent: "center" }
-                                  : { paddingTop: "5%", paddingBottom: "5%" }
-                              }
-                            >
-                          {viewMode === "monthly" ? (
-                            <>
-                              {/* 월간 뷰: 작물명과 작업 표시 (연속된 일정 제외) - 최대 3개까지만 */}
-                              {(() => {
-                                console.log(`[DEBUG] 이랑 ${rowNumber} 날짜 ${(dayInfo as any).day} 개별 셀:`, {
-                                  totalTasks: displayTasks.length,
-                                  showingTasks: Math.min(displayTasks.length, 2),
-                                  tasks: displayTasks.map(t => ({ id: t.id, title: t.title }))
-                                });
-                                return visibleTasks;
-                              })().map((task) => (
-                                isSingleTask ? (
-                                  <div
-                                    key={task.id}
-                                    className="relative w-full h-full"
-                                  >
-                                    <div
-                                      className="cursor-pointer hover:opacity-80 absolute inset-x-0 flex items-center justify-center"
-                                      style={{
-                                        top: "5%",
-                                        bottom: "5%",
-                                      }}
+                          {dragSelectionActive && (
+                            <div className="absolute inset-1 rounded-lg border-2 border-blue-400/60 bg-blue-100/50 pointer-events-none" />
+                          )}
+                          {/* 작업 표시 영역 - 모든 작업 동일한 크기로 표시 */}
+                          <div className="absolute left-0 right-0 flex flex-col px-1" style={{ 
+                            top: `${4 + Math.min(continuousBoxCount, 2) * (28 + 3)}px`,
+                            gap: '3px',
+                            zIndex: 10,
+                          }}>
+                              {viewMode === "monthly" ? (
+                                <>
+                                  {/* 월간 뷰: 단일 작업 표시 */}
+                                  {displayTasks.map((task) => (
+                                    <div 
+                                      key={task.id} 
+                                      className={`${getTaskColor(task)} px-2 rounded-lg border text-[10px] md:text-[11px] cursor-pointer hover:opacity-80 truncate flex items-center font-semibold`}
+                                      style={{ height: '28px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!canEditTask) return;
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
-                                      }}
-                                    >
-                                      <div
-                                        className={`
-                                          ${getTaskColor(task)}
-                                          h-full w-full px-2 py-1 rounded border leading-tight flex flex-col justify-center
-                                          text-[10px] md:text-[11px]
-                                          ${['파종', '육묘', '수확'].includes(task.taskType) ? 'font-bold' : 'font-semibold'}
-                                        `.replace(/\s+/g, ' ').trim()}
-                                        style={{
-                                          display: '-webkit-box',
-                                          WebkitLineClamp: 2,
-                                          WebkitBoxOrient: 'vertical',
-                                          overflow: 'hidden',
-                                          wordWrap: 'break-word',
-                                          maxHeight: '100%'
-                                        }}
-                                        title={task.title || task.taskType}
-                                      >
-                                        {task.title || task.taskType}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div 
-                                    key={task.id} 
-                                    className="cursor-pointer hover:opacity-80 flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (!canEditTask) {
-                                        return;
-                                      }
-                                      console.log("캘린더에서 작업 클릭, task 데이터:", task);
-                                      setSelectedTask(task);
-                                      setIsEditDialogOpen(true);
-                                    }}
-                                  >
-                                    <div 
-                                      className={`
-                                        ${getTaskColor(task)}
-                                        h-full w-full px-2 py-1 rounded border leading-tight flex flex-col justify-center
-                                        text-[10px] md:text-[11px]
-                                        ${['파종', '육묘', '수확'].includes(task.taskType) ? 'font-bold' : 'font-semibold'}
-                                      `.replace(/\s+/g, ' ').trim()}
-                                      style={{
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden',
-                                        wordWrap: 'break-word',
-                                        maxHeight: '2.5rem'
                                       }}
                                       title={task.title || task.taskType}
                                     >
                                       {task.title || task.taskType}
                                     </div>
-                                  </div>
-                                )
-                              ))}
-                            
-                            {/* 개별 셀에서 2개 초과 시 더보기 표시 */}
-                            {(() => {
-                              const shouldShowMore = overflowCount > 0;
-                              console.log(`[DEBUG] 이랑 ${rowNumber} 날짜 ${(dayInfo as any).day} 개별 셀 더보기:`, {
-                                totalTasks: displayTasks.length,
-                                shouldShowMore,
-                                moreCount: overflowCount
-                              });
-                              return shouldShowMore;
-                            })() && (
-                              <button
-                                type="button"
-                                className="text-xs text-gray-500 text-center py-1 cursor-pointer hover:text-gray-700"
-                                title={`${overflowCount}개 작업 더 보기`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
-                                  setSelectedCellDate(dateStr);
-                                  onDateClick(dateStr);
-                                }}
-                              >
-                                +{overflowCount}
-                              </button>
-                            )}
-                            </>
-                          ) : (
-                            // 연간 뷰: 단일 날짜 작업만 표시 (멀티데이 작업은 박스로 표시됨)
-                            displayTasks.map((task) => {
-                              // 작물 이름 추출
-                              let cropName;
-                              if (task.title && task.title.includes('_')) {
-                                cropName = task.title?.split('_')[0] || '작물'; // "무_파종" -> "무"
-                              } else {
-                                cropName = getCropName(task.cropId) || task.title || task.taskType;
-                              }
+                                  ))}
                               
-                              return (
-                                <div 
-                                  key={task.id} 
-                                  className="cursor-pointer hover:opacity-80"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    // 권한 체크: commenter나 viewer는 수정 불가
-                                    if (!canEditTask) {
-                                      return;
-                                    }
-                                    setSelectedTask(task);
-                                    setIsEditDialogOpen(true);
-                                  }}
-                                >
-                                  <div 
-                                    className={`
-                                      ${getTaskColor(task)}
-                                      text-[9px] md:text-[11px] px-1.5 py-1 rounded border truncate
-                                      font-semibold leading-tight
-                                    `.replace(/\s+/g, ' ').trim()}
-                                    title={task.title || task.taskType}
+                                {/* 더보기 버튼 - 3개 이상일 때만 표시 (작업 개수 - 2 = N) */}
+                                {totalTaskCount >= 3 && hiddenTasksCount > 0 && (
+                                  <button
+                                    type="button"
+                                    className="text-[10px] md:text-[11px] text-gray-600 text-center px-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors font-semibold flex items-center justify-center"
+                                    style={{ height: '28px' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const dateStr = `${(dayInfo as any).year}-${String((dayInfo as any).month + 1).padStart(2, '0')}-${String((dayInfo as any).day).padStart(2, '0')}`;
+                                      
+                                      // 숨겨진 작업: 연속 박스 중 표시되지 않은 것 + 하단에 표시되지 않은 작업들
+                                      const hiddenContinuous = continuousTasksInCell.slice(2).map(g => g.task);
+                                      const hiddenRemaining = remainingTasks.slice(availableSlotsForSingleTasks);
+                                      
+                                      setShowAllTasksDialog({
+                                        rowNumber,
+                                        date: dateStr,
+                                        tasks: [...hiddenContinuous, ...hiddenRemaining]
+                                      });
+                                    }}
                                   >
-                                    {cropName}
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                                    +{hiddenTasksCount}
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {/* 연간 뷰: 단일 작업 표시 */}
+                                {displayTasks.map((task) => {
+                                  let cropName;
+                                  if (task.title && task.title.includes('_')) {
+                                    cropName = task.title?.split('_')[0] || '작물';
+                                  } else {
+                                    cropName = getCropName(task.cropId) || task.title || task.taskType;
+                                  }
+                                  
+                                  return (
+                                    <div 
+                                      key={task.id} 
+                                      className={`${getTaskColor(task)} px-2 rounded-lg border text-[10px] md:text-[11px] cursor-pointer hover:opacity-80 truncate flex items-center font-semibold`}
+                                      style={{ height: '28px' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTask(task);
+                                        setIsEditDialogOpen(true);
+                                      }}
+                                      title={cropName}
+                                    >
+                                      {cropName}
+                                    </div>
+                                  );
+                                })}
+                                
+                                {/* 더보기 버튼 - 연간 뷰, 3개 이상일 때만 표시 */}
+                                {totalTaskCount >= 3 && hiddenTasksCount > 0 && (
+                                  <button
+                                    type="button"
+                                    className="text-[10px] md:text-[11px] text-gray-600 text-center px-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors font-semibold flex items-center justify-center"
+                                    style={{ height: '28px' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      
+                                      // 숨겨진 작업: 연속 박스 중 표시되지 않은 것 + 하단에 표시되지 않은 작업들
+                                      const hiddenContinuous = continuousTasksInCell.slice(2).map(g => g.task);
+                                      const hiddenRemaining = remainingTasks.slice(availableSlotsForSingleTasks);
+                                      
+                                      setShowAllTasksDialog({
+                                        rowNumber,
+                                        date: `${(dayInfo as any).month}월`,
+                                        tasks: [...hiddenContinuous, ...hiddenRemaining]
+                                      });
+                                    }}
+                                  >
+                                    +{hiddenTasksCount}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
                     );
                   })}
                   </div>
@@ -1499,13 +1980,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             <h3 className="text-lg font-semibold text-gray-900">
               {selectedCellDate} 작업
             </h3>
-            <Button 
-              size="sm" 
-              className="flex items-center space-x-1"
-              onClick={() => {
-                setSelectedDateForTask(selectedCellDate);
-                setShowAddTaskDialog(true);
-              }}
+              <Button 
+                size="sm" 
+                className="flex items-center space-x-1"
+                onClick={() => {
+                  setSelectedDateForTask(selectedCellDate);
+                  setShowAddTaskDialog(true);
+                }}
               disabled={!canCreateTask}
               title={!canCreateTask ? "읽기 권한만 있어 작업을 추가할 수 없습니다" : ""}
             >
@@ -1560,10 +2041,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
                         </h4>
                         {task.description && (
-                          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {stripImageUrls(task.description as any)}
+                          </p>
                         )}
-                        <div className="flex items-center space-x-2 mt-2">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                        <div className="flex items-center gap-1 sm:gap-2 mt-2 whitespace-nowrap text-[10px] sm:text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
                             task.completed === 1
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -1571,7 +2054,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             {task.completed === 1 ? '완료' : '예정'}
                           </span>
                           {(task.rowNumber || (task.description && task.description.includes("이랑:"))) && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-gray-500">
                               이랑 {task.rowNumber || (() => {
                                 const match = task.description?.match(/이랑:\s*(\d+)번/);
                                 return match ? match[1] : "";
@@ -1579,8 +2062,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                             </span>
                           )}
                           {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
-                            <span className="text-xs text-blue-600">
-                              {task.scheduledDate} ~ {(task as any).endDate}
+                            <span className="text-blue-600">
+                              {formatRangeYyMmDd(task.scheduledDate, (task as any).endDate)}
                             </span>
                           )}
                         </div>
@@ -1615,6 +2098,95 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         </div>
       )}
 
+      {/* 전체 작업 목록 다이얼로그 */}
+      {showAllTasksDialog && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowAllTasksDialog(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {showAllTasksDialog.date} - {showAllTasksDialog.tasks.length}개 작업
+              </h3>
+              <button
+                onClick={() => setShowAllTasksDialog(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+              <div className="space-y-3">
+                {showAllTasksDialog.tasks.map((task) => {
+                  const crop = crops.find(c => c.id === task.cropId);
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (canEditTask && task.userId === user?.id) {
+                          setSelectedTask(task);
+                          setIsEditDialogOpen(true);
+                          setShowAllTasksDialog(null);
+                        }
+                      }}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-medium text-gray-900">
+                            {task.title || (crop?.name ? `${crop.name} - ${task.taskType}` : task.taskType || '작업')}
+                          </h4>
+                          <span className={`text-xs px-2 py-0.5 rounded ${getTaskColor(task)}`}>
+                            {task.taskType}
+                          </span>
+                        </div>
+                        {task.description && (
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {stripImageUrls(task.description as any)}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-1 sm:gap-2 mt-2 flex-wrap whitespace-nowrap text-[10px] sm:text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
+                            task.completed === 1
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.completed === 1 ? '완료' : '예정'}
+                          </span>
+                          {task.rowNumber && (
+                            <span className="text-gray-500">
+                              이랑 {task.rowNumber}
+                            </span>
+                          )}
+                          {(task as any).endDate && (task as any).endDate !== task.scheduledDate && (
+                            <span className="text-blue-600">
+                              {formatRangeYyMmDd(task.scheduledDate, (task as any).endDate)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {canEditTask && task.userId === user?.id && (
+                        <div className="ml-4 text-gray-400 hover:text-gray-600">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Share Dialog */}
       {user && selectedFarm && (
         <CalendarShareDialog 
@@ -1627,50 +2199,18 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       {/* Add Task Dialog */}
       <AddTaskDialog 
         open={showAddTaskDialog} 
-        onOpenChange={setShowAddTaskDialog}
-        selectedDate={selectedDateForTask}
-      />
-
-      {/* Overflow Task Groups Dialog */}
-      <Dialog
-        open={!!overflowTaskGroups}
         onOpenChange={(open) => {
+          setShowAddTaskDialog(open);
           if (!open) {
-            setOverflowTaskGroups(null);
-            setOverflowDialogTitle("");
+            setSelectedRowNumberForTask(null);
+            setSelectedEndDateForTask(null);
           }
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{overflowDialogTitle || "추가 일정"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            {overflowTaskGroups?.map((group, index) => {
-              const startDateStr = group.startDate.toISOString().split("T")[0];
-              const endDateStr = group.endDate.toISOString().split("T")[0];
-              return (
-                <div
-                  key={`${group.task.id}-${index}`}
-                  className="border border-gray-200 rounded-lg p-3 space-y-1"
-                >
-                  <div className="text-sm font-semibold text-gray-900">
-                    {group.task.title || group.cropName || "작업"}
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {startDateStr === endDateStr
-                      ? startDateStr
-                      : `${startDateStr} ~ ${endDateStr}`}
-                  </div>
-                  <div className="text-xs text-gray-500 truncate">
-                    {group.tasks.map((t) => t.taskType).join(", ")}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+        selectedDate={selectedDateForTask}
+        selectedEndDate={selectedEndDateForTask ?? undefined}
+        defaultFarmId={selectedFarm?.id}
+        defaultRowNumber={selectedRowNumberForTask ?? undefined}
+      />
 
       {/* Edit Task Dialog */}
       {selectedTask && (
@@ -1679,6 +2219,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           onOpenChange={setIsEditDialogOpen}
           task={selectedTask}
           selectedDate={selectedTask.scheduledDate}
+          defaultFarmId={selectedFarm?.id}
+          defaultRowNumber={selectedRowNumberForTask ?? undefined}
         />
       )}
     </div>

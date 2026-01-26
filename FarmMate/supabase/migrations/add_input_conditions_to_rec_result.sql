@@ -7,3 +7,6 @@ ALTER TABLE public.rec_result
 COMMENT ON COLUMN public.rec_result.rec_range IS '재배 범위 (이랑 수)';
 COMMENT ON COLUMN public.rec_result.rec_period IS '재배 시기 (예: "3월 ~ 6월")';
 
+
+
+
