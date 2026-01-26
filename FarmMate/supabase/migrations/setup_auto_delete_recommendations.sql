@@ -37,3 +37,6 @@ SELECT cron.schedule(
 -- cron 작업 실행 이력 확인: SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 10;
 -- cron 작업 삭제 (필요시): SELECT cron.unschedule('delete-old-recommendations');
 
+
+
+

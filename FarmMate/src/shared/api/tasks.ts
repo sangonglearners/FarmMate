@@ -202,6 +202,41 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
+    // 대상 작업 정보 조회 (권한 판별용)
+    const { data: targetTask, error: fetchErr } = await supabase
+      .from('tasks_v1')
+      .select('id, user_id, farm_id')
+      .eq('id', id)
+      .single();
+    if (fetchErr || !targetTask) {
+      throw new Error("수정할 작업을 찾을 수 없습니다.");
+    }
+
+    // 권한 확인: 작업 작성자이거나, 농장 소유자이거나, 해당 농장에 editor 권한이면 허용
+    let canEditByRole = false;
+    if (targetTask.farm_id) {
+      // 농장 소유자 여부
+      const { data: farmRow } = await supabase
+        .from('farms')
+        .select('user_id')
+        .eq('id', targetTask.farm_id)
+        .single();
+
+      const isOwner = !!farmRow && farmRow.user_id === auth.user.id;
+
+      // editor 권한 여부
+      const { data: shareRow } = await supabase
+        .from('calendar_shares')
+        .select('id')
+        .eq('calendar_id', targetTask.farm_id)
+        .eq('shared_user_id', auth.user.id)
+        .eq('role', 'editor')
+        .single();
+
+      const isEditor = !!shareRow;
+      canEditByRole = isOwner || isEditor;
+    }
+
     // undefined 값을 null로 변환하여 UUID 오류 방지
     const updateData: any = {
       title: taskData.title,
@@ -229,13 +264,14 @@ export const taskApi = {
 
     console.log('작업 수정 데이터:', updateData);
 
-    const { data, error } = await supabase
-      .from('tasks_v1')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', auth.user.id) // 보안: 자신의 작업만 수정 가능
-      .select()
-      .single();
+    // 작성자 본인인 경우에는 user_id 매칭을 유지하고,
+    // 소유자/에디터인 경우에는 RLS에 위임(추가 user_id 조건 없이)한다.
+    const query = supabase.from('tasks_v1').update(updateData).eq('id', id);
+    const finalQuery = (targetTask.user_id === auth.user.id || !canEditByRole)
+      ? query.eq('user_id', auth.user.id)
+      : query;
+
+    const { data, error } = await finalQuery.select().single();
 
     if (error) {
       console.error('작업 수정 오류:', error);
@@ -255,17 +291,46 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
-    // RLS 정책에 따라 자신의 작업과 공유받은 작업 모두 업데이트 가능
-    // user_id 조건을 제거하여 RLS가 자동으로 권한을 체크하도록 함
-    const { data, error } = await supabase
+    // 대상 작업 정보 조회 (권한 판별용)
+    const { data: targetTask, error: fetchErr } = await supabase
       .from('tasks_v1')
-      .update({
-        completed: 1,
-        completed_at: new Date().toISOString(),
-      })
+      .select('id, user_id, farm_id')
       .eq('id', id)
-      .select()
       .single();
+    if (fetchErr || !targetTask) {
+      throw new Error("작업을 찾을 수 없습니다.");
+    }
+
+    // 권한 확인
+    let canEditByRole = false;
+    if (targetTask.farm_id) {
+      const { data: farmRow } = await supabase
+        .from('farms')
+        .select('user_id')
+        .eq('id', targetTask.farm_id)
+        .single();
+      const isOwner = !!farmRow && farmRow.user_id === auth.user.id;
+      const { data: shareRow } = await supabase
+        .from('calendar_shares')
+        .select('id')
+        .eq('calendar_id', targetTask.farm_id)
+        .eq('shared_user_id', auth.user.id)
+        .eq('role', 'editor')
+        .single();
+      const isEditor = !!shareRow;
+      canEditByRole = isOwner || isEditor;
+    }
+
+    const baseUpdate = supabase
+      .from('tasks_v1')
+      .update({ completed: 1, completed_at: new Date().toISOString() })
+      .eq('id', id);
+
+    const finalQuery = (targetTask.user_id === auth.user.id || !canEditByRole)
+      ? baseUpdate.eq('user_id', auth.user.id)
+      : baseUpdate;
+
+    const { data, error } = await finalQuery.select().single();
 
     if (error) {
       console.error('작업 완료 오류:', error);
@@ -285,17 +350,46 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
-    // RLS 정책에 따라 자신의 작업과 공유받은 작업 모두 업데이트 가능
-    // user_id 조건을 제거하여 RLS가 자동으로 권한을 체크하도록 함
-    const { data, error } = await supabase
+    // 대상 작업 정보 조회 (권한 판별용)
+    const { data: targetTask, error: fetchErr } = await supabase
       .from('tasks_v1')
-      .update({
-        completed: 0,
-        completed_at: null,
-      })
+      .select('id, user_id, farm_id')
       .eq('id', id)
-      .select()
       .single();
+    if (fetchErr || !targetTask) {
+      throw new Error("작업을 찾을 수 없습니다.");
+    }
+
+    // 권한 확인
+    let canEditByRole = false;
+    if (targetTask.farm_id) {
+      const { data: farmRow } = await supabase
+        .from('farms')
+        .select('user_id')
+        .eq('id', targetTask.farm_id)
+        .single();
+      const isOwner = !!farmRow && farmRow.user_id === auth.user.id;
+      const { data: shareRow } = await supabase
+        .from('calendar_shares')
+        .select('id')
+        .eq('calendar_id', targetTask.farm_id)
+        .eq('shared_user_id', auth.user.id)
+        .eq('role', 'editor')
+        .single();
+      const isEditor = !!shareRow;
+      canEditByRole = isOwner || isEditor;
+    }
+
+    const baseUpdate = supabase
+      .from('tasks_v1')
+      .update({ completed: 0, completed_at: null })
+      .eq('id', id);
+
+    const finalQuery = (targetTask.user_id === auth.user.id || !canEditByRole)
+      ? baseUpdate.eq('user_id', auth.user.id)
+      : baseUpdate;
+
+    const { data, error } = await finalQuery.select().single();
 
     if (error) {
       console.error('작업 완료 취소 오류:', error);
@@ -315,11 +409,42 @@ export const taskApi = {
       throw new Error("사용자가 로그인되어 있지 않습니다.");
     }
 
-    const { error } = await supabase
+    // 대상 작업 정보 조회 (권한 판별용)
+    const { data: targetTask, error: fetchErr } = await supabase
       .from('tasks_v1')
-      .delete()
+      .select('id, user_id, farm_id')
       .eq('id', id)
-      .eq('user_id', auth.user.id); // 보안: 자신의 작업만 삭제 가능
+      .single();
+    if (fetchErr || !targetTask) {
+      throw new Error("삭제할 작업을 찾을 수 없습니다.");
+    }
+
+    // 권한 확인
+    let canEditByRole = false;
+    if (targetTask.farm_id) {
+      const { data: farmRow } = await supabase
+        .from('farms')
+        .select('user_id')
+        .eq('id', targetTask.farm_id)
+        .single();
+      const isOwner = !!farmRow && farmRow.user_id === auth.user.id;
+      const { data: shareRow } = await supabase
+        .from('calendar_shares')
+        .select('id')
+        .eq('calendar_id', targetTask.farm_id)
+        .eq('shared_user_id', auth.user.id)
+        .eq('role', 'editor')
+        .single();
+      const isEditor = !!shareRow;
+      canEditByRole = isOwner || isEditor;
+    }
+
+    const baseDelete = supabase.from('tasks_v1').delete().eq('id', id);
+    const finalQuery = (targetTask.user_id === auth.user.id || !canEditByRole)
+      ? baseDelete.eq('user_id', auth.user.id)
+      : baseDelete;
+
+    const { error } = await finalQuery;
 
     if (error) {
       console.error('작업 삭제 오류:', error);

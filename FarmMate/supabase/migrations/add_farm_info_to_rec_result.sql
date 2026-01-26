@@ -7,3 +7,6 @@ ALTER TABLE public.rec_result
 COMMENT ON COLUMN public.rec_result.farm_name IS '추천 당시 농장 이름';
 COMMENT ON COLUMN public.rec_result.farm_environment IS '추천 당시 재배 환경 (노지/시설/기타)';
 
+
+
+

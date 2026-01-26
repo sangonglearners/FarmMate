@@ -14,12 +14,18 @@ import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
-import { filterTasksByDate } from "@/shared/utils/task-filter";
+import { useOwnFarms, useSharedFarms } from "@/features/farm-management/model/farm.hooks";
+import { 
+  getValidFarmIds, 
+  getOwnFarmIds, 
+  getSharedFarmIds,
+  filterTasksByValidFarms,
+  categorizeTasksByOwnership,
+  excludeViewerAndCommenterTasks
+} from "@/shared/utils/task-filters";
 import type { Task } from "@shared/schema";
-
 import { useEffect } from "react";
 import { sendPageView } from "../../../shared/ga";
-
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -36,6 +42,10 @@ export default function HomePage() {
     sendPageView('Home');
   }, []);
 
+  // 농장 목록 조회
+  const { data: ownFarms = [] } = useOwnFarms();
+  const { data: sharedFarms = [] } = useSharedFarms();
+  
   // 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장 ID 집합 (Home의 ToDo 연동에서만 제외)
   const { data: sharedCalendars = [] } = useSharedCalendars();
   const viewerAndCommenterFarmIdSet = new Set(
@@ -43,6 +53,20 @@ export default function HomePage() {
       .filter((c) => c.role === 'viewer' || c.role === 'commenter')
       .map((c) => c.calendarId)
   );
+
+  // '전체 허용(editor)' 권한만 친구 농장으로 간주
+  const editorSharedFarmIdSet = new Set(
+    (sharedCalendars || [])
+      .filter((c) => c.role === 'editor')
+      .map((c) => c.calendarId)
+  );
+  const ownFarmIdsForSubtract = getOwnFarmIds(ownFarms);
+  const editorSharedFarms = sharedFarms.filter((f) => editorSharedFarmIdSet.has(f.id) && !ownFarmIdsForSubtract.has(f.id));
+
+  // 유효한 농장 ID 목록 (내 농장 + '전체 허용' 친구 농장)
+  const validFarmIds = getValidFarmIds(ownFarms, editorSharedFarms);
+  const ownFarmIds = ownFarmIdsForSubtract;
+  const sharedFarmIds = getSharedFarmIds(editorSharedFarms);
 
   // 중복 제거 함수
   const removeDuplicateTasks = (tasks: any[]) => {
@@ -81,11 +105,14 @@ export default function HomePage() {
   const handleFullViewClick = () => {
     setShowMonthView(!showMonthView);
   };
-  // 홈 화면 플래너(주/월)에서도 viewer 또는 commenter 공유 작업은 제외하여 전달
-  const plannerTasks = tasks.filter((task: any) => {
-    if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) return false;
-    return true;
-  });
+  
+  // 홈 화면 플래너(주/월)에서 표시할 작업 필터링
+  // 1. 유효한 농장(공유 권한이 있는)의 작업만 포함
+  // 2. viewer 또는 commenter 공유 작업은 제외 (편집 불가하므로)
+  const plannerTasks = excludeViewerAndCommenterTasks(
+    filterTasksByValidFarms(tasks, validFarmIds),
+    viewerAndCommenterFarmIdSet
+  );
 
 
   const handleAddTaskClick = () => {
@@ -200,11 +227,7 @@ export default function HomePage() {
 
   // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
   // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
-  const selectedDateTasks = filterTasksByDate(tasks, selectedDate).filter(task => {
-    // 홈 ToDo에는 읽기 권한(viewer) 또는 댓글 허용(commenter)으로 공유받은 농장의 작업은 제외
-    if (task.farmId && viewerAndCommenterFarmIdSet.has(task.farmId)) {
-      return false;
-    }
+  const selectedDateTasksRaw = tasks.filter(task => {
     // "재배" 유형의 작업은 투두리스트에서 제외
     if (task.taskType === "재배") {
       return false;
@@ -212,8 +235,27 @@ export default function HomePage() {
     return true;
   });
 
+  // 선택된 날짜의 작업을 필터링하고 분류
+  // 1. 유효한 농장의 작업만 포함
+  // 2. viewer 또는 commenter 공유 작업은 제외
+  const selectedDateTasksFiltered = excludeViewerAndCommenterTasks(
+    filterTasksByValidFarms(selectedDateTasksRaw, validFarmIds),
+    viewerAndCommenterFarmIdSet
+  );
+  
+  // 내 농장과 공유받은 농장의 작업으로 분류
+  const { ownTasks: selectedDateOwnTasks, sharedTasks: selectedDateSharedTasks } = 
+    categorizeTasksByOwnership(selectedDateTasksFiltered, ownFarmIds, sharedFarmIds);
+  
+  // 기존 코드와의 호환성을 위해 전체 작업 목록도 유지
+  const selectedDateTasks = selectedDateTasksFiltered;
+
   // 일괄등록된 작업들을 그룹화하여 표시
   const groupedSelectedDateTasks = groupTasksByGroupId(selectedDateTasks);
+  
+  // 내 농장과 공유받은 농장의 작업을 각각 그룹화
+  const groupedOwnTasks = groupTasksByGroupId(selectedDateOwnTasks);
+  const groupedSharedTasks = groupTasksByGroupId(selectedDateSharedTasks);
   
   // Get upcoming tasks (next 7 days)
   // "재배" 유형의 작업은 투두리스트에서 제외
@@ -432,6 +474,7 @@ export default function HomePage() {
                   crops={crops}
                   onDateClick={handleDateClick}
                   selectedDate={selectedDate}
+                  showTaskGroups={false}
                 />
               )}
             </div>
@@ -451,13 +494,7 @@ export default function HomePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            {selectedDateTasks.length > 0 ? (
-              <TodoList 
-                tasks={groupedSelectedDateTasks}
-                selectedDate={selectedDate}
-                onTaskClick={handleTaskClick}
-              />
-            ) : (
+            {selectedDateTasks.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p>{formatSelectedDate()}에는 예정된 작업이 없습니다.</p>
@@ -465,6 +502,38 @@ export default function HomePage() {
                   <Plus className="w-4 h-4 mr-2" />
                   새 작업 추가하기
                 </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 내 농장의 일정 (작업이 있을 때만 제목+리스트 표시) */}
+                {groupedOwnTasks.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <span className="inline-block w-1 h-4 bg-primary mr-2 rounded"></span>
+                      내 농장
+                    </h3>
+                    <TodoList 
+                      tasks={groupedOwnTasks}
+                      selectedDate={selectedDate}
+                      onTaskClick={handleTaskClick}
+                    />
+                  </div>
+                )}
+
+                {/* 공유받은 농장의 일정 */}
+                {groupedSharedTasks.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <span className="inline-block w-1 h-4 bg-blue-500 mr-2 rounded"></span>
+                      친구 농장
+                    </h3>
+                    <TodoList 
+                      tasks={groupedSharedTasks}
+                      selectedDate={selectedDate}
+                      onTaskClick={handleTaskClick}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
