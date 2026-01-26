@@ -92,7 +92,7 @@ export function TrendChart({ data, periodType }: TrendChartProps) {
   return (
     <Card className="rounded-lg shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">수출액 추이</CardTitle>
+        <CardTitle className="text-lg font-semibold">매출액 추이</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-64 w-full">

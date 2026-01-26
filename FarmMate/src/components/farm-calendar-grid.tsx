@@ -18,6 +18,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
+import TaskActionSheet from "@/components/task-action-sheet";
+import LedgerWriteDialog from "@/components/ledger-write-dialog";
 import type { Task, Crop } from "@shared/schema";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import type { FarmEntity } from "@/shared/api/farm.repository";
@@ -27,6 +29,8 @@ import { useUserRoleForCalendar, useSharedFarmIds } from "@/features/calendar-sh
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarCommentsPanel } from "@/features/calendar-comments";
 import { isDateInTaskRange } from "@/shared/utils/task-filter";
+import { listLedgers, type LedgerWithExpenses } from "@/shared/api/ledgers";
+import { useQuery } from "@tanstack/react-query";
 
 interface FarmCalendarGridProps {
   tasks: Task[];
@@ -43,8 +47,21 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const memoizedTasks = useMemo(() => tasks, [tasks]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
+  
+  // 선택된 작업의 장부 조회
+  const { data: selectedLedger } = useQuery({
+    queryKey: ["ledgers", selectedTask?.id],
+    queryFn: async () => {
+      if (!selectedTask?.id) return null;
+      const ledgers = await listLedgers();
+      return ledgers.find(l => l.taskId === selectedTask.id) || null;
+    },
+    enabled: !!selectedTask?.id && showLedgerDialog,
+  });
   
   // 더보기 클릭 시 전체 작업 목록 표시를 위한 상태
   const [showAllTasksDialog, setShowAllTasksDialog] = useState<{
@@ -1735,7 +1752,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTask(taskGroup.task);
-                            setIsEditDialogOpen(true);
+                            setShowActionSheet(true);
                           }}
                         >
                           {viewMode === "yearly" ? (
@@ -1875,7 +1892,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedTask(task);
-                                        setIsEditDialogOpen(true);
+                                        setShowActionSheet(true);
                                       }}
                                       title={task.title || task.taskType}
                                     >
@@ -2079,7 +2096,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }
                           console.log("수정 버튼 클릭, task 데이터:", task);
                           setSelectedTask(task);
-                          setIsEditDialogOpen(true);
+                          setShowActionSheet(true);
                         }}
                         disabled={!canEditTask || task.userId !== user?.id}
                         title={!canEditTask ? "읽기 권한만 있어 작업을 수정할 수 없습니다" : task.userId !== user?.id ? "본인이 등록한 작업만 수정할 수 있습니다" : ""}
@@ -2132,7 +2149,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       onClick={() => {
                         if (canEditTask && task.userId === user?.id) {
                           setSelectedTask(task);
-                          setIsEditDialogOpen(true);
+                          setShowActionSheet(true);
                           setShowAllTasksDialog(null);
                         }
                       }}
@@ -2223,6 +2240,34 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           defaultRowNumber={selectedRowNumberForTask ?? undefined}
         />
       )}
+
+      {/* Task Action Sheet */}
+      <TaskActionSheet
+        open={showActionSheet}
+        onOpenChange={setShowActionSheet}
+        task={selectedTask}
+        onEditTask={() => {
+          setShowActionSheet(false);
+          setIsEditDialogOpen(true);
+        }}
+        onWriteLedger={() => {
+          setShowActionSheet(false);
+          setShowLedgerDialog(true);
+        }}
+      />
+
+      {/* Ledger Write Dialog */}
+      <LedgerWriteDialog
+        open={showLedgerDialog}
+        onOpenChange={(open) => {
+          setShowLedgerDialog(open);
+          if (!open) {
+            setSelectedTask(null);
+          }
+        }}
+        task={selectedTask}
+        ledger={selectedLedger || null}
+      />
     </div>
   );
 }
