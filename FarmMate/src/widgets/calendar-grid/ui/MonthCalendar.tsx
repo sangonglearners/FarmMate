@@ -11,10 +11,11 @@ interface MonthCalendarProps {
   tasks: Task[];
   crops: Crop[];
   onDateClick: (date: string) => void;
+  onTaskClick?: (task: Task) => void; // 일지 클릭 핸들러
   selectedDate?: string;
 }
 
-export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, selectedDate }: MonthCalendarProps) {
+export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, onTaskClick, selectedDate }: MonthCalendarProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
@@ -169,7 +170,11 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                         title={`${displayText}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDateClick(dateStr);
+                          if (onTaskClick) {
+                            onTaskClick(task);
+                          } else {
+                            onDateClick(dateStr);
+                          }
                         }}
                       >
                         {displayText}

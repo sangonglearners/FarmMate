@@ -9,6 +9,7 @@ interface CalendarGridProps {
   tasks?: Task[];            // ← 선택값으로 변경(부모가 넘기면 사용, 없으면 우리가 조회)
   crops: Crop[];
   onDateClick: (date: string) => void;
+  onTaskClick?: (task: Task) => void; // 일지 클릭 핸들러
 }
 
 export default function CalendarGrid({
@@ -16,6 +17,7 @@ export default function CalendarGrid({
   tasks: tasksProp,
   crops,
   onDateClick,
+  onTaskClick,
 }: CalendarGridProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -175,7 +177,7 @@ export default function CalendarGrid({
         return (
           <div
             key={`task-${groupIndex}`}
-            className={`absolute ${taskColor} rounded-lg text-xs font-medium overflow-hidden`}
+            className={`absolute ${taskColor} rounded-lg text-xs font-medium overflow-hidden cursor-pointer hover:opacity-80 transition-opacity`}
             style={{
               left,
               width,
@@ -187,6 +189,12 @@ export default function CalendarGrid({
               border: '1px solid rgba(0, 0, 0, 0.1)'
             }}
             title={taskGroup.taskGroupId ? `${displayName} (${taskGroup.tasks.length}개 작업)` : displayName}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onTaskClick) {
+                onTaskClick(taskGroup.task);
+              }
+            }}
           >
             <div className="truncate px-1 py-1">
               {displayName}
@@ -217,6 +225,7 @@ export default function CalendarGrid({
           
           // 해당 날짜에 정확히 scheduledDate가 일치하는 작업만 마커로 표시
           const exactDayTasks = dayTasks.filter(task => task.scheduledDate === dateStr);
+          const singleDayTasks = exactDayTasks;
           
           const isToday =
             new Date().getDate() === day &&
@@ -241,7 +250,7 @@ export default function CalendarGrid({
                 {singleDayTasks.slice(0, 3).map((task, taskIndex) => (
                   <div
                     key={task.id}
-                    className={`text-xs px-1 py-0.5 rounded break-words leading-tight font-medium relative ${getTaskColor(
+                    className={`text-xs px-1 py-0.5 rounded break-words leading-tight font-medium relative cursor-pointer hover:opacity-80 transition-opacity ${getTaskColor(
                       (task as any).taskType
                     )}`}
                     style={{
@@ -254,13 +263,18 @@ export default function CalendarGrid({
                       marginBottom: '2px'
                     }}
                     title={task.title}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onTaskClick) {
+                        onTaskClick(task);
+                      }
+                    }}
                   >
                     {task.title}
                   </div>
                 ))}
                 {singleDayTasks.length > 3 && (
                   <div className="text-xs text-gray-500">+{singleDayTasks.length - 3}개 더</div>
-                )}
                 )}
               </div>
             </div>
