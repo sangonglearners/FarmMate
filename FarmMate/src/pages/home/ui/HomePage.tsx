@@ -124,19 +124,20 @@ export default function HomePage() {
   const handleTaskClick = (task: any) => {
     console.log("편집할 task 데이터:", task);
     
-    // 그룹화된 작업인지 확인
-    if (task.isGroup) {
-      // 그룹화된 작업의 경우 일괄 수정 다이얼로그 열기
-      console.log("그룹화된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
-      setSelectedTask(task);
-      setShowBatchEditDialog(true);
-    } else if (task.taskGroupId || task.originalTaskGroup) {
-      // 일괄등록된 개별 작업의 경우 일괄 수정 다이얼로그 열기
-      console.log("일괄등록된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
+    // 그룹 정보: 투두리스트에서는 originalTaskGroup, 없으면 taskGroupId로 전체 작업에서 그룹 조회
+    const group: any[] = task.originalTaskGroup ?? (task.taskGroupId
+      ? tasks.filter((t: any) => t.taskGroupId === task.taskGroupId)
+      : []);
+
+    // 일괄등록: 그룹 내 작업 유형이 여러 개 (파종+육묘+수확 등) → BatchTaskEditDialog
+    // 개별등록: 그룹 없음 또는 그룹 내 작업 유형이 하나 (날짜 범위만 다름) → AddTaskDialog
+    const isBatchRegistration = group.length > 1 && new Set(group.map((t: any) => t.taskType)).size > 1;
+
+    if (task.isGroup || isBatchRegistration) {
       setSelectedTask(task);
       setShowBatchEditDialog(true);
     } else {
-      // 투두리스트에서 개별 작업 클릭 시 바로 일지 수정 다이얼로그 열기
+      // 개별등록(단일 작업 또는 날짜 범위 그룹) → 캘린더와 동일하게 AddTaskDialog
       setSelectedTask(task);
       setShowEditTaskDialog(true);
     }

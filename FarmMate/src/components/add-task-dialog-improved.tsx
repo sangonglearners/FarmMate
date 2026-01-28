@@ -411,13 +411,69 @@ export default function AddTaskDialog({
     if (task && open) {
       console.log("편집 모드 초기화 실행");
       
-      // 일괄등록된 작업인지 확인
+      // 여러 일자로 등록된 작업 그룹인 경우: 개별 등록과 동일한 단일 폼으로 수정 (BatchTaskEditDialog 사용 안 함)
       if (isBatchTask(task)) {
         const group = findTaskGroup(task);
-        setTaskGroup([task, ...group]);
-        setShowBatchEditDialog(true);
-        return; // 일괄 수정 다이얼로그를 열고 일반 수정은 건너뜀
+        const fullGroup = [task, ...group];
+        setTaskGroup(fullGroup);
+        // 그룹 전체 날짜 범위 계산 (시작일 = 최소, 종료일 = 최대)
+        const allDates = fullGroup.flatMap((t) => [
+          (t as any).scheduledDate,
+          (t as any).endDate || (t as any).scheduledDate,
+        ]);
+        const groupStart = allDates.reduce((a, b) => (a < b ? a : b));
+        const groupEnd = allDates.reduce((a, b) => (a > b ? a : b));
+        const firstTask = fullGroup[0];
+        let taskRowNumber = (firstTask as any).rowNumber;
+        if (!taskRowNumber && (firstTask as any).description?.includes("이랑:")) {
+          const match = (firstTask as any).description.match(/이랑:\s*(\d+)번/);
+          if (match) taskRowNumber = parseInt(match[1]);
+        }
+        form.reset({
+          title: firstTask.title || "",
+          description: removeImageUrls((firstTask as any).description || ""),
+          taskType: (firstTask as any).taskType || "",
+          scheduledDate: groupStart,
+          endDate: groupEnd,
+          farmId: (firstTask as any).farmId || "",
+          cropId: (firstTask as any).cropId || "",
+          environment: "",
+          rowNumber: taskRowNumber || undefined,
+        });
+        setMemoImageUrls(extractImageUrls((firstTask as any).description || ""));
+        const titleParts = firstTask.title?.split("_");
+        if (titleParts && titleParts.length >= 2) {
+          setCropSearchTerm(titleParts[0]);
+          setCustomCropName(titleParts[0]);
+        }
+        setIsCropSelectedFromList(false);
+        if (farms && (firstTask as any).farmId) {
+          const farm = farms.find((f) => f.id === (firstTask as any).farmId);
+          if (farm) {
+            setSelectedFarm(farm);
+            form.setValue("farmId", farm.id);
+            form.setValue("environment", farm.environment || "");
+          }
+        } else if (farms?.length) {
+          setSelectedFarm(farms[0]);
+          form.setValue("farmId", farms[0].id);
+          form.setValue("environment", farms[0].environment || "");
+        }
+        if (crops && (firstTask as any).cropId) {
+          const crop = crops.find((c) => c.id === (firstTask as any).cropId);
+          if (crop) {
+            setCropSearchTerm(crop.name);
+            setSelectedCrop(crop);
+            setCustomCropName(crop.name);
+          }
+        }
+        setTimeout(() => {
+          if (taskRowNumber) form.setValue("rowNumber", taskRowNumber);
+        }, 100);
+        return;
       }
+      
+      setTaskGroup([]); // 단일 작업 수정 시 그룹 초기화
       
       // 이랑 번호 추출 (task.rowNumber 우선, 없으면 description에서 파싱)
       let taskRowNumber = (task as any).rowNumber;
@@ -543,7 +599,7 @@ export default function AddTaskDialog({
       }
       setMemoImageUrls([]);
     }
-  }, [task, open, selectedDate, selectedEndDate, crops, farms, form, defaultFarmId, defaultRowNumber]);
+  }, [task, open, selectedDate, selectedEndDate, crops, farms, form, defaultFarmId, defaultRowNumber, existingTasks]);
 
   // 수정 모드에서 이랑 번호를 확실히 설정하는 별도 useEffect
   useEffect(() => {
@@ -1342,7 +1398,67 @@ export default function AddTaskDialog({
   };
 
   // 실제 제출 로직
-  const proceedWithSubmit = (taskData: any) => {
+  const proceedWithSubmit = async (taskData: any) => {
+    // 여러 일자로 등록된 그룹 수정: 기존 그룹 삭제 후 새 날짜 범위로 재생성 (개별 등록과 동일한 방식)
+    if (task && taskGroup.length > 1) {
+      const startDate = taskData.scheduledDate as string;
+      const endDate = (taskData.endDate || startDate) as string;
+      const taskGroupId = (task as any).taskGroupId as string;
+      const cropName =
+        customCropName ||
+        crops?.find((c) => c.id === taskData.cropId)?.name ||
+        "작물";
+      let finalCropId = taskData.cropId;
+      if (!finalCropId && selectedCrop?.id) finalCropId = selectedCrop.id;
+      const work = taskData.taskType || "";
+      const finalTaskType = work === "기타" ? customTaskType : work;
+      const finalTitle = taskData.title || `${cropName}_${finalTaskType}`;
+      const memoText = (taskData.description || "") as string;
+      const finalDescription =
+        memoImageUrls.length > 0
+          ? [memoText, ...memoImageUrls].filter(Boolean).join("\n")
+          : memoText;
+      const rowNumber = taskData.rowNumber;
+
+      const [sYear, sMonth, sDay] = startDate.split("-").map(Number);
+      const [eYear, eMonth, eDay] = endDate.split("-").map(Number);
+      const parsedStartDate = new Date(sYear, sMonth - 1, sDay);
+      const parsedEndDate = new Date(eYear, eMonth - 1, eDay);
+      const datesInRange = eachDayOfInterval({
+        start: parsedStartDate,
+        end: parsedEndDate,
+      });
+      const newTasks: InsertTask[] = datesInRange.map((date) => {
+        const dateString = format(date, "yyyy-MM-dd");
+        return {
+          title: finalTitle,
+          description: finalDescription,
+          taskType: finalTaskType,
+          scheduledDate: dateString,
+          endDate: dateString,
+          farmId: taskData.farmId || "",
+          cropId: finalCropId || "",
+          rowNumber: rowNumber ?? undefined,
+          taskGroupId: taskGroupId,
+        } as InsertTask;
+      });
+
+      try {
+        for (const t of taskGroup) {
+          await deleteMutation.mutateAsync(t.id.toString());
+        }
+        bulkCreateMutation.mutate(newTasks);
+      } catch (err) {
+        console.error("그룹 수정 중 오류:", err);
+        toast({
+          title: "수정 실패",
+          description: "작업 수정 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
     if (task) {
       console.log("🔹 수정 모드 실행");
       updateMutation.mutate(taskData as InsertTask);
