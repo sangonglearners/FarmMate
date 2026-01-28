@@ -14,7 +14,6 @@ import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
-import TaskActionSheet from "../../../components/task-action-sheet";
 import LedgerWriteDialog from "../../../components/ledger-write-dialog";
 import { useOwnFarms, useSharedFarms } from "@/features/farm-management/model/farm.hooks";
 import { 
@@ -36,7 +35,6 @@ export default function HomePage() {
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
-  const [showActionSheet, setShowActionSheet] = useState(false);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
@@ -141,25 +139,6 @@ export default function HomePage() {
       // 투두리스트에서 개별 작업 클릭 시 바로 일지 수정 다이얼로그 열기
       setSelectedTask(task);
       setShowEditTaskDialog(true);
-    }
-  };
-
-  // 캘린더에서 일지 클릭 시 호출되는 핸들러
-  const handleCalendarTaskClick = (task: Task) => {
-    // 캘린더에서 클릭한 작업은 항상 액션 시트 표시
-    setSelectedTask(task);
-    setShowActionSheet(true);
-  };
-
-  const handleEditTask = () => {
-    if (selectedTask) {
-      setShowEditTaskDialog(true);
-    }
-  };
-
-  const handleWriteLedger = () => {
-    if (selectedTask) {
-      setShowLedgerDialog(true);
     }
   };
 
@@ -509,7 +488,7 @@ export default function HomePage() {
                   tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
-                  onTaskClick={handleCalendarTaskClick}
+                  onTaskClick={handleTaskClick}
                   selectedDate={selectedDate}
                 />
               ) : (
@@ -518,7 +497,7 @@ export default function HomePage() {
                   tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
-                  onTaskClick={handleCalendarTaskClick}
+                  onTaskClick={handleTaskClick}
                   selectedDate={selectedDate}
                   showTaskGroups={false}
                 />
@@ -624,15 +603,6 @@ export default function HomePage() {
           }
         }}
         taskGroup={selectedTask?.groupTasks || selectedTask?.originalTaskGroup || (selectedTask ? [selectedTask] : [])}
-      />
-
-      {/* Task Action Sheet */}
-      <TaskActionSheet
-        open={showActionSheet}
-        onOpenChange={setShowActionSheet}
-        task={selectedTask}
-        onEditTask={handleEditTask}
-        onWriteLedger={handleWriteLedger}
       />
 
       {/* Ledger Write Dialog */}
