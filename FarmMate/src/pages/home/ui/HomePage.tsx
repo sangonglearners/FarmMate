@@ -248,14 +248,35 @@ export default function HomePage() {
     return [...groupRepresentatives, ...individualTasks];
   };
 
-  // Get selected date's tasks (기본값은 오늘) - 날짜 범위 작업 포함
+  // Get selected date's tasks (기본값은 오늘) - 선택한 날짜에 해당하는 작업만 표시
   // "재배" 유형의 작업은 캘린더 연속 박스 표시용이므로 투두리스트에서 제외
   const selectedDateTasksRaw = tasks.filter(task => {
     // "재배" 유형의 작업은 투두리스트에서 제외
     if (task.taskType === "재배") {
       return false;
     }
-    return true;
+    
+    // 1. 새 구조: scheduledDate가 선택한 날짜와 일치
+    if (task.scheduledDate === selectedDate) {
+      return true;
+    }
+    
+    // 2. 기존 데이터 호환: endDate가 있고 scheduledDate와 다른 경우 날짜 범위 체크
+    if (task.endDate && task.endDate !== task.scheduledDate) {
+      // 타임존 문제 방지를 위해 날짜 문자열을 직접 파싱
+      const [startYear, startMonth, startDay] = task.scheduledDate.split('-').map(Number);
+      const [endYear, endMonth, endDay] = task.endDate.split('-').map(Number);
+      const [selYear, selMonth, selDay] = selectedDate.split('-').map(Number);
+      
+      const taskStartDate = new Date(startYear, startMonth - 1, startDay);
+      const taskEndDate = new Date(endYear, endMonth - 1, endDay);
+      const selDate = new Date(selYear, selMonth - 1, selDay);
+      
+      // 선택한 날짜가 작업의 날짜 범위 내에 있는지 확인
+      return selDate >= taskStartDate && selDate <= taskEndDate;
+    }
+    
+    return false;
   });
 
   // 선택된 날짜의 작업을 필터링하고 분류

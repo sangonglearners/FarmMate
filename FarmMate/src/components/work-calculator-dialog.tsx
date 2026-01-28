@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, addDays } from "date-fns";
+import { format, addDays, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Calendar as CalendarIcon, Save, Plus, Calculator } from "lucide-react";
 import {
@@ -262,48 +262,59 @@ export default function WorkCalculatorDialog({
     const taskGroupId = `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     console.log("Generated task group ID:", taskGroupId);
 
-    const tasks: InsertTask[] = taskSchedules.map(schedule => {
-      // 이랑 번호와 설명 설정
+    // 작물명 결정 (한 번만 계산)
+    const cropName = selectedCrop?.name || customCropName || cropSearchTerm || "작물";
+    console.log("농작업 계산기 작물명 결정:", {
+      selectedCrop: selectedCrop?.name,
+      customCropName,
+      cropSearchTerm,
+      최종작물명: cropName
+    });
+
+    // 날짜별로 개별 Task 생성
+    const tasks: InsertTask[] = [];
+    
+    taskSchedules.forEach(schedule => {
       const rowNumber = selectedRowNumber;
       const description = rowNumber 
         ? `이랑: ${rowNumber}번 - ${schedule.description}`
         : schedule.description;
       
-      // 작물명 결정 로직 개선 (selectedCrop, customCropName, cropSearchTerm 순으로 시도)
-      const cropName = selectedCrop?.name || customCropName || cropSearchTerm || "작물";
+      // 시작일과 종료일 파싱 (타임존 문제 방지)
+      const [startYear, startMonth, startDay] = schedule.startDate.split('-').map(Number);
+      const [endYear, endMonth, endDay] = schedule.endDate.split('-').map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay);
+      const endDate = new Date(endYear, endMonth - 1, endDay);
       
-      console.log("농작업 계산기 작물명 결정:", {
-        selectedCrop: selectedCrop?.name,
-        customCropName,
-        cropSearchTerm,
-        최종작물명: cropName
+      // 시작일부터 종료일까지 각 날짜에 대해 개별 Task 생성
+      const datesInRange = eachDayOfInterval({ start: startDate, end: endDate });
+      
+      datesInRange.forEach((date) => {
+        const dateString = format(date, "yyyy-MM-dd");
+        
+        const task = {
+          title: `${cropName}_${schedule.taskType}`,
+          description: description,
+          taskType: schedule.taskType,
+          scheduledDate: dateString, // 해당 날짜
+          endDate: dateString, // 개별 날짜이므로 시작일과 동일
+          farmId: selectedFarm?.id || selectedCrop?.farmId || "",
+          cropId: selectedCrop?.id || "",
+          rowNumber: rowNumber || undefined,
+          taskGroupId: taskGroupId, // 같은 그룹 ID로 연결 (캘린더 연속 박스용)
+          userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
+        };
+        
+        tasks.push(task);
       });
       
-      // 수확일인 경우 재배 종료일과 동일하게 설정
-      const isHarvestTask = schedule.taskType === "수확";
-      const endDate = isHarvestTask ? schedule.endDate : schedule.startDate;
-      
-      // 각 작업은 해당 작업이 수행되는 날짜를 scheduledDate로 가짐
-      const task = {
-        title: `${cropName}_${schedule.taskType}`,
-        description: description,
-        taskType: schedule.taskType,
-        scheduledDate: schedule.startDate, // 해당 작업의 시작 날짜
-        endDate: endDate, // 수확일은 재배 종료일과 동일, 다른 작업은 하루만
-        farmId: selectedFarm?.id || selectedCrop?.farmId || "",
-        cropId: selectedCrop?.id || "",
-        rowNumber: rowNumber || undefined,
-        taskGroupId: taskGroupId, // 같은 그룹 ID 부여
-        userId: "current-user", // onSave에서 실제 사용자 ID로 교체됨
-      };
-      console.log("Created work calculator task:", task);
-      console.log("Work calculator - selectedRowNumber:", selectedRowNumber);
-      console.log("Work calculator - selectedFarm:", selectedFarm);
-      return task;
+      console.log(`Created ${datesInRange.length} tasks for ${schedule.taskType} (${schedule.startDate} ~ ${schedule.endDate})`);
     });
 
     console.log("Total work calculator tasks to save:", tasks.length);
     console.log("All tasks have taskGroupId:", taskGroupId);
+    console.log("Work calculator - selectedRowNumber:", selectedRowNumber);
+    console.log("Work calculator - selectedFarm:", selectedFarm);
     onSave(tasks);
     onOpenChange(false);
   };
