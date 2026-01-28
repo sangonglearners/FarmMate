@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { CalendarIcon, Check, Search, Calculator, ChevronDown, Plus, Minus } from "lucide-react";
-import { format } from "date-fns";
+import { format, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1121,7 +1121,7 @@ export default function AddTaskDialog({
         console.log("개별등록에서 selectedCrop.id 사용:", finalCropId);
       }
       
-      // 하나의 작업만 생성 (날짜 범위)
+      // 날짜별로 개별 Task 생성 (날짜 범위가 다른 경우)
       const finalTaskType = work === "기타" ? customTaskType : work;
       const finalTitle = form.getValues("title") || `${cropName}_${finalTaskType}`;
       
@@ -1129,20 +1129,55 @@ export default function AddTaskDialog({
       const finalDescription2 = memoImageUrls.length > 0
         ? [memoText2, ...memoImageUrls].filter(Boolean).join("\n")
         : memoText2;
-      const task: InsertTask = {
-        title: finalTitle,
-        description: finalDescription2,
-        taskType: finalTaskType,
-        scheduledDate: startDate,
-        endDate: endDate, // 종료일도 함께 저장
-        farmId: form.getValues("farmId") || "",
-        cropId: finalCropId || "",
-        rowNumber: rowNumber || undefined,
-      };
       
-      console.log("✅ 개별등록으로 생성될 작업 (날짜 범위):", task);
+      // 시작일과 종료일 파싱 (타임존 문제 방지)
+      const [sYear, sMonth, sDay] = startDate.split('-').map(Number);
+      const [eYear, eMonth, eDay] = endDate.split('-').map(Number);
+      const parsedStartDate = new Date(sYear, sMonth - 1, sDay);
+      const parsedEndDate = new Date(eYear, eMonth - 1, eDay);
+      
+      // 날짜 범위가 다른 경우 날짜별로 개별 Task 생성
+      const tasks: InsertTask[] = [];
+      
+      if (startDate !== endDate) {
+        // 날짜 범위가 있는 경우: 날짜별로 개별 Task 생성
+        const taskGroupId = `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const datesInRange = eachDayOfInterval({ start: parsedStartDate, end: parsedEndDate });
+        
+        datesInRange.forEach((date) => {
+          const dateString = format(date, "yyyy-MM-dd");
+          tasks.push({
+            title: finalTitle,
+            description: finalDescription2,
+            taskType: finalTaskType,
+            scheduledDate: dateString, // 해당 날짜
+            endDate: dateString, // 개별 날짜이므로 시작일과 동일
+            farmId: form.getValues("farmId") || "",
+            cropId: finalCropId || "",
+            rowNumber: rowNumber || undefined,
+            taskGroupId: taskGroupId, // 같은 그룹 ID로 연결 (캘린더 연속 박스용)
+          } as InsertTask);
+        });
+        
+        console.log(`✅ 개별등록으로 ${datesInRange.length}개 Task 생성 (${startDate} ~ ${endDate}), taskGroupId: ${taskGroupId}`);
+      } else {
+        // 시작일과 종료일이 같은 경우: 단일 Task 생성
+        tasks.push({
+          title: finalTitle,
+          description: finalDescription2,
+          taskType: finalTaskType,
+          scheduledDate: startDate,
+          endDate: endDate,
+          farmId: form.getValues("farmId") || "",
+          cropId: finalCropId || "",
+          rowNumber: rowNumber || undefined,
+        });
+        
+        console.log("✅ 개별등록으로 단일 작업 생성:", tasks[0]);
+      }
+      
       // 일괄등록과 동일한 방식으로 bulkCreateMutation 사용
-      bulkCreateMutation.mutate([task]);
+      bulkCreateMutation.mutate(tasks);
     }
   };
 
