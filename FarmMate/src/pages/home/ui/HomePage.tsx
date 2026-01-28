@@ -14,7 +14,6 @@ import AddTaskDialog from "../../../components/add-task-dialog-improved";
 import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
-import TaskActionSheet from "../../../components/task-action-sheet";
 import LedgerWriteDialog from "../../../components/ledger-write-dialog";
 import { useOwnFarms, useSharedFarms } from "@/features/farm-management/model/farm.hooks";
 import { 
@@ -36,7 +35,6 @@ export default function HomePage() {
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
-  const [showActionSheet, setShowActionSheet] = useState(false);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
@@ -126,40 +124,22 @@ export default function HomePage() {
   const handleTaskClick = (task: any) => {
     console.log("편집할 task 데이터:", task);
     
-    // 그룹화된 작업인지 확인
-    if (task.isGroup) {
-      // 그룹화된 작업의 경우 일괄 수정 다이얼로그 열기
-      console.log("그룹화된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
-      setSelectedTask(task);
-      setShowBatchEditDialog(true);
-    } else if (task.taskGroupId || task.originalTaskGroup) {
-      // 일괄등록된 개별 작업의 경우 일괄 수정 다이얼로그 열기
-      console.log("일괄등록된 작업입니다. 일괄 수정 다이얼로그를 엽니다.");
+    // 그룹 정보: 투두리스트에서는 originalTaskGroup, 없으면 taskGroupId로 전체 작업에서 그룹 조회
+    const group: any[] = task.originalTaskGroup ?? (task.taskGroupId
+      ? tasks.filter((t: any) => t.taskGroupId === task.taskGroupId)
+      : []);
+
+    // 일괄등록: 그룹 내 작업 유형이 여러 개 (파종+육묘+수확 등) → BatchTaskEditDialog
+    // 개별등록: 그룹 없음 또는 그룹 내 작업 유형이 하나 (날짜 범위만 다름) → AddTaskDialog
+    const isBatchRegistration = group.length > 1 && new Set(group.map((t: any) => t.taskType)).size > 1;
+
+    if (task.isGroup || isBatchRegistration) {
       setSelectedTask(task);
       setShowBatchEditDialog(true);
     } else {
-      // 투두리스트에서 개별 작업 클릭 시 바로 일지 수정 다이얼로그 열기
+      // 개별등록(단일 작업 또는 날짜 범위 그룹) → 캘린더와 동일하게 AddTaskDialog
       setSelectedTask(task);
       setShowEditTaskDialog(true);
-    }
-  };
-
-  // 캘린더에서 일지 클릭 시 호출되는 핸들러
-  const handleCalendarTaskClick = (task: Task) => {
-    // 캘린더에서 클릭한 작업은 항상 액션 시트 표시
-    setSelectedTask(task);
-    setShowActionSheet(true);
-  };
-
-  const handleEditTask = () => {
-    if (selectedTask) {
-      setShowEditTaskDialog(true);
-    }
-  };
-
-  const handleWriteLedger = () => {
-    if (selectedTask) {
-      setShowLedgerDialog(true);
     }
   };
 
@@ -509,7 +489,7 @@ export default function HomePage() {
                   tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
-                  onTaskClick={handleCalendarTaskClick}
+                  onTaskClick={handleTaskClick}
                   selectedDate={selectedDate}
                 />
               ) : (
@@ -518,7 +498,7 @@ export default function HomePage() {
                   tasks={plannerTasks}
                   crops={crops}
                   onDateClick={handleDateClick}
-                  onTaskClick={handleCalendarTaskClick}
+                  onTaskClick={handleTaskClick}
                   selectedDate={selectedDate}
                   showTaskGroups={false}
                 />
@@ -624,15 +604,6 @@ export default function HomePage() {
           }
         }}
         taskGroup={selectedTask?.groupTasks || selectedTask?.originalTaskGroup || (selectedTask ? [selectedTask] : [])}
-      />
-
-      {/* Task Action Sheet */}
-      <TaskActionSheet
-        open={showActionSheet}
-        onOpenChange={setShowActionSheet}
-        task={selectedTask}
-        onEditTask={handleEditTask}
-        onWriteLedger={handleWriteLedger}
       />
 
       {/* Ledger Write Dialog */}
