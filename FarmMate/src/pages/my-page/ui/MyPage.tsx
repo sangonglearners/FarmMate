@@ -173,7 +173,7 @@ export default function MyPage() {
             <Button variant="outline" className="w-full justify-start h-14">
               <BookOpen className="w-5 h-5 mr-3" />
               <div className="flex flex-col items-start">
-                <span className="font-medium">📖 장부 관리</span>
+                <span className="font-medium">장부 관리</span>
                 <span className="text-xs text-gray-500">매출 및 비용 내역을 관리합니다</span>
               </div>
             </Button>
