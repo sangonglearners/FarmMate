@@ -89,34 +89,51 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
 
   return (
     <Card className={`${className || ''} h-full border bg-white`}>
-      <CardContent className="p-3 h-full flex flex-col justify-center gap-1">
-        {/* 위치 정보 */}
-        <div className="flex items-center gap-0.5 text-xs text-gray-600">
-          <MapPin className="w-3 h-3 flex-shrink-0" />
-          <span className="font-medium truncate">{weather.location}</span>
+      <CardContent className="p-3 md:p-5 h-full flex flex-col justify-center">
+
+        {/* ── 모바일 레이아웃 ── */}
+        <div className="flex flex-col gap-1 md:hidden">
+          <div className="flex items-center gap-1 text-xs text-gray-600">
+            <MapPin className="w-3 h-3 flex-shrink-0" />
+            <span className="font-medium truncate">{weather.location}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-3xl leading-none">{weatherIcon}</span>
+            <span className="text-2xl font-bold text-gray-900 leading-none">{currentTemp}°</span>
+          </div>
+          <div className="text-xs text-gray-600">습도 {humidity}%</div>
+          <div className="flex flex-col text-xs leading-tight">
+            {maxTemp !== null && <span className="text-red-500 font-medium">최고 {maxTemp}°</span>}
+            {minTemp !== null && <span className="text-blue-500 font-medium">최저 {minTemp}°</span>}
+            {maxTemp === null && minTemp === null && <span className="text-gray-400">온도 정보 없음</span>}
+          </div>
         </div>
 
-        {/* 아이콘 + 온도 */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-3xl leading-none flex-shrink-0">{weatherIcon}</span>
-          <span className="text-xl font-bold text-gray-900 leading-none">{currentTemp}°</span>
+        {/* ── 데스크톱 레이아웃 ── */}
+        <div className="hidden md:flex md:items-center md:justify-between md:h-full">
+          {/* 왼쪽: 아이콘 + 큰 온도 */}
+          <div className="flex items-center gap-4">
+            <span className="text-6xl leading-none">{weatherIcon}</span>
+            <div>
+              <div className="text-5xl font-bold text-gray-900 leading-none">{currentTemp}°</div>
+              <div className="text-sm text-gray-400 mt-1">현재 온도</div>
+            </div>
+          </div>
+          {/* 오른쪽: 위치·습도·최고최저 */}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-1 text-base text-gray-600">
+              <MapPin className="w-4 h-4" />
+              <span className="font-semibold">{weather.location}</span>
+            </div>
+            <div className="text-sm text-gray-600">습도 {humidity}%</div>
+            <div className="flex gap-3 text-sm">
+              {maxTemp !== null && <span className="text-red-500 font-medium">최고 {maxTemp}°</span>}
+              {minTemp !== null && <span className="text-blue-500 font-medium">최저 {minTemp}°</span>}
+              {maxTemp === null && minTemp === null && <span className="text-gray-400">온도 정보 없음</span>}
+            </div>
+          </div>
         </div>
 
-        {/* 습도 */}
-        <div className="text-xs text-gray-600">습도 {humidity}%</div>
-
-        {/* 최고/최저 온도 */}
-        <div className="flex flex-col text-xs leading-tight">
-          {maxTemp !== null && (
-            <span className="text-red-500 font-medium">최고 {maxTemp}°</span>
-          )}
-          {minTemp !== null && (
-            <span className="text-blue-500 font-medium">최저 {minTemp}°</span>
-          )}
-          {maxTemp === null && minTemp === null && (
-            <span className="text-gray-400">온도 정보 없음</span>
-          )}
-        </div>
       </CardContent>
     </Card>
   );
