@@ -418,13 +418,17 @@ export default function HomePage() {
           
           {/* 오른쪽: 작물 추천 배너 */}
           <Card className="overflow-hidden h-full flex border">
-            <CardContent className="p-4 flex-1 flex items-center">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-600 mb-1">이번 시즌에는</p>
-                <h2 className="text-xs font-semibold text-gray-900 leading-tight mb-3 whitespace-nowrap">
+            <CardContent className="p-3 md:p-5 flex-1 flex items-center justify-center">
+              <div className="w-full text-left md:text-center">
+                <p className="text-xs md:text-sm text-gray-600 mb-1">이번 시즌에는</p>
+                <h2 className="text-xs md:text-base font-semibold text-gray-900 leading-tight mb-3">
                   무엇을, 언제, 어디에 심지?
                 </h2>
-                <Button size="sm" className="mt-0" onClick={() => setLocation('/recommendations/input')}>
+                <Button
+                  size="sm"
+                  className="w-full md:w-4/7 text-xs md:text-sm"
+                  onClick={() => setLocation('/recommendations/input')}
+                >
                   작물 추천 받으러가기
                 </Button>
               </div>
