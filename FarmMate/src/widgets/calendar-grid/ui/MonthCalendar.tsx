@@ -1,6 +1,6 @@
 import type { Task, Crop } from "@shared/schema";
 import { 
-  getTaskColor, 
+  getCropCategoryColor,
   getTasksForDate, 
   getCropName, 
   weekDays
@@ -124,7 +124,7 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
           return (
             <div
               key={index}
-              className={`h-16 md:h-22 p-0.5 md:p-1.5 ${borderColor} rounded-lg cursor-pointer transition-colors flex flex-col overflow-hidden ${backgroundColor} ${
+              className={`h-12 md:h-14 p-0.5 md:p-1 ${borderColor} rounded-lg cursor-pointer transition-colors flex flex-col items-center overflow-hidden ${backgroundColor} ${
                 !isSelected && !todayCheck ? 'hover:bg-gray-50' : ''
               } ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
@@ -133,58 +133,35 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                 onDateClick(dateStr);
               }}
             >
-              <div className={`text-xs mb-0.5 md:mb-1 flex-shrink-0 ${todayCheck ? 'font-bold text-primary' : ''} ${
+              <div className={`text-xs mb-1 flex-shrink-0 w-full text-center ${todayCheck ? 'font-bold text-primary' : ''} ${
                 !dayInfo.isCurrentMonth ? 'text-gray-400' : ''
               }`}>
                 {dayInfo.day}
               </div>
               
-              {/* 홈 캘린더: 모든 일정을 개별적으로 표시 */}
+              {/* 점 형태 일정 표시 */}
               {dayInfo.isCurrentMonth && singleDayTasks.length > 0 && (
-                <div className="space-y-0.5 flex-1 min-h-0 overflow-hidden">
-                  {singleDayTasks.slice(0, 2).map((task, taskIndex) => {
-                    const taskColor = getTaskColor(task.taskType);
-                    
-                    // title 필드에서 작물명과 작업타입을 추출 (2주 플래너와 동일한 방식)
-                    let displayText;
-                    if (task.title && task.title.includes('_')) {
-                      // 이미 작물명_작업타입 형태인 경우 그대로 사용
-                      displayText = task.title;
-                    } else {
-                      // title이 없거나 형태가 다른 경우 작업타입만 표시
-                      displayText = task.taskType || '작업';
-                    }
-                    
-                    // 연속 일정인 경우 날짜 표시 추가
-                    const isMultiDayTask = task.endDate && task.endDate !== task.scheduledDate;
-                    
-                    return (
-                      <div
-                        key={`${task.id}-${dayInfo.day}`}
-                        className={`${taskColor} rounded px-0.5 md:px-1 py-0 text-[9px] md:text-[10px] leading-tight truncate cursor-pointer hover:opacity-80 transition-opacity`}
-                        style={{
-                          marginBottom: '2px',
-                          maxHeight: '0.8rem',
-                          overflow: 'hidden'
-                        }}
-                        title={`${displayText}${isMultiDayTask ? ` (${task.scheduledDate} ~ ${task.endDate})` : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onTaskClick) {
-                            onTaskClick(task);
-                          } else {
-                            onDateClick(dateStr);
-                          }
-                        }}
-                      >
-                        {displayText}
-                      </div>
-                    );
-                  })}
-                  {singleDayTasks.length > 2 && (
-                    <div className="text-[8px] md:text-[9px] text-gray-500 font-medium leading-tight">
-                      +{singleDayTasks.length - 2}개
-                    </div>
+                <div className="flex flex-wrap gap-0.5 justify-center items-center">
+                  {singleDayTasks.slice(0, 3).map((task) => (
+                    <div
+                      key={`${task.id}-${dayInfo.day}`}
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                      style={{ backgroundColor: getCropCategoryColor(crops, task.cropId, task.title) }}
+                      title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onTaskClick) {
+                          onTaskClick(task);
+                        } else {
+                          onDateClick(dateStr);
+                        }
+                      }}
+                    />
+                  ))}
+                  {singleDayTasks.length > 3 && (
+                    <span className="text-[7px] text-gray-400 leading-none">
+                      +{singleDayTasks.length - 3}
+                    </span>
                   )}
                 </div>
               )}

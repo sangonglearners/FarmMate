@@ -23,6 +23,70 @@ export const getTaskColor = (taskType: string) => {
   }
 };
 
+// 작물 카테고리 문자열 → 점 색상 변환 (내부 헬퍼)
+const categoryToColor = (category: string): string | null => {
+  // 채소콩: 콩_완두, 콩_채두, 콩_잠두, 콩_강두, 콩_대두
+  if (category.startsWith('콩_') || category === '콩') return '#3A9E3A';
+  // 음식꽃 / 식용꽃
+  if (category.includes('음식꽃') || category.includes('식용꽃')) return '#3B82F6';
+  // 배추류
+  if (category.includes('배추')) return '#16A34A';
+  // 뿌리류: 뿌리쁘띠, 뿌리채소 (가지/래디쉬/비트/순무/당근 등 포함)
+  if (category.includes('뿌리')) return '#EA580C';
+  // 미나리과: 미나리과 채소, 미나리과 허브
+  if (category.includes('미나리과')) return '#0891B2';
+  // 십자화과 잎채소 (오타 '입채소'도 대응)
+  if (category.includes('십자화과')) return '#7C3AED';
+  // 호박: 호박(스쿼시_써머), 호박(스쿼시_윈터)
+  if (category.includes('호박')) return '#D97706';
+  // 토마토
+  if (category.includes('토마토')) return '#DC2626';
+  // 기타 통합: 페퍼(고추), 오이, 엽채류, 알리움
+  if (
+    category.includes('페퍼') || category.includes('고추') ||
+    category.includes('오이') || category.includes('엽채류') ||
+    category.includes('알리움')
+  ) return '#6B7280';
+  return null;
+};
+
+// 작물 카테고리별 점 색상
+// 1차: cropId로 crops 배열에서 직접 조회
+// 2차 fallback: taskTitle(형식: "작물명_작업타입")에서 작물명 추출 후 이름으로 crops 검색
+export const getCropCategoryColor = (
+  crops: Crop[],
+  cropId: string | null | undefined,
+  taskTitle?: string | null
+): string => {
+  // 1차: cropId로 정확히 매칭
+  if (cropId) {
+    const crop = crops.find(c => c.id === cropId);
+    if (crop) {
+      const color = categoryToColor(crop.category);
+      if (color) return color;
+    }
+  }
+
+  // 2차: taskTitle에서 작물명 추출 후 이름으로 crops 검색
+  // title 형식: "작물명_작업타입" (예: "채화_파종", "비트_수확-선별")
+  if (taskTitle) {
+    const cropNameFromTitle = taskTitle.split('_')[0]?.trim();
+    if (cropNameFromTitle) {
+      const cropByName = crops.find(c =>
+        c.name === cropNameFromTitle ||
+        cropNameFromTitle.startsWith(c.name) ||
+        c.name.startsWith(cropNameFromTitle)
+      );
+      if (cropByName) {
+        const color = categoryToColor(cropByName.category);
+        if (color) return color;
+      }
+    }
+  }
+
+  return '#9CA3AF'; // 매핑 안 된 항목 - 회색
+};
+
 export const getTasksForDate = (tasks: Task[], date: Date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
