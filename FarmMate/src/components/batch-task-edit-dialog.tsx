@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -94,6 +95,7 @@ export default function BatchTaskEditDialog({
   const [cropSearchResults, setCropSearchResults] = useState<any[]>([]);
   const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // 핵심 작물 (Supabase crop 테이블)과 전체 작물 (registration 테이블) 구분
   const keyCrops = crops; // Supabase crop 테이블의 작물들
@@ -465,16 +467,17 @@ export default function BatchTaskEditDialog({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!taskGroup || taskGroup.length === 0) return;
-    
-    if (window.confirm('정말로 이 작업 그룹을 모두 삭제하시겠습니까?')) {
-      try {
-        const taskIds = taskGroup.map(task => task.id).filter(Boolean) as string[];
-        await batchDeleteMutation.mutateAsync(taskIds);
-      } catch (error) {
-        console.error("일괄 삭제 실패:", error);
-      }
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      const taskIds = taskGroup.map(task => task.id).filter(Boolean) as string[];
+      await batchDeleteMutation.mutateAsync(taskIds);
+    } catch (error) {
+      console.error("일괄 삭제 실패:", error);
     }
   };
 
@@ -486,6 +489,7 @@ export default function BatchTaskEditDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -880,5 +884,16 @@ export default function BatchTaskEditDialog({
         </Form>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={showDeleteConfirm}
+      onOpenChange={setShowDeleteConfirm}
+      title="작업 그룹을 삭제하시겠습니까?"
+      description="이 그룹의 모든 작업이 삭제되며 복구할 수 없습니다."
+      confirmText="삭제"
+      cancelText="취소"
+      onConfirm={handleConfirmDelete}
+    />
+    </>
   );
 }

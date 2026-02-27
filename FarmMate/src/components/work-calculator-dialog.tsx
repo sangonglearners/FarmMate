@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format, addDays, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Calendar as CalendarIcon, Save, Plus, Calculator } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Plus, Calculator } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -525,8 +525,8 @@ export default function WorkCalculatorDialog({
             className="flex-1"
             onClick={handleSave}
           >
-            <Save className="w-4 h-4 mr-2" />
-            저장하기
+            <Check className="w-4 h-4 mr-2" />
+            일정 적용하기
           </Button>
         </div>
       </DialogContent>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MessageSquare, Send, Trash2, Edit2, X, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,7 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useCalendarComments(calendarId);
   const createComment = useCreateCalendarComment();
@@ -75,10 +77,14 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
     setEditContent("");
   };
 
-  const handleDelete = async (commentId: string) => {
-    if (confirm("이 댓글을 삭제하시겠습니까?")) {
-      await deleteComment.mutateAsync(commentId);
-    }
+  const handleDelete = (commentId: string) => {
+    setPendingDeleteId(commentId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    await deleteComment.mutateAsync(pendingDeleteId);
+    setPendingDeleteId(null);
   };
 
   const getInitials = (name?: string, email?: string) => {
@@ -92,6 +98,16 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
   };
 
   return (
+    <>
+    <ConfirmDialog
+      open={pendingDeleteId !== null}
+      onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}
+      title="댓글을 삭제하시겠습니까?"
+      description="삭제된 댓글은 복구할 수 없습니다."
+      confirmText="삭제"
+      cancelText="취소"
+      onConfirm={handleConfirmDelete}
+    />
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" aria-label="댓글" title="댓글">
@@ -250,6 +266,7 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
         </div>
       </SheetContent>
     </Sheet>
+    </>
   );
 }
 
