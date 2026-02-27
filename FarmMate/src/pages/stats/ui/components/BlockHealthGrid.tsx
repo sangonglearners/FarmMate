@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface BlockStatus {
   blockId: string;
@@ -31,6 +32,7 @@ const statusTextColors = {
 
 export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   const [, setLocation] = useLocation();
+  const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({});
 
   const handleBlockClick = (farmId: string) => {
     // 해당 농장의 캘린더 페이지로 이동
@@ -59,36 +61,65 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
       <CardContent>
         <div className="space-y-6 mb-4">
           {Object.entries(blocksByFarm).map(([farmName, farmBlocks]) => {
+            const isExpanded = expandedFarms[farmName] ?? false;
+
             return (
               <div key={farmName} className="space-y-3">
-                {/* 농장 제목 - 비활성화 */}
-                <h3 className="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                  {farmName}
-                </h3>
-                {/* 해당 농장의 이랑들 - 클릭 가능 */}
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
-                  {farmBlocks.map((block) => (
-                    <button
-                      key={block.blockId}
-                      onClick={() => handleBlockClick(block.farmId)}
-                      disabled={block.status === "empty"}
-                      className={cn(
-                        "rounded-lg border-2 p-3 text-center transition-colors",
-                        block.status === "empty" 
-                          ? "cursor-not-allowed opacity-75" 
-                          : "cursor-pointer",
-                        statusColors[block.status]
-                      )}
-                    >
-                      <p className={cn("text-sm font-semibold mb-1", statusTextColors[block.status])}>
-                        이랑{block.rowNumber}
-                      </p>
-                      <p className={cn("text-xs", statusTextColors[block.status])}>
-                        {block.pendingTasks}개
-                      </p>
-                    </button>
-                  ))}
-                </div>
+                {/* 농장 제목 + 토글 */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedFarms((prev) => ({
+                      ...prev,
+                      [farmName]: !isExpanded,
+                    }))
+                  }
+                  className="w-full flex items-center justify-between border-b border-gray-200 pb-2 text-left"
+                >
+                  <h3 className="text-base font-normal text-gray-900">
+                    {farmName}
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {isExpanded ? "접기" : "열어서 이랑 보기"}
+                  </span>
+                </button>
+
+                {/* 해당 농장의 이랑들 - 토글 열었을 때만 표시 */}
+                {isExpanded && (
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                    {farmBlocks.map((block) => (
+                      <button
+                        key={block.blockId}
+                        onClick={() => handleBlockClick(block.farmId)}
+                        disabled={block.status === "empty"}
+                        className={cn(
+                          "rounded-lg border-2 p-3 text-center transition-colors",
+                          block.status === "empty"
+                            ? "cursor-not-allowed opacity-75"
+                            : "cursor-pointer",
+                          statusColors[block.status]
+                        )}
+                      >
+                        <p
+                          className={cn(
+                            "text-sm font-semibold mb-1",
+                            statusTextColors[block.status]
+                          )}
+                        >
+                          이랑{block.rowNumber}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-xs",
+                            statusTextColors[block.status]
+                          )}
+                        >
+                          {block.pendingTasks}개
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
