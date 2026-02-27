@@ -1,4 +1,4 @@
-import { Calendar, Home, Tractor, User, BarChart3 } from 'lucide-react';
+import { Calendar, Home, Tractor, BarChart3, Wallet } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 
 export default function MobileNav() {
@@ -41,11 +41,11 @@ export default function MobileNav() {
           <BarChart3 className="w-5 h-5" />
           <span className="text-xs mt-1">통계</span>
         </Link>
-        <Link href="/my-page" className={`flex flex-col items-center py-3 px-1 ${
-          isActive("/my-page") ? "text-primary bg-primary/10" : "text-gray-600"
+        <Link href="/ledger-management" className={`flex flex-col items-center py-3 px-1 ${
+          isActive("/ledger-management") ? "text-primary bg-primary/10" : "text-gray-600"
         }`}>
-          <User className="w-5 h-5" />
-          <span className="text-xs mt-1">마이</span>
+          <Wallet className="w-5 h-5" />
+          <span className="text-xs mt-1">장부</span>
         </Link>
       </div>
     </nav>

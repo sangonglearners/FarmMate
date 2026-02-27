@@ -5,7 +5,6 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -29,8 +28,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import type { Task, Farm, Crop, InsertLedger, InsertExpenseItem } from "@shared/schema";
-import { createLedger, updateLedger, getLedger, type LedgerWithExpenses } from "@/shared/api/ledgers";
+import type { Task, InsertLedger, InsertExpenseItem } from "@shared/schema";
+import { createLedger, updateLedger, type LedgerWithExpenses } from "@/shared/api/ledgers";
 import { z } from "zod";
 import { useFarms } from "@/features/farm-management";
 import { useCrops } from "@/features/crop-management";
@@ -66,19 +65,24 @@ const QUALITY_GRADES = ["최상", "상", "중", "하"];
 
 // 판매처 목록
 const SALES_CHANNELS = ["도매시장", "직거래", "마트/도소매", "온라인", "기타"];
+const REVENUE_ITEMS_PREFIX = "__FM_REVENUE_ITEMS__:";
+
+const revenueItemSchema = z.object({
+  salesChannel: z.string().optional().default(""),
+  revenue: z.number().min(0, "수익은 0 이상이어야 합니다"),
+});
 
 const expenseItemSchema = z.object({
-  category: z.string().min(1, "카테고리를 선택해주세요"),
+  category: z.string().optional().default(""),
   customCategory: z.string().optional(),
   cost: z.number().min(0, "비용은 0 이상이어야 합니다"),
 });
 
 const formSchema = z.object({
-  revenueAmount: z.number().min(0, "매출액은 0 이상이어야 합니다").optional().nullable(),
   harvestQuantity: z.number().min(0, "수확량은 0 이상이어야 합니다").optional().nullable(),
   harvestUnit: z.string().optional().nullable(),
   qualityGrade: z.string().optional().nullable(),
-  salesChannel: z.string().optional().nullable(),
+  revenueItems: z.array(revenueItemSchema).default([]),
   expenseItems: z.array(expenseItemSchema).default([]),
 });
 
@@ -90,6 +94,46 @@ interface LedgerWriteDialogProps {
   task: Task | null;
   ledger?: LedgerWithExpenses | null;
 }
+
+type RevenueItemValue = {
+  salesChannel: string;
+  revenue: number;
+};
+
+const toSerializedRevenueItems = (items: RevenueItemValue[]): string | null => {
+  const validItems = items.filter((item) => item.salesChannel && item.revenue > 0);
+  if (validItems.length === 0) return null;
+  return `${REVENUE_ITEMS_PREFIX}${JSON.stringify(validItems)}`;
+};
+
+const fromSerializedRevenueItems = (
+  salesChannel: string | null | undefined,
+  revenueAmount: number | null | undefined
+): RevenueItemValue[] => {
+  if (salesChannel?.startsWith(REVENUE_ITEMS_PREFIX)) {
+    const payload = salesChannel.slice(REVENUE_ITEMS_PREFIX.length);
+    try {
+      const parsed = JSON.parse(payload);
+      if (Array.isArray(parsed)) {
+        const normalized = parsed
+          .map((item) => ({
+            salesChannel: typeof item?.salesChannel === "string" ? item.salesChannel : "",
+            revenue: typeof item?.revenue === "number" ? item.revenue : 0,
+          }))
+          .filter((item) => item.salesChannel);
+        if (normalized.length > 0) return normalized;
+      }
+    } catch {
+      // fallback below
+    }
+  }
+
+  if (salesChannel) {
+    return [{ salesChannel, revenue: revenueAmount || 0 }];
+  }
+
+  return [{ salesChannel: "", revenue: revenueAmount || 0 }];
+};
 
 export default function LedgerWriteDialog({
   open,
@@ -109,11 +153,15 @@ export default function LedgerWriteDialog({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      revenueAmount: null,
       harvestQuantity: null,
       harvestUnit: null,
       qualityGrade: null,
-      salesChannel: null,
+      revenueItems: [
+        {
+          salesChannel: "",
+          revenue: 0,
+        },
+      ],
       expenseItems: [
         {
           category: "",
@@ -128,16 +176,23 @@ export default function LedgerWriteDialog({
     control: form.control,
     name: "expenseItems",
   });
+  const {
+    fields: revenueFields,
+    append: appendRevenue,
+    remove: removeRevenue,
+  } = useFieldArray({
+    control: form.control,
+    name: "revenueItems",
+  });
 
   // 기존 장부 데이터 로드
   useEffect(() => {
     if (ledger && open) {
       form.reset({
-        revenueAmount: ledger.revenueAmount || null,
         harvestQuantity: ledger.harvestQuantity || null,
         harvestUnit: ledger.harvestUnit || null,
         qualityGrade: ledger.qualityGrade || null,
-        salesChannel: ledger.salesChannel || null,
+        revenueItems: fromSerializedRevenueItems(ledger.salesChannel, ledger.revenueAmount),
         expenseItems:
           ledger.expenseItems.length > 0
             ? ledger.expenseItems.map(item => ({
@@ -157,11 +212,15 @@ export default function LedgerWriteDialog({
     } else if (task && open && !ledger) {
       // 새 장부 작성 시 초기화
       form.reset({
-        revenueAmount: null,
         harvestQuantity: null,
         harvestUnit: null,
         qualityGrade: null,
-        salesChannel: null,
+        revenueItems: [
+          {
+            salesChannel: "",
+            revenue: 0,
+          },
+        ],
         expenseItems: [
           {
             category: "",
@@ -187,8 +246,11 @@ export default function LedgerWriteDialog({
         const costs = form.getValues("expenseItems").map(item => item?.cost || 0);
         calculateTotalExpense(costs);
       }
-      if (name === "revenueAmount") {
-        setRevenueAmount(value.revenueAmount);
+      if (name?.startsWith("revenueItems")) {
+        const totalRevenue = form
+          .getValues("revenueItems")
+          .reduce((sum, item) => sum + (item?.revenue || 0), 0);
+        setRevenueAmount(totalRevenue);
       }
     });
     return () => subscription.unsubscribe();
@@ -197,7 +259,9 @@ export default function LedgerWriteDialog({
   // 초기 revenueAmount 설정
   useEffect(() => {
     if (ledger && open) {
-      setRevenueAmount(ledger.revenueAmount);
+      const totalRevenue = fromSerializedRevenueItems(ledger.salesChannel, ledger.revenueAmount)
+        .reduce((sum, item) => sum + item.revenue, 0);
+      setRevenueAmount(totalRevenue);
     } else if (task && open && !ledger) {
       setRevenueAmount(null);
     }
@@ -211,11 +275,11 @@ export default function LedgerWriteDialog({
 
       const ledgerData: InsertLedger = {
         taskId: task.id,
-        revenueAmount: data.revenueAmount || null,
+        revenueAmount: data.revenueItems.reduce((sum, item) => sum + item.revenue, 0) || null,
         harvestQuantity: data.harvestQuantity || null,
         harvestUnit: data.harvestUnit || null,
         qualityGrade: data.qualityGrade || null,
-        salesChannel: data.salesChannel || null,
+        salesChannel: toSerializedRevenueItems(data.revenueItems),
       };
 
       const expenseItems: InsertExpenseItem[] = data.expenseItems.map(item => ({
@@ -253,11 +317,11 @@ export default function LedgerWriteDialog({
       }
 
       const ledgerData: Partial<InsertLedger> = {
-        revenueAmount: data.revenueAmount || null,
+        revenueAmount: data.revenueItems.reduce((sum, item) => sum + item.revenue, 0) || null,
         harvestQuantity: data.harvestQuantity || null,
         harvestUnit: data.harvestUnit || null,
         qualityGrade: data.qualityGrade || null,
-        salesChannel: data.salesChannel || null,
+        salesChannel: toSerializedRevenueItems(data.revenueItems),
       };
 
       const expenseItems: InsertExpenseItem[] = data.expenseItems.map(item => ({
@@ -287,10 +351,46 @@ export default function LedgerWriteDialog({
   });
 
   const onSubmit = (data: FormValues) => {
+    const validRevenueItems = data.revenueItems.filter(
+      (item) => item.salesChannel && item.salesChannel.trim() !== "" && item.revenue > 0
+    );
+    const validExpenseItems = data.expenseItems.filter((item) => {
+      const category =
+        item.category === "기타" && item.customCategory
+          ? item.customCategory.trim()
+          : (item.category || "").trim();
+      return category.length > 0 && item.cost > 0;
+    });
+    const hasMetadata =
+      (data.harvestQuantity ?? 0) > 0 ||
+      Boolean(data.harvestUnit) ||
+      Boolean(data.qualityGrade);
+
+    if (!hasMetadata && validRevenueItems.length === 0 && validExpenseItems.length === 0) {
+      toast({
+        title: "저장할 내용이 없습니다",
+        description: "아무 항목도 입력되지 않으면 미등록과 동일하여 저장할 수 없습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const normalizedData: FormValues = {
+      ...data,
+      revenueItems: validRevenueItems,
+      expenseItems: validExpenseItems.map((item) => ({
+        ...item,
+        category:
+          item.category === "기타" && item.customCategory
+            ? item.customCategory.trim()
+            : item.category || "",
+      })),
+    };
+
     if (ledger) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(normalizedData);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(normalizedData);
     }
   };
 
@@ -332,11 +432,10 @@ export default function LedgerWriteDialog({
               </div>
             </div>
 
-            {/* 매출 입력 영역 */}
+            {/* 수확/품질 입력 영역 */}
             <div className="space-y-4">
-              <div className="text-sm font-medium text-gray-700">매출 정보</div>
+              <div className="text-sm font-medium text-gray-700">수확/품질 정보</div>
 
-              {/* 1. 수확량 / 단위 */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -388,89 +487,111 @@ export default function LedgerWriteDialog({
                 />
               </div>
 
-              {/* 2. 총 매출액 */}
               <FormField
                 control={form.control}
-                name="revenueAmount"
+                name="qualityGrade"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>총 매출액 (원)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        placeholder="0"
-                        value={formatNumber(field.value)}
-                        onChange={(e) => {
-                          const num = parseNumber(e.target.value);
-                          field.onChange(num);
-                          setRevenueAmount(num);
-                        }}
-                        inputMode="numeric"
-                      />
-                    </FormControl>
+                    <FormLabel>품질 등급</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="선택" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {QUALITY_GRADES.map((grade) => (
+                          <SelectItem key={grade} value={grade}>
+                            {grade}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </div>
 
-              {/* 3. 품질 등급 / 판매처 (선택 항목) */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="qualityGrade"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>품질 등급</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value ?? ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="선택" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {QUALITY_GRADES.map((grade) => (
-                            <SelectItem key={grade} value={grade}>
-                              {grade}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            {/* 매출 입력 영역 */}
+            <div className="space-y-4">
+              <div className="text-sm font-medium text-gray-700">매출 정보</div>
 
-                <FormField
-                  control={form.control}
-                  name="salesChannel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>판매처</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value ?? ""}
-                      >
+              {revenueFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 items-end">
+                  <FormField
+                    control={form.control}
+                    name={`revenueItems.${index}.salesChannel`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>판매처</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="선택" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {SALES_CHANNELS.map((channel) => (
+                              <SelectItem key={channel} value={channel}>
+                                {channel}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`revenueItems.${index}.revenue`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>수익 (원)</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="선택" />
-                          </SelectTrigger>
+                          <Input
+                            type="text"
+                            placeholder="0"
+                            value={formatNumber(field.value)}
+                            onChange={(e) => {
+                              const num = parseNumber(e.target.value);
+                              field.onChange(num || 0);
+                            }}
+                            inputMode="numeric"
+                          />
                         </FormControl>
-                        <SelectContent>
-                          {SALES_CHANNELS.map((channel) => (
-                            <SelectItem key={channel} value={channel}>
-                              {channel}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeRevenue(index)}
+                    disabled={revenueFields.length === 1}
+                    className="mb-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => appendRevenue({ salesChannel: "", revenue: 0 })}
+              >
+                매출 추가
+              </Button>
             </div>
 
             {/* 비용 입력 영역 */}
@@ -540,6 +661,7 @@ export default function LedgerWriteDialog({
                         variant="ghost"
                         size="icon"
                         onClick={() => removeExpenseItem(index)}
+                        disabled={fields.length === 1}
                         className="mb-0"
                       >
                         <X className="w-4 h-4" />
@@ -568,6 +690,22 @@ export default function LedgerWriteDialog({
                   </div>
                 );
               })}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() =>
+                  append({
+                    category: "",
+                    customCategory: undefined,
+                    cost: 0,
+                  })
+                }
+              >
+                비용 추가
+              </Button>
 
               {(totalExpense > 0 || revenueAmount) && (
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2">

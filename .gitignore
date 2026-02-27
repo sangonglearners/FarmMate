@@ -316,3 +316,9 @@ pids
 attached_assets/
 FarmMate.zip
 FarmMate (1).zip
+
+# 실행 파일 및 설정 폴더 제외
+.bun/
+*.exe
+node_modules/
+.env

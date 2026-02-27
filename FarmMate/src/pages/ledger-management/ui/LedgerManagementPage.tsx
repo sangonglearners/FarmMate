@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Edit, Trash2, CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Edit, Trash2, CalendarIcon, X, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +17,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronDown } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { listLedgers, deleteLedger, type LedgerWithExpenses } from "@/shared/api/ledgers";
 import { listTasksRange } from "@/shared/api/tasks";
@@ -40,10 +49,29 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
+const LEDGER_TASK_TYPE_OPTIONS = [
+  "파종",
+  "육묘",
+  "이랑준비",
+  "정식",
+  "풀/병해충/수분 관리",
+  "고르기",
+  "수확",
+  "저장-포장",
+  "기타",
+] as const;
+
+const BASE_TASK_TYPES_EXCEPT_ETC = LEDGER_TASK_TYPE_OPTIONS.filter((type) => type !== "기타");
+
 export default function LedgerManagementPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState<"all" | "unregistered" | "registered">("all");
   const [selectedFarmIds, setSelectedFarmIds] = useState<string[]>([]);
+  const [selectedTaskTypes, setSelectedTaskTypes] = useState<string[]>([]);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [draftStatusFilter, setDraftStatusFilter] = useState<"all" | "unregistered" | "registered">("all");
+  const [draftFarmIds, setDraftFarmIds] = useState<string[]>([]);
+  const [draftTaskTypes, setDraftTaskTypes] = useState<string[]>([]);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedLedger, setSelectedLedger] = useState<LedgerWithExpenses | null>(null);
@@ -80,6 +108,13 @@ export default function LedgerManagementPage() {
   // 장부가 등록된 작업 ID 집합
   const ledgerTaskIds = new Set(ledgers.map(l => l.taskId).filter(Boolean) as string[]);
 
+  const taskTypeOptions = LEDGER_TASK_TYPE_OPTIONS;
+  const farmOptionIds = useMemo(() => (farms || []).map((farm) => farm.id), [farms]);
+  const farmNameById = useMemo(
+    () => new Map((farms || []).map((farm) => [farm.id, farm.name])),
+    [farms]
+  );
+
   // 필터링 및 정렬된 작업 목록
   const filteredAndSortedTasks = useMemo(() => {
     let filtered = tasks;
@@ -96,6 +131,22 @@ export default function LedgerManagementPage() {
       filtered = filtered.filter(task => task.farmId && selectedFarmIds.includes(task.farmId));
     }
 
+    // 작업 종류 필터 적용
+    if (selectedTaskTypes.length > 0) {
+      const includesEtc = selectedTaskTypes.includes("기타");
+      filtered = filtered.filter((task) => {
+        if (selectedTaskTypes.includes(task.taskType)) {
+          return true;
+        }
+
+        // "기타" 필터는 커스텀 농작업명(예: "아이")도 포함한다.
+        if (includesEtc) {
+          return !BASE_TASK_TYPES_EXCEPT_ETC.includes(task.taskType as (typeof BASE_TASK_TYPES_EXCEPT_ETC)[number]);
+        }
+        return false;
+      });
+    }
+
     // 정렬: 장부 미등록 건을 최상단에 우선 배치
     return filtered.sort((a, b) => {
       const aHasLedger = ledgerTaskIds.has(a.id);
@@ -107,7 +158,7 @@ export default function LedgerManagementPage() {
       // 같은 상태면 날짜순 정렬
       return a.scheduledDate.localeCompare(b.scheduledDate);
     });
-  }, [tasks, ledgerTaskIds, statusFilter, selectedFarmIds]);
+  }, [tasks, ledgerTaskIds, statusFilter, selectedFarmIds, selectedTaskTypes]);
 
   // 작업 정보 가져오기 헬퍼
   const getTaskInfo = (task: Task) => {
@@ -203,40 +254,143 @@ export default function LedgerManagementPage() {
     setSelectedMonth(newDate);
   };
 
-  // 농장 선택 핸들러
-  const handleFarmToggle = (farmId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedFarmIds(prev => [...prev, farmId]);
-    } else {
-      setSelectedFarmIds(prev => prev.filter(id => id !== farmId));
-    }
+  const normalizeFarmSelection = (ids: string[]) => {
+    if (farmOptionIds.length === 0) return [];
+    return ids.length === farmOptionIds.length ? [] : ids;
   };
 
-  // 전체 선택 핸들러
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedFarmIds(farms?.map(f => f.id) || []);
-    } else {
-      setSelectedFarmIds([]);
-    }
+  const normalizeTaskTypeSelection = (taskTypes: string[]) => {
+    return taskTypes.length === taskTypeOptions.length ? [] : taskTypes;
   };
 
-  // 농장 필터 표시 텍스트
-  const getFarmFilterText = () => {
-    if (selectedFarmIds.length === 0) {
+  const handleFarmToggle = (farmId: string) => {
+    setSelectedFarmIds((prev) => {
+      if (prev.includes(farmId)) {
+        return prev.filter((id) => id !== farmId);
+      }
+      return normalizeFarmSelection([...prev, farmId]);
+    });
+  };
+
+  const handleTaskTypeToggle = (taskType: string) => {
+    setSelectedTaskTypes((prev) => {
+      if (prev.includes(taskType)) {
+        return prev.filter((type) => type !== taskType);
+      }
+      return normalizeTaskTypeSelection([...prev, taskType]);
+    });
+  };
+
+  const handleDraftFarmToggle = (farmId: string) => {
+    setDraftFarmIds((prev) => {
+      if (prev.includes(farmId)) {
+        return prev.filter((id) => id !== farmId);
+      }
+      return normalizeFarmSelection([...prev, farmId]);
+    });
+  };
+
+  const handleDraftTaskTypeToggle = (taskType: string) => {
+    setDraftTaskTypes((prev) => {
+      if (prev.includes(taskType)) {
+        return prev.filter((type) => type !== taskType);
+      }
+      return normalizeTaskTypeSelection([...prev, taskType]);
+    });
+  };
+
+  const getTaskTypeChipClasses = (selected: boolean) => {
+    const active = selected
+      ? "border-amber-500 bg-amber-100 text-amber-800"
+      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
+    return `h-8 rounded-full border px-3 text-sm ${active}`;
+  };
+
+  const getFarmChipClasses = (selected: boolean) => {
+    const active = selected
+      ? "border-sky-500 bg-sky-100 text-sky-800"
+      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
+    return `h-8 rounded-full border px-3 text-sm ${active}`;
+  };
+
+  const yearMonthLabel = format(selectedMonth, "yyyy년 M월");
+
+  const openFilterSheet = () => {
+    setDraftStatusFilter(statusFilter);
+    setDraftFarmIds(selectedFarmIds);
+    setDraftTaskTypes(selectedTaskTypes);
+    setFilterSheetOpen(true);
+  };
+
+  const applyFilters = () => {
+    setStatusFilter(draftStatusFilter);
+    setSelectedFarmIds(normalizeFarmSelection(draftFarmIds));
+    setSelectedTaskTypes(normalizeTaskTypeSelection(draftTaskTypes));
+    setFilterSheetOpen(false);
+  };
+
+  const resetDraftFilters = () => {
+    setDraftStatusFilter("all");
+    setDraftFarmIds([]);
+    setDraftTaskTypes([]);
+  };
+
+  const getStatusLabel = (status: "all" | "unregistered" | "registered") => {
+    if (status === "unregistered") return "미등록";
+    if (status === "registered") return "등록완료";
+    return "전체";
+  };
+
+  const getSelectedFarmNames = (farmIds: string[]) => {
+    return farmIds
+      .map((farmId) => farmNameById.get(farmId))
+      .filter((name): name is string => Boolean(name));
+  };
+
+  const getSummaryText = (category: string, selectedItems: string[], allItems: string[]) => {
+    if (selectedItems.length === 0 || selectedItems.length === allItems.length) {
+      return `${category}: 전체`;
+    }
+    if (selectedItems.length === 1) {
+      return `${category}: ${selectedItems[0]}`;
+    }
+    return `${category}: ${selectedItems[0]} 외 ${selectedItems.length - 1}개`;
+  };
+
+  const getTooltipText = (selectedItems: string[], allItems: string[]) => {
+    if (selectedItems.length === 0 || selectedItems.length === allItems.length) {
       return "전체";
     }
-    if (selectedFarmIds.length === farms?.length) {
-      return "전체";
-    }
-    if (selectedFarmIds.length === 1) {
-      const farm = farms?.find(f => f.id === selectedFarmIds[0]);
-      return farm?.name || "전체";
-    }
-    return `${selectedFarmIds.length}개 선택됨`;
+    return selectedItems.join(", ");
   };
 
-  const isAllSelected = selectedFarmIds.length === 0 || selectedFarmIds.length === farms?.length;
+  const getStatusEmptyMessage = () => {
+    if (statusFilter === "unregistered") {
+      return "장부 미등록 작업이 없습니다.";
+    }
+    if (statusFilter === "registered") {
+      return "장부 등록된 작업이 없습니다.";
+    }
+    if (selectedFarmIds.length > 0 || selectedTaskTypes.length > 0) {
+      return "선택한 필터 조건에 맞는 작업이 없습니다.";
+    } else {
+      return "해당 기간에 작업이 없습니다.";
+    }
+  };
+
+  const selectedFarmNames = getSelectedFarmNames(selectedFarmIds);
+
+  const statusSummary = `등록 상태: ${getStatusLabel(statusFilter)}`;
+  const taskSummary = getSummaryText("농작업", selectedTaskTypes, [...taskTypeOptions]);
+  const farmSummary = getSummaryText(
+    "농장",
+    selectedFarmNames,
+    (farms || []).map((farm) => farm.name)
+  );
+
+  const statusTooltip = getStatusLabel(statusFilter);
+  const taskTooltip = getTooltipText(selectedTaskTypes, [...taskTypeOptions]);
+  const farmTooltip = getTooltipText(selectedFarmNames, (farms || []).map((farm) => farm.name));
 
   // 날짜 포맷팅 헬퍼
   const formatTaskDateRange = (task: Task) => {
@@ -253,6 +407,8 @@ export default function LedgerManagementPage() {
     if (!ledger) return "";
     return format(new Date(ledger.createdAt), "yyyy-MM-dd");
   };
+
+  const popoverPanelClass = "w-[calc(100vw-2rem)] max-w-[20rem] p-3";
 
   return (
     <div className="p-4 space-y-6">
@@ -276,141 +432,350 @@ export default function LedgerManagementPage() {
 
       {/* 필터 영역 */}
       <div className="space-y-4">
-        {/* 상단 필터: 날짜 선택 + 농장별 토글리스트 */}
-        <div className="flex items-center gap-4">
-          {/* 연/월 선택 (하나의 토글 안에서) */}
-          <div className="flex items-center gap-2 flex-1">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePreviousMonth}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="flex-1 justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {currentYear}년 {currentMonth}월
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-4" align="start">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">연도</label>
-                    <Select value={currentYear.toString()} onValueChange={handleYearChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}년
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+        {/* 날짜 선택기 (중앙 콤팩트) */}
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="flex justify-start">
+            <div className="inline-flex h-9 items-center rounded-md border border-input bg-background">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-none rounded-l-md"
+                onClick={handlePreviousMonth}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="h-5 w-px bg-border" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-9 min-w-[136px] justify-start rounded-none px-3 text-left sm:min-w-[156px]"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {yearMonthLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-4" align="start">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">연도</label>
+                      <Select value={currentYear.toString()} onValueChange={handleYearChange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}년
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">월</label>
+                      <Select value={currentMonth.toString()} onValueChange={handleMonthChange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {months.map((month) => (
+                            <SelectItem key={month} value={month.toString()}>
+                              {month}월
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">월</label>
-                    <Select value={currentMonth.toString()} onValueChange={handleMonthChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {months.map((month) => (
-                          <SelectItem key={month} value={month.toString()}>
-                            {month}월
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNextMonth}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+                </PopoverContent>
+              </Popover>
+              <div className="h-5 w-px bg-border" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-none rounded-r-md"
+                onClick={handleNextMonth}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-
-          {/* 농장별 토글다운 */}
-          {farms && farms.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-between min-w-[150px]">
-                  <span className="text-sm">{getFarmFilterText()}</span>
-                  <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3" align="end">
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-50 cursor-pointer">
-                    <Checkbox
-                      id="farm-all"
-                      checked={isAllSelected}
-                      onCheckedChange={handleSelectAll}
-                    />
-                    <label
-                      htmlFor="farm-all"
-                      className="text-sm font-medium cursor-pointer flex-1"
-                    >
-                      전체
-                    </label>
-                  </div>
-                  <div className="border-t pt-2 space-y-1">
-                    {farms.map((farm) => (
-                      <div
-                        key={farm.id}
-                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-50 cursor-pointer"
-                      >
-                        <Checkbox
-                          id={`farm-${farm.id}`}
-                          checked={selectedFarmIds.includes(farm.id)}
-                          onCheckedChange={(checked) => handleFarmToggle(farm.id, checked as boolean)}
-                        />
-                        <label
-                          htmlFor={`farm-${farm.id}`}
-                          className="text-sm cursor-pointer flex-1"
-                        >
-                          {farm.name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 justify-self-end shrink-0"
+            onClick={openFilterSheet}
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
         </div>
 
-        {/* 상태 필터 */}
-        <Select value={statusFilter} onValueChange={(value: "all" | "unregistered" | "registered") => setStatusFilter(value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="상태 필터" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="unregistered">장부 미등록</SelectItem>
-            <SelectItem value="registered">장부 등록</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* 필터 요약 칩 (가로 스크롤) */}
+        <div className="text-xs font-medium text-gray-500">필터 표시</div>
+        <div className="overflow-x-auto">
+          <TooltipProvider delayDuration={150}>
+            <div className="flex w-max min-w-full items-center gap-2 pb-1">
+              <Tooltip>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-green-300 bg-green-50 px-3 text-sm text-green-800 hover:bg-green-100"
+                      >
+                        {statusSummary}
+                        {statusFilter !== "all" && (
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-green-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setStatusFilter("all");
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent className={popoverPanelClass} side="bottom" align="start">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        className={statusFilter === "all" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        onClick={() => setStatusFilter("all")}
+                      >
+                        전체
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className={statusFilter === "unregistered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        onClick={() => setStatusFilter("unregistered")}
+                      >
+                        미등록
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className={statusFilter === "registered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        onClick={() => setStatusFilter("registered")}
+                      >
+                        등록완료
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <TooltipContent>{statusTooltip}</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-3 text-sm text-amber-800 hover:bg-amber-100"
+                      >
+                        {taskSummary}
+                        {selectedTaskTypes.length > 0 && (
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-amber-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setSelectedTaskTypes([]);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent className={popoverPanelClass} side="bottom" align="start">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className={getTaskTypeChipClasses(selectedTaskTypes.length === 0)}
+                        onClick={() => setSelectedTaskTypes([])}
+                      >
+                        전체
+                      </Button>
+                      {taskTypeOptions.map((taskType) => (
+                        <Button
+                          key={taskType}
+                          variant="outline"
+                          className={getTaskTypeChipClasses(selectedTaskTypes.includes(taskType))}
+                          onClick={() => handleTaskTypeToggle(taskType)}
+                        >
+                          {taskType}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <TooltipContent>{taskTooltip}</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-sky-300 bg-sky-50 px-3 text-sm text-sky-800 hover:bg-sky-100"
+                      >
+                        {farmSummary}
+                        {selectedFarmIds.length > 0 && (
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-sky-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setSelectedFarmIds([]);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent className={popoverPanelClass} side="bottom" align="start">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className={getFarmChipClasses(selectedFarmIds.length === 0)}
+                        onClick={() => setSelectedFarmIds([])}
+                      >
+                        전체
+                      </Button>
+                      {(farms || []).map((farm) => (
+                        <Button
+                          key={farm.id}
+                          variant="outline"
+                          className={getFarmChipClasses(selectedFarmIds.includes(farm.id))}
+                          onClick={() => handleFarmToggle(farm.id)}
+                        >
+                          {farm.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <TooltipContent>{farmTooltip}</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>
       </div>
+
+      {/* 통합 필터 관리 */}
+      <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-center">필터 상세 설정</SheetTitle>
+          </SheetHeader>
+
+          <div className="mt-5 space-y-6 pb-3">
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">등록 상태</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  className={draftStatusFilter === "all" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                  onClick={() => setDraftStatusFilter("all")}
+                >
+                  전체
+                </Button>
+                <Button
+                  variant="outline"
+                  className={draftStatusFilter === "unregistered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                  onClick={() => setDraftStatusFilter("unregistered")}
+                >
+                  미등록
+                </Button>
+                <Button
+                  variant="outline"
+                  className={draftStatusFilter === "registered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                  onClick={() => setDraftStatusFilter("registered")}
+                >
+                  등록완료
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">농작업</h3>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className={getTaskTypeChipClasses(draftTaskTypes.length === 0)}
+                  onClick={() => setDraftTaskTypes([])}
+                >
+                  전체
+                </Button>
+                {taskTypeOptions.map((taskType) => (
+                  <Button
+                    key={taskType}
+                    variant="outline"
+                    className={getTaskTypeChipClasses(draftTaskTypes.includes(taskType))}
+                    onClick={() => handleDraftTaskTypeToggle(taskType)}
+                  >
+                    {taskType}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">농장</h3>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className={getFarmChipClasses(draftFarmIds.length === 0)}
+                  onClick={() => setDraftFarmIds([])}
+                >
+                  전체
+                </Button>
+                {(farms || []).map((farm) => (
+                  <Button
+                    key={farm.id}
+                    variant="outline"
+                    className={getFarmChipClasses(draftFarmIds.includes(farm.id))}
+                    onClick={() => handleDraftFarmToggle(farm.id)}
+                  >
+                    {farm.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <Button variant="outline" onClick={resetDraftFilters}>
+                초기화
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={applyFilters}>
+                필터 적용
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* 작업 목록 */}
       <div className="space-y-3">
         {filteredAndSortedTasks.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-gray-500">
-              {statusFilter === "unregistered" 
-                ? "장부 미등록 작업이 없습니다."
-                : statusFilter === "registered"
-                ? "장부 등록된 작업이 없습니다."
-                : "해당 기간에 작업이 없습니다."}
+              {getStatusEmptyMessage()}
             </CardContent>
           </Card>
         ) : (
