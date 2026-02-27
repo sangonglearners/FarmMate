@@ -7,10 +7,10 @@ import { KPICard } from "./components/KPICard";
 import { TrendChart } from "./components/TrendChart";
 import { CropMixChart } from "./components/CropMixChart";
 import { BlockHealthGrid } from "./components/BlockHealthGrid";
-import { filterTasksByCurrentWeek, filterTasksByDateRange } from "@/shared/utils/task-filter";
+import { filterTasksByCurrentWeek, filterTasksByDateRange, filterTasksByLast8Weeks, filterTasksByCurrentYear, filterTasksByLast5Years } from "@/shared/utils/task-filter";
 import type { Task } from "@shared/schema";
 
-type PeriodType = "daily" | "weekly" | "monthly" | "yearly";
+type PeriodType = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
 interface RevenueData {
   period: string;
@@ -18,7 +18,7 @@ interface RevenueData {
   change?: number;
 }
 
-// 가데이터 생성 함수 (수출액 트렌드 차트용)
+// 가데이터 생성 함수 (매출액 트렌드 차트용)
 const generateRevenueData = (periodType: PeriodType): RevenueData[] => {
   const baseValue = 8000000; // 기본값 800만원
   
@@ -35,23 +35,58 @@ const generateRevenueData = (periodType: PeriodType): RevenueData[] => {
         value: baseValue + Math.random() * 2000000 - 1000000,
         change: Math.random() * 20 - 10,
       }));
-    case "monthly":
-      return Array.from({ length: 12 }, (_, i) => ({
-        period: ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"][i],
+    case "monthly": {
+      // 가장 최신 달(현재 달) 기준으로 이전 12개월
+      const now = new Date();
+      const currentMonth = now.getMonth(); // 0~11
+      const currentYear = now.getFullYear();
+      const monthLabels = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+
+      // 오래된 달 → 최신 달 순으로 12개월 생성
+      return Array.from({ length: 12 }, (_, i) => {
+        const date = new Date(currentYear, currentMonth - (11 - i), 1);
+        const monthIndex = date.getMonth(); // 보정된 월 인덱스
+
+        return {
+          period: monthLabels[monthIndex],
+          value: baseValue + Math.random() * 2000000 - 1000000,
+          change: Math.random() * 20 - 10,
+        };
+      });
+    }
+    case "quarterly":
+      return Array.from({ length: 4 }, (_, i) => ({
+        period: `Q${i + 1}`,
         value: baseValue + Math.random() * 2000000 - 1000000,
         change: Math.random() * 20 - 10,
       }));
-    case "yearly":
+    case "yearly": {
+      // 현재 연도를 기준으로 최근 5년 표시 (가장 최근 연도가 현재 연도)
+      const currentYear = new Date().getFullYear();
       return Array.from({ length: 5 }, (_, i) => ({
-        period: `${2020 + i}년`,
+        period: `${currentYear - 4 + i}년`,
         value: baseValue + Math.random() * 2000000 - 1000000,
         change: Math.random() * 20 - 10,
       }));
+    }
   }
+};
+
+const formatDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 export default function StatsPage() {
   const [periodType, setPeriodType] = useState<PeriodType>("daily");
+  const today = new Date();
+  const oneYearAgo = new Date(today);
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+  const [startDate, setStartDate] = useState<string>(formatDate(oneYearAgo));
+  const [endDate, setEndDate] = useState<string>(formatDate(today));
   
   // 현재 사용자 정보 가져오기
   const { user } = useAuth();
@@ -61,54 +96,24 @@ export default function StatsPage() {
   const { data: farms = [] } = useFarms();
   const { data: crops = [] } = useCrops();
 
-  // 필터에 따라 작업 필터링
+  // 최상단 날짜 범위에 따른 작업 필터링
   const tasks = useMemo(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    today.setHours(0, 0, 0, 0);
-    
-    switch (periodType) {
-      case "daily": {
-        // 현재 날짜 기준: 이번 주 월요일부터 일요일까지
-        return filterTasksByCurrentWeek(allTasks, today);
-      }
-      case "weekly": {
-        // 최근 8주
-        const eightWeeksAgo = new Date(today);
-        eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
-        eightWeeksAgo.setHours(0, 0, 0, 0);
-        const eightWeeksAgoStr = `${eightWeeksAgo.getFullYear()}-${String(eightWeeksAgo.getMonth() + 1).padStart(2, '0')}-${String(eightWeeksAgo.getDate()).padStart(2, '0')}`;
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        
-        return filterTasksByDateRange(allTasks, eightWeeksAgoStr, todayStr);
-      }
-      case "monthly": {
-        // 올해 1월부터 현재까지
-        const startOfYear = new Date(today.getFullYear(), 0, 1);
-        const startOfYearStr = `${startOfYear.getFullYear()}-${String(startOfYear.getMonth() + 1).padStart(2, '0')}-${String(startOfYear.getDate()).padStart(2, '0')}`;
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        
-        return filterTasksByDateRange(allTasks, startOfYearStr, todayStr);
-      }
-      case "yearly": {
-        // 최근 5년
-        const fiveYearsAgo = new Date(today);
-        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-        fiveYearsAgo.setHours(0, 0, 0, 0);
-        const fiveYearsAgoStr = `${fiveYearsAgo.getFullYear()}-${String(fiveYearsAgo.getMonth() + 1).padStart(2, '0')}-${String(fiveYearsAgo.getDate()).padStart(2, '0')}`;
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        
-        return filterTasksByDateRange(allTasks, fiveYearsAgoStr, todayStr);
-      }
-      default:
-        return allTasks;
+    // 최상단 날짜 필터가 설정되지 않은 경우 전체 작업 사용
+    if (!startDate || !endDate) {
+      return allTasks;
     }
-  }, [allTasks, periodType]);
 
-  // 수출액 트렌드 차트 데이터 (가데이터)
+    // YYYY-MM-DD 형식 문자열 비교로 범위 정규화
+    const normalizedStart = startDate <= endDate ? startDate : endDate;
+    const normalizedEnd = endDate >= startDate ? endDate : startDate;
+
+    return filterTasksByDateRange(allTasks, normalizedStart, normalizedEnd);
+  }, [allTasks, startDate, endDate]);
+
+  // 매출액 트렌드 차트 데이터 (가데이터)
   const revenueData = useMemo(() => generateRevenueData(periodType), [periodType]);
   
-  // 수출액 KPI 계산 (가데이터 기반)
+  // 매출액 KPI 계산 (가데이터 기반)
   const averageRevenue = useMemo(() => {
     if (revenueData.length === 0) return 0;
     return revenueData.reduce((sum, item) => sum + item.value, 0) / revenueData.length;
@@ -126,7 +131,9 @@ export default function StatsPage() {
     return ((averageRevenue - previousPeriodAverage) / previousPeriodAverage) * 100;
   }, [averageRevenue, previousPeriodAverage]);
 
-  // 작업 완료율 계산 (내가 적은 전체 TODO 중에 내가 완료한 TODO 비율)
+  // 작업 완료율 계산
+  // - 일간: 이번 주 월~일 기준 (To-do 총 개수 중 내가 완료한 작업 수)
+  // - 그 외: 현재 날짜 필터 범위 내에서 내가 완료한 작업 비율
   const completionRate = useMemo(() => {
     // user가 로드되지 않았으면 0 반환
     if (!user?.id) {
@@ -134,26 +141,32 @@ export default function StatsPage() {
       return 0;
     }
     
+    // 일간 탭인 경우, 이번 주 월~일 범위로 한 번 더 필터링
+    const baseTasks =
+      periodType === "daily"
+        ? filterTasksByCurrentWeek(tasks)
+        : tasks;
+
     console.log("작업 완료율 계산 시작:", {
-      totalTasks: tasks.length,
+      totalTasks: baseTasks.length,
       userId: user.id,
       userIdType: typeof user.id,
-      sampleTask: tasks[0] ? { 
-        id: tasks[0].id, 
-        userId: tasks[0].userId, 
-        userIdType: typeof tasks[0].userId,
-        completed: tasks[0].completed 
+      sampleTask: baseTasks[0] ? {
+        id: baseTasks[0].id,
+        userId: baseTasks[0].userId,
+        userIdType: typeof baseTasks[0].userId,
+        completed: baseTasks[0].completed
       } : null,
     });
     
     // 내가 생성한 작업만 필터링 (타입 변환을 명시적으로 처리)
     const currentUserId = String(user.id);
-    const myTasks = tasks.filter((task) => {
+    const myTasks = baseTasks.filter((task) => {
       const taskUserId = String(task.userId || "");
       const isMatch = taskUserId === currentUserId;
       
       // 첫 번째 불일치만 로그 출력 (너무 많은 로그 방지)
-      if (!isMatch && tasks.indexOf(task) === 0) {
+      if (!isMatch && baseTasks.indexOf(task) === 0) {
         console.log("작업 필터링 불일치 예시:", {
           taskId: task.id,
           taskUserId: taskUserId,
@@ -166,7 +179,7 @@ export default function StatsPage() {
     
     console.log("내 작업 필터링 결과:", {
       myTasksCount: myTasks.length,
-      totalTasksCount: tasks.length,
+      totalTasksCount: baseTasks.length,
       allMyTasks: myTasks.map(t => ({ 
         id: t.id, 
         title: t.title,
@@ -199,7 +212,7 @@ export default function StatsPage() {
     });
     
     return rate;
-  }, [tasks, user?.id]);
+  }, [tasks, user?.id, periodType]);
 
   // 작물 구성 계산 (실제 데이터 기반)
   const cropMixData = useMemo(() => {
@@ -278,14 +291,36 @@ export default function StatsPage() {
     const totalRows = farms.reduce((sum, farm) => sum + (farm.rowCount || 0), 0);
 
     // 비율 계산 (사용 중인 이랑 기준) 및 정렬
-    return cropData
+    const sortedData = cropData
       .map((item) => ({
         name: item.cropName,
         value: item.usedRowCount,
         percentage: totalUsedRows > 0 ? (item.usedRowCount / totalUsedRows) * 100 : 0,
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10); // 상위 10개만 표시
+      .sort((a, b) => b.value - a.value);
+    
+    // 상위 5개와 나머지 분리
+    const top5 = sortedData.slice(0, 5);
+    const others = sortedData.slice(5);
+    
+    // 나머지가 있으면 "기타"로 합치기
+    if (others.length > 0) {
+      const othersTotal = others.reduce((sum, item) => sum + item.value, 0);
+      const othersPercentage = totalUsedRows > 0 ? (othersTotal / totalUsedRows) * 100 : 0;
+      const othersNames = others.map(item => item.name);
+      
+      return [
+        ...top5,
+        {
+          name: "기타",
+          value: othersTotal,
+          percentage: othersPercentage,
+          others: othersNames,
+        }
+      ];
+    }
+    
+    return top5;
   }, [tasks, crops, farms]);
 
   // 전체 이랑 수 (텍스트 표시용)
@@ -403,10 +438,30 @@ export default function StatsPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-2">통계</h1>
         <p className="text-gray-600 text-sm mb-4">농작업 통계를 확인해 보세요</p>
       </div>
+
+      {/* 날짜 범위 필터 - 소제목 아래 */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-gray-500">날짜 범위</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <span className="text-gray-400 text-sm">~</span>
+          <input
+            type="date"
+            className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+      </div>
       
       {/* 기간 필터 - 좌측 정렬 */}
       <div className="flex gap-2">
-        {(["daily", "weekly", "monthly", "yearly"] as PeriodType[]).map((period) => (
+        {(["daily", "weekly", "monthly", "quarterly", "yearly"] as PeriodType[]).map((period) => (
           <button
             key={period}
             onClick={() => setPeriodType(period)}
@@ -416,7 +471,15 @@ export default function StatsPage() {
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            {period === "daily" ? "일간" : period === "weekly" ? "주간" : period === "monthly" ? "월간" : "연간"}
+            {period === "daily"
+              ? "일간"
+              : period === "weekly"
+              ? "주간"
+              : period === "monthly"
+              ? "월간"
+              : period === "quarterly"
+              ? "분기간"
+              : "연간"}
           </button>
         ))}
       </div>
@@ -424,7 +487,7 @@ export default function StatsPage() {
       {/* KPI 카드들 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <KPICard
-          title="평균 수출액"
+          title="평균 매출액"
           value={`₩${Math.round(averageRevenue).toLocaleString()}`}
           change={revenueChange}
           formula="현재 기간 평균값"
@@ -436,7 +499,7 @@ export default function StatsPage() {
         />
       </div>
 
-      {/* 수출액 추이 차트 */}
+      {/* 매출액 추이 차트 */}
       <TrendChart data={revenueData} periodType={periodType} />
 
       {/* 작물 구성 차트 - 항상 표시 */}
