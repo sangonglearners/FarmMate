@@ -1,4 +1,4 @@
-import { Sprout } from 'lucide-react';
+import { Sprout, User } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 
 export default function Header() {
@@ -23,8 +23,16 @@ export default function Header() {
               <h1 className="text-lg font-bold text-primary">FarmMate</h1>
             </div>
           </Link>
-          
-          
+
+          <Link
+            href="/my-page"
+            className={`p-2 rounded-full transition-colors ${
+              isActive("/my-page") ? "text-primary bg-primary/10" : "text-gray-600 hover:text-primary hover:bg-gray-100"
+            }`}
+            aria-label="마이페이지 이동"
+          >
+            <User className="w-5 h-5" />
+          </Link>
         </div>
       </div>
     </header>
