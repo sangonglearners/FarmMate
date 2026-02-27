@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Settings, Camera, Sprout, BookOpen } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Link, useLocation } from 'wouter';
+import { useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-import { clearCurrentUserTaskData, clearAllFrontendData } from '../../../shared/api/clearAllData';
+import { clearCurrentUserTaskData } from '../../../shared/api/clearAllData';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { sendPageView } from "../../../shared/ga";
 
@@ -141,7 +140,6 @@ export default function MyPage() {
 
   return (
     <div className="p-4 space-y-6">
-      
 
       {/* Header */}
       <div className="text-center">
@@ -231,8 +229,6 @@ export default function MyPage() {
         </button>
       </div>
 
-      {/* 농장 & 작물 관리는 별도 페이지에서 관리 */}
-
       <Dialog open={showLogout} onOpenChange={setShowLogout}>
         <DialogContent>
           <DialogHeader>
@@ -282,5 +278,3 @@ export default function MyPage() {
     </div>
   );
 }
-
-
