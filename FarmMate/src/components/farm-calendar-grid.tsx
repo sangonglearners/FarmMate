@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
+import BatchTaskEditDialog from "@/components/batch-task-edit-dialog";
 import TaskActionSheet from "@/components/task-action-sheet";
 import LedgerWriteDialog from "@/components/ledger-write-dialog";
 import type { Task, Crop } from "@shared/schema";
@@ -47,6 +48,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const memoizedTasks = useMemo(() => tasks, [tasks]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
@@ -740,7 +742,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     ? Array.from({ length: selectedFarm.rowCount }, (_, i) => i + 1)
     : Array.from({ length: 15 }, (_, i) => i + 1); // 기본값 15개
 
-  // 월간 뷰: 현재 표시할 10일 계산 (다음 달 날짜 포함)
+  // 월간 뷰: 현재 표시할 날짜 계산 (모바일: 5일, 데스크톱: 10일)
   const getMonthlyDays = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -748,9 +750,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     
     const startDay = 1 + monthlyOffset * 5;
     const days = [];
+    const dayCount = isMobile ? 5 : 10;
     
-    // 10일을 채우기 위해 현재 달과 다음 달 날짜를 조합
-    for (let i = 0; i < 10; i++) {
+    // dayCount만큼 날짜를 채우기 위해 현재 달과 다음 달 날짜를 조합
+    for (let i = 0; i < dayCount; i++) {
       const currentDay = startDay + i;
       if (currentDay <= daysInMonth) {
         // 현재 달 날짜
@@ -1487,7 +1490,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           <ChevronLeft className="w-4 h-4" />
         </Button>
 
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-sm font-semibold text-gray-900 whitespace-nowrap">
           {viewMode === "monthly" 
             ? (() => {
                 if (!currentPeriods || currentPeriods.length === 0) return "농장 달력";
@@ -1496,10 +1499,13 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 
                 // 첫 날과 마지막 날이 같은 월인 경우
                 if (firstDay.month === lastDay.month) {
-                  return `${firstDay.year}년 ${firstDay.month + 1}월 ${firstDay.day}일-${lastDay.day}일`;
+                  return `${firstDay.year}년 ${firstDay.month + 1}월 ${firstDay.day}~${lastDay.day}일`;
+                } else if (firstDay.year === lastDay.year) {
+                  // 같은 연도, 다른 월
+                  return `${firstDay.year}년 ${firstDay.month + 1}월 ${firstDay.day}일~${lastDay.month + 1}월 ${lastDay.day}일`;
                 } else {
-                  // 다른 월인 경우
-                  return `${firstDay.year}년 ${firstDay.month + 1}월 ${firstDay.day}일 - ${lastDay.year}년 ${lastDay.month + 1}월 ${lastDay.day}일`;
+                  // 다른 연도
+                  return `${firstDay.year}년 ${firstDay.month + 1}월 ${firstDay.day}일~${lastDay.year}년 ${lastDay.month + 1}월 ${lastDay.day}일`;
                 }
               })()
             : `${yearlyDate.getFullYear()}년`
@@ -1525,10 +1531,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           <div 
             style={{
               width: viewMode === "monthly" 
-                ? (isMobile ? `${40 + 70 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
+                ? (isMobile ? `${40 + 60 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
                 : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`),
               minWidth: viewMode === "monthly" 
-                ? (isMobile ? `${40 + 70 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
+                ? (isMobile ? `${40 + 60 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
                 : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`)
             }}
           >
@@ -1553,7 +1559,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {currentPeriods.map((dayInfo, index) => (
                 <div 
                   key={viewMode === "monthly" ? `${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : (dayInfo as any).month}
-                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-3 text-center font-medium border-r border-gray-200 ${
+                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[60px] md:w-[120px]"} flex-shrink-0 p-1 md:p-3 text-center font-medium border-r border-gray-200 ${
                     isToday(dayInfo) 
                       ? "bg-green-100 text-green-800 font-bold" 
                       : "text-gray-600"
@@ -1689,7 +1695,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                         }
                       } else {
                         // 월간 뷰
-                        const cellWidth = isMobile ? 70 : 120;
+                        const cellWidth = isMobile ? 60 : 120;
                         if (spanUnits === 1) {
                           // 단일 셀: 여백을 두고 중앙 배치
                           leftPosition = `${taskGroup.startDayIndex * cellWidth + horizontalPadding}px`;
@@ -1842,7 +1848,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[70px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[60px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === cellDateStr ? "bg-blue-50 border-blue-300 border-2" : ""
@@ -2229,7 +2235,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         defaultRowNumber={selectedRowNumberForTask ?? undefined}
       />
 
-      {/* Edit Task Dialog */}
+      {/* Edit Task Dialog - 개별 수정 */}
       {selectedTask && (
         <AddTaskDialog
           open={isEditDialogOpen}
@@ -2241,6 +2247,19 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         />
       )}
 
+      {/* Batch Edit Task Dialog - 일괄 수정 */}
+      <BatchTaskEditDialog
+        open={showBatchEditDialog}
+        onOpenChange={setShowBatchEditDialog}
+        taskGroup={
+          selectedTask?.taskGroupId
+            ? memoizedTasks.filter(t => t.taskGroupId === selectedTask.taskGroupId)
+            : selectedTask
+            ? [selectedTask]
+            : []
+        }
+      />
+
       {/* Task Action Sheet */}
       <TaskActionSheet
         open={showActionSheet}
@@ -2248,7 +2267,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         task={selectedTask}
         onEditTask={() => {
           setShowActionSheet(false);
-          setIsEditDialogOpen(true);
+          // 일괄등록 작업은 일괄 수정 다이얼로그, 개별 작업은 개별 수정 다이얼로그
+          if (selectedTask?.taskGroupId) {
+            setShowBatchEditDialog(true);
+          } else {
+            setIsEditDialogOpen(true);
+          }
         }}
         onWriteLedger={() => {
           setShowActionSheet(false);
