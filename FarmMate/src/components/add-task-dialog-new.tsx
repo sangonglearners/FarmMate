@@ -37,7 +37,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@shared/ui/calendar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -46,16 +45,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema } from "@shared/schema";
 import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
-=======
-import { insertTaskSchema } from "../shared/types/schema";
-import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
-
-/** ⬇ Supabase 유틸 */
 import { saveTask } from "@/shared/api/saveTask";
 import { supabase } from "@/shared/api/supabase";
 import { mustOk } from "@/shared/api/mustOk";
-
->>>>>>> main
 import WorkCalculatorDialog from "./work-calculator-dialog";
 import { KEY_CROPS, TASK_TYPES } from "@/shared/constants/crops";
 import { registrationData, searchCrops } from "@/shared/data/registration";
@@ -91,6 +83,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
   const { data: farms } = useQuery<Farm[]>({ queryKey: ["/api/farms"] });
   const { data: crops } = useQuery<Crop[]>({ queryKey: ["/api/crops"] });
 
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
@@ -234,8 +227,8 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
         title: data.title!,
         memo: data.description || undefined,
         scheduledAt: data.scheduledDate,
-        farmId: data.farmId ? Number(data.farmId) : undefined,
-        cropId: data.cropId ? Number(data.cropId) : undefined,
+        farmId: data.farmId || undefined,
+        cropId: data.cropId || undefined,
         taskType: data.taskType || undefined,
       }),
     onSuccess: () => {
@@ -316,7 +309,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
   const createIndividualTasks = () => {
     const startDate = form.getValues("scheduledDate") || "";
     const endDate = form.getValues("endDate") || "";
-    const ttype = form.getValues("taskType");
+    const ttype = form.getValues("taskType") || "";
     const cropName = customCropName || crops?.find(c => c.id === form.getValues("cropId"))?.name || "작물";
 
     if (!startDate || !endDate) {
@@ -363,9 +356,23 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     bulkCreateMutation.mutate(tasks);
   };
 
-  const onSubmit = async (data: InsertTask & { environment: string }) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    const normalizedTask: InsertTask = {
+      title:
+        data.title ||
+        `${customCropName || crops?.find(c => c.id === data.cropId)?.name || "작물"}_${data.taskType || ""}`,
+      taskType: data.taskType || "",
+      scheduledDate: data.scheduledDate,
+      description: data.description || undefined,
+      endDate: data.endDate || undefined,
+      farmId: data.farmId || undefined,
+      cropId: data.cropId || undefined,
+      rowNumber: data.rowNumber ?? undefined,
+      taskGroupId: data.taskGroupId || undefined,
+    };
+
     if (task) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(normalizedTask);
       return;
     }
 
@@ -386,7 +393,7 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
     }
 
     // 단일 작업
-    createMutation.mutate(data);
+    createMutation.mutate(normalizedTask);
   };
 
   const openWorkCalculator = () => {
@@ -712,6 +719,11 @@ export default function AddTaskDialog({ open, onOpenChange, selectedDate, task }
                           <Calendar
                             mode="single"
                             selected={dateRange.to ? new Date(dateRange.to) : undefined}
+                            onSelect={(date?: Date) => {
+                              if (date) {
+                                const ds = format(date, "yyyy-MM-dd");
+                                setDateRange(prev => ({ ...prev, to: ds }));
+                              }
                             }}
                             disabled={(d) => d < new Date(dateRange.from || new Date().toISOString().split('T')[0])}
                             initialFocus
