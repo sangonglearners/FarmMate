@@ -8,6 +8,7 @@ import CalendarPage from './pages/calendar/ui/CalendarPage';
 import StatsPage from './pages/stats';
 import MyPage from './pages/my-page/ui/MyPage';
 import LedgerManagementPage from './pages/ledger-management/ui/LedgerManagementPage';
+import { FarmCropManagementPage } from './pages/farm-crop-management';
 import NotFound from './pages/not-found';
 import Layout from './components/layout/layout';
 import { 
@@ -47,6 +48,7 @@ function MainApp() {
           <Route path="/recommendations" component={RecommendationsInputPage} />
           <Route path="/my-page" component={MyPage} />
           <Route path="/ledger-management" component={LedgerManagementPage} />
+          <Route path="/farm-crop-management" component={FarmCropManagementPage} />
           <Route path="/auth/callback" component={HomePage} />
           {/* NotFound는 추후 useRoute 조합으로 추가 */}
         </Layout>
