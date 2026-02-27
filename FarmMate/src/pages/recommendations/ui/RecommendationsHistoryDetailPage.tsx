@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { useLocation, useRoute } from "wouter";
@@ -62,6 +63,7 @@ export default function RecommendationsHistoryDetailPage() {
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!params?.id) {
@@ -92,11 +94,11 @@ export default function RecommendationsHistoryDetailPage() {
     fetchDetail();
   }, [params]);
 
-  const handleDelete = async () => {
-    if (!confirm('이 추천 결과를 삭제하시겠습니까?')) {
-      return;
-    }
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
 
+  const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
       const { error } = await supabase
@@ -106,11 +108,9 @@ export default function RecommendationsHistoryDetailPage() {
 
       if (error) throw error;
 
-      alert('추천 결과가 삭제되었습니다.');
       setLocation('/recommendations/history');
     } catch (error) {
       console.error('삭제 오류:', error);
-      alert('삭제 중 오류가 발생했습니다.');
       setIsDeleting(false);
     }
   };
@@ -149,6 +149,16 @@ export default function RecommendationsHistoryDetailPage() {
   }
 
   return (
+    <>
+    <ConfirmDialog
+      open={showDeleteConfirm}
+      onOpenChange={setShowDeleteConfirm}
+      title="추천 결과를 삭제하시겠습니까?"
+      description="삭제된 추천 결과는 복구할 수 없습니다."
+      confirmText="삭제"
+      cancelText="취소"
+      onConfirm={handleConfirmDelete}
+    />
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
       <div className="mb-6 max-w-2xl mx-auto">
@@ -278,6 +288,7 @@ export default function RecommendationsHistoryDetailPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

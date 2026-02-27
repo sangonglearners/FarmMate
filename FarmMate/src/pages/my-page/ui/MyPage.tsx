@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MoreVertical, Edit, Trash2, MapPin, Sprout, BookOpen } from 'lucide-react';
@@ -44,6 +45,12 @@ export default function MyPage() {
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
   const [editingFarm, setEditingFarm] = useState<any | null>(null);
   const [editingCrop, setEditingCrop] = useState<any | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   useEffect(() => {
     // user_profiles에서 display_name 가져오기
@@ -258,9 +265,12 @@ export default function MyPage() {
                         <DropdownMenuItem 
                           className="text-destructive" 
                           onClick={() => {
-                            if (window.confirm(`정말로 "${f.name}" 농장을 삭제하시겠습니까?\n\n이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.`)) {
-                              deleteFarm.mutate(f.id);
-                            }
+                            setConfirmDialog({
+                              open: true,
+                              title: `"${f.name}" 농장을 삭제하시겠습니까?`,
+                              description: "이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.",
+                              onConfirm: () => deleteFarm.mutate(f.id),
+                            });
                           }}
                         >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
@@ -312,9 +322,12 @@ export default function MyPage() {
                         <DropdownMenuItem 
                           className="text-destructive" 
                           onClick={() => {
-                            if (window.confirm(`정말로 "${c.name}" 작물을 삭제하시겠습니까?\n\n이 작물에 연결된 모든 작업도 함께 삭제됩니다.`)) {
-                              deleteCrop.mutate(c.id);
-                            }
+                            setConfirmDialog({
+                              open: true,
+                              title: `"${c.name}" 작물을 삭제하시겠습니까?`,
+                              description: "이 작물에 연결된 모든 작업도 함께 삭제됩니다.",
+                              onConfirm: () => deleteCrop.mutate(c.id),
+                            });
                           }}
                         >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
@@ -405,6 +418,15 @@ export default function MyPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="삭제"
+        cancelText="취소"
+        onConfirm={confirmDialog.onConfirm}
+      />
     </div>
   );
 }
