@@ -1,6 +1,7 @@
 // Calendar widget utility functions
 import type { Task, Crop } from "@shared/schema";
 import { isDateInTaskRange } from "@/shared/utils/task-filter";
+import { registrationData } from "@/shared/data/registration";
 
 export interface CalendarDay {
   day: number;
@@ -21,6 +22,90 @@ export const getTaskColor = (taskType: string) => {
     default:
       return "bg-gray-200 text-gray-800";
   }
+};
+
+// 작물 카테고리 문자열 → 점 색상 변환 (내부 헬퍼)
+const categoryToColor = (category: string): string | null => {
+  // 채소콩: 콩_완두, 콩_채두, 콩_잠두, 콩_강두, 콩_대두
+  if (category.startsWith('콩_') || category === '콩') return '#3A9E3A';
+  // 음식꽃 / 식용꽃
+  if (category.includes('음식꽃') || category.includes('식용꽃')) return '#3B82F6';
+  // 배추류
+  if (category.includes('배추')) return '#16A34A';
+  // 뿌리류: 뿌리쁘띠, 뿌리채소 (가지/래디쉬/비트/순무/당근 등 포함)
+  if (category.includes('뿌리')) return '#EA580C';
+  // 미나리과: 미나리과 채소, 미나리과 허브
+  if (category.includes('미나리과')) return '#0891B2';
+  // 십자화과 잎채소 (오타 '입채소'도 대응)
+  if (category.includes('십자화과')) return '#7C3AED';
+  // 호박: 호박(스쿼시_써머), 호박(스쿼시_윈터)
+  if (category.includes('호박')) return '#D97706';
+  // 토마토
+  if (category.includes('토마토')) return '#DC2626';
+  // 기타 통합: 페퍼(고추), 오이, 엽채류, 알리움
+  if (
+    category.includes('페퍼') || category.includes('고추') ||
+    category.includes('오이') || category.includes('엽채류') ||
+    category.includes('알리움')
+  ) return '#6B7280';
+  return null;
+};
+
+// registrationData에서 품목명으로 대분류를 찾아 색상 반환 (내부 헬퍼)
+// title 형식: "품목 (품종)_작업타입" → 품목 추출 후 registrationData와 매칭
+const colorFromCropItemName = (itemName: string): string | null => {
+  if (!itemName) return null;
+  // registrationData에서 품목명(품목)이 일치하는 항목 검색
+  const match = registrationData.find(r => r.품목 === itemName);
+  if (match) return categoryToColor(match.대분류);
+  return null;
+};
+
+// 작물 카테고리별 점 색상
+// 1차: cropId → crops 배열에서 직접 category 조회
+// 2차: taskTitle → crops 배열에서 이름으로 조회
+// 3차: taskTitle → registrationData에서 품목명으로 대분류 조회 (crops 테이블 불필요)
+export const getCropCategoryColor = (
+  crops: Crop[],
+  cropId: string | null | undefined,
+  taskTitle?: string | null
+): string => {
+  // 1차: cropId로 정확히 매칭
+  if (cropId) {
+    const crop = crops.find(c => c.id === cropId);
+    if (crop) {
+      const color = categoryToColor(crop.category);
+      if (color) return color;
+    }
+  }
+
+  // title에서 품목명 추출
+  // 형식: "품목 (품종)_작업타입"  예: "채화 (홍채)_파종" → 품목 = "채화"
+  // 형식: "품목_작업타입"          예: "채화_파종" → 품목 = "채화"
+  let itemName: string | null = null;
+  if (taskTitle) {
+    // "_" 기준으로 앞부분만 추출: "채화 (홍채(Hongchae))"
+    const beforeUnderscore = taskTitle.split('_')[0]?.trim() ?? '';
+    // " (" 기준으로 앞부분만 추출: "채화"
+    itemName = beforeUnderscore.split(' (')[0]?.trim() || beforeUnderscore;
+  }
+
+  // 2차: crops 배열에서 이름으로 매칭
+  if (itemName) {
+    const cropByName = crops.find(c => c.name === itemName);
+    if (cropByName) {
+      const color = categoryToColor(cropByName.category);
+      if (color) return color;
+    }
+  }
+
+  // 3차: registrationData에서 품목명으로 대분류 직접 조회
+  if (itemName) {
+    const color = colorFromCropItemName(itemName);
+    if (color) return color;
+  }
+
+  return '#9CA3AF'; // 매핑 안 된 항목 - 회색
 };
 
 export const getTasksForDate = (tasks: Task[], date: Date) => {

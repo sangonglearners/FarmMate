@@ -1,6 +1,7 @@
 import type { Task, Crop } from "@shared/schema";
 import { 
   getTaskColor, 
+  getCropCategoryColor,
   getTasksForDate, 
   getCropName, 
   getCalendarDays,
@@ -130,33 +131,25 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, o
           return (
             <div
               key={index}
-              className={`min-h-24 p-1 ${borderColor} rounded-lg cursor-pointer transition-colors ${
+              className={`h-14 p-1 ${borderColor} rounded-lg cursor-pointer transition-colors ${
                 !isSelected && !todayCheck ? 'hover:bg-gray-50' : ''
-              } ${backgroundColor}`}
+              } ${backgroundColor} flex flex-col items-center`}
               onClick={() => {
                 onDateClick(dateStr);
               }}
             >
-              <div className={`text-xs mb-1 ${todayCheck ? 'font-bold text-primary' : 'text-gray-900'}`}>
+              <div className={`text-xs mb-1 w-full text-center ${todayCheck ? 'font-bold text-primary' : 'text-gray-900'}`}>
                 {day}
               </div>
               
-              {/* 단일 날짜 일정 표시 */}
-              {singleDayTasks.length > 0 ? (
-                <div className="space-y-0.5">
+              {/* 점 형태 일정 표시 */}
+              {singleDayTasks.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 justify-center items-center">
                   {singleDayTasks.slice(0, 3).map((task: Task) => (
                     <div
                       key={task.id}
-                      className={`text-xs px-1 py-0.5 rounded break-words leading-tight cursor-pointer hover:opacity-80 transition-opacity ${getTaskColor(task.taskType)}`}
-                      style={{
-                        display: '-webkit-box',
-                        WebkitLineClamp: 1,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        wordWrap: 'break-word',
-                        maxHeight: '1.25rem',
-                        marginBottom: '2px'
-                      }}
+                      className="w-2 h-2 rounded-full flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                      style={{ backgroundColor: getCropCategoryColor(crops, task.cropId, task.title) }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -164,17 +157,15 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, o
                           onTaskClick(task);
                         }
                       }}
-                    >
-                      {task.title || `${getCropName(crops, task.cropId)} ${task.taskType}`}
-                    </div>
+                    />
                   ))}
                   {singleDayTasks.length > 3 && (
-                    <div className="text-xs text-gray-500">
-                      +{singleDayTasks.length - 3}개
-                    </div>
+                    <span className="text-[8px] text-gray-400 leading-none">
+                      +{singleDayTasks.length - 3}
+                    </span>
                   )}
                 </div>
-              ) : null}
+              )}
             </div>
           );
         })}
