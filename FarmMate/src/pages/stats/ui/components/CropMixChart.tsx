@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -106,7 +106,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   paddingAngle={2}
                   dataKey="value"
                   activeIndex={activeIndex}
-                  activeShape={{ outerRadius: 110 }}
+                  activeShape={(props: React.ComponentProps<typeof Sector>) => <Sector {...props} outerRadius={110} />}
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
                   onClick={handleSliceClick}
