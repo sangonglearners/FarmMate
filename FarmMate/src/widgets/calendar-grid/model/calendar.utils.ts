@@ -1,6 +1,7 @@
 // Calendar widget utility functions
 import type { Task, Crop } from "@shared/schema";
 import { isDateInTaskRange } from "@/shared/utils/task-filter";
+import { registrationData } from "@/shared/data/registration";
 
 export interface CalendarDay {
   day: number;
@@ -50,9 +51,20 @@ const categoryToColor = (category: string): string | null => {
   return null;
 };
 
+// registrationData에서 품목명으로 대분류를 찾아 색상 반환 (내부 헬퍼)
+// title 형식: "품목 (품종)_작업타입" → 품목 추출 후 registrationData와 매칭
+const colorFromCropItemName = (itemName: string): string | null => {
+  if (!itemName) return null;
+  // registrationData에서 품목명(품목)이 일치하는 항목 검색
+  const match = registrationData.find(r => r.품목 === itemName);
+  if (match) return categoryToColor(match.대분류);
+  return null;
+};
+
 // 작물 카테고리별 점 색상
-// 1차: cropId로 crops 배열에서 직접 조회
-// 2차 fallback: taskTitle(형식: "작물명_작업타입")에서 작물명 추출 후 이름으로 crops 검색
+// 1차: cropId → crops 배열에서 직접 category 조회
+// 2차: taskTitle → crops 배열에서 이름으로 조회
+// 3차: taskTitle → registrationData에서 품목명으로 대분류 조회 (crops 테이블 불필요)
 export const getCropCategoryColor = (
   crops: Crop[],
   cropId: string | null | undefined,
@@ -67,21 +79,30 @@ export const getCropCategoryColor = (
     }
   }
 
-  // 2차: taskTitle에서 작물명 추출 후 이름으로 crops 검색
-  // title 형식: "작물명_작업타입" (예: "채화_파종", "비트_수확-선별")
+  // title에서 품목명 추출
+  // 형식: "품목 (품종)_작업타입"  예: "채화 (홍채)_파종" → 품목 = "채화"
+  // 형식: "품목_작업타입"          예: "채화_파종" → 품목 = "채화"
+  let itemName: string | null = null;
   if (taskTitle) {
-    const cropNameFromTitle = taskTitle.split('_')[0]?.trim();
-    if (cropNameFromTitle) {
-      const cropByName = crops.find(c =>
-        c.name === cropNameFromTitle ||
-        cropNameFromTitle.startsWith(c.name) ||
-        c.name.startsWith(cropNameFromTitle)
-      );
-      if (cropByName) {
-        const color = categoryToColor(cropByName.category);
-        if (color) return color;
-      }
+    // "_" 기준으로 앞부분만 추출: "채화 (홍채(Hongchae))"
+    const beforeUnderscore = taskTitle.split('_')[0]?.trim() ?? '';
+    // " (" 기준으로 앞부분만 추출: "채화"
+    itemName = beforeUnderscore.split(' (')[0]?.trim() || beforeUnderscore;
+  }
+
+  // 2차: crops 배열에서 이름으로 매칭
+  if (itemName) {
+    const cropByName = crops.find(c => c.name === itemName);
+    if (cropByName) {
+      const color = categoryToColor(cropByName.category);
+      if (color) return color;
     }
+  }
+
+  // 3차: registrationData에서 품목명으로 대분류 직접 조회
+  if (itemName) {
+    const color = colorFromCropItemName(itemName);
+    if (color) return color;
   }
 
   return '#9CA3AF'; // 매핑 안 된 항목 - 회색
