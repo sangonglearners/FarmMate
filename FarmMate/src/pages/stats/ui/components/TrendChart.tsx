@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 interface RevenueData {
   period: string; // week, day, month, year
@@ -10,7 +10,7 @@ interface RevenueData {
 
 interface TrendChartProps {
   data: RevenueData[];
-  periodType: "daily" | "weekly" | "monthly" | "yearly";
+  periodType: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 }
 
 // CSS 변수에서 primary 색상을 읽어오는 함수
@@ -82,8 +82,53 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
+// 월간 필터용 커스텀 XAxis Tick ("1월" 형식, 일부만 렌더링해서 겹침 방지)
+const CustomMonthTick = ({ x, y, payload }: any) => {
+  // 너무 많은 레이블로 인한 UI 깨짐 방지를 위해 절반만 표시
+  if (payload.index % 2 !== 0) {
+    return null;
+  }
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={16} textAnchor="middle" fill="#6b7280" fontSize="12px">
+        {payload.value}
+      </text>
+    </g>
+  );
+};
+
 export function TrendChart({ data, periodType }: TrendChartProps) {
   const [primaryColor, setPrimaryColor] = useState<string>("#5cb85c");
+
+  // 세로축(매출액) 눈금: 500 단위로 딱 떨어지도록 계산
+  const yAxisConfig = useMemo(() => {
+    if (!data || data.length === 0) {
+      return {
+        domain: [0, 5000000],
+        ticks: [0, 500000, 1000000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000, 4500000, 5000000],
+      };
+    }
+
+    const values = data.map((d) => d.value);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+
+    const step = 500000; // 50만(500 단위) 간격
+
+    const minTick = Math.floor(minVal / step) * step;
+    const maxTick = Math.ceil(maxVal / step) * step;
+
+    const ticks: number[] = [];
+    for (let v = minTick; v <= maxTick; v += step) {
+      ticks.push(v);
+    }
+
+    return {
+      domain: [minTick, maxTick],
+      ticks,
+    };
+  }, [data]);
 
   useEffect(() => {
     setPrimaryColor(getPrimaryColor());
@@ -92,22 +137,37 @@ export function TrendChart({ data, periodType }: TrendChartProps) {
   return (
     <Card className="rounded-lg shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">수출액 추이</CardTitle>
+        <div className="flex items-baseline justify-between">
+          <CardTitle className="text-lg font-semibold">매출액 추이</CardTitle>
+          <span className="text-xs text-gray-500">단위: 천원</span>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart 
+              data={data} 
+              margin={{ 
+                top: 5, 
+                right: 20, 
+                bottom: 20, 
+                left: 0 
+              }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="period" 
                 stroke="#6b7280"
                 style={{ fontSize: "12px" }}
+                interval={0}
+                tick={periodType === "monthly" ? <CustomMonthTick /> : undefined}
               />
               <YAxis 
                 stroke="#6b7280"
                 style={{ fontSize: "12px" }}
-                tickFormatter={(value) => `₩${(value / 1000).toFixed(0)}K`}
+                domain={yAxisConfig.domain as [number, number]}
+                ticks={yAxisConfig.ticks}
+                tickFormatter={(value) => `${(Number(value) / 1000).toLocaleString()}`}
               />
               <Tooltip content={<CustomTooltip />} />
               <Line 
