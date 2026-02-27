@@ -263,6 +263,24 @@ export default function LedgerManagementPage() {
     return taskTypes.length === taskTypeOptions.length ? [] : taskTypes;
   };
 
+  const handleFarmToggle = (farmId: string) => {
+    setSelectedFarmIds((prev) => {
+      if (prev.includes(farmId)) {
+        return prev.filter((id) => id !== farmId);
+      }
+      return normalizeFarmSelection([...prev, farmId]);
+    });
+  };
+
+  const handleTaskTypeToggle = (taskType: string) => {
+    setSelectedTaskTypes((prev) => {
+      if (prev.includes(taskType)) {
+        return prev.filter((type) => type !== taskType);
+      }
+      return normalizeTaskTypeSelection([...prev, taskType]);
+    });
+  };
+
   const handleDraftFarmToggle = (farmId: string) => {
     setDraftFarmIds((prev) => {
       if (prev.includes(farmId)) {
@@ -281,18 +299,16 @@ export default function LedgerManagementPage() {
     });
   };
 
-  const getTaskTypeChipClasses = (selected: boolean, draft = false) => {
+  const getTaskTypeChipClasses = (selected: boolean) => {
     const active = selected
-      ? draft
-        ? "border-green-500 bg-green-100 text-green-800"
-        : "border-amber-500 bg-amber-100 text-amber-800"
+      ? "border-amber-500 bg-amber-100 text-amber-800"
       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
     return `h-8 rounded-full border px-3 text-sm ${active}`;
   };
 
   const getFarmChipClasses = (selected: boolean) => {
     const active = selected
-      ? "border-green-500 bg-green-100 text-green-800"
+      ? "border-sky-500 bg-sky-100 text-sky-800"
       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
     return `h-8 rounded-full border px-3 text-sm ${active}`;
   };
@@ -313,7 +329,7 @@ export default function LedgerManagementPage() {
     setFilterSheetOpen(false);
   };
 
-  const resetFilters = () => {
+  const resetDraftFilters = () => {
     setDraftStatusFilter("all");
     setDraftFarmIds([]);
     setDraftTaskTypes([]);
@@ -392,6 +408,8 @@ export default function LedgerManagementPage() {
     return format(new Date(ledger.createdAt), "yyyy-MM-dd");
   };
 
+  const popoverPanelClass = "w-[calc(100vw-2rem)] max-w-[20rem] p-3";
+
   return (
     <div className="p-4 space-y-6">
       {/* Header */}
@@ -415,72 +433,78 @@ export default function LedgerManagementPage() {
       {/* 필터 영역 */}
       <div className="space-y-4">
         {/* 날짜 선택기 (중앙 콤팩트) */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-          <div />
-          <div className="flex items-center gap-2 justify-self-center">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              onClick={handlePreviousMonth}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-9 min-w-[156px] justify-center px-3">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {yearMonthLabel}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-4" align="center">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">연도</label>
-                    <Select value={currentYear.toString()} onValueChange={handleYearChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}년
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="flex justify-start">
+            <div className="inline-flex h-9 items-center rounded-md border border-input bg-background">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-none rounded-l-md"
+                onClick={handlePreviousMonth}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="h-5 w-px bg-border" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-9 min-w-[136px] justify-start rounded-none px-3 text-left sm:min-w-[156px]"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {yearMonthLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-4" align="start">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">연도</label>
+                      <Select value={currentYear.toString()} onValueChange={handleYearChange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}년
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">월</label>
+                      <Select value={currentMonth.toString()} onValueChange={handleMonthChange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {months.map((month) => (
+                            <SelectItem key={month} value={month.toString()}>
+                              {month}월
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">월</label>
-                    <Select value={currentMonth.toString()} onValueChange={handleMonthChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {months.map((month) => (
-                          <SelectItem key={month} value={month.toString()}>
-                            {month}월
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              onClick={handleNextMonth}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+                </PopoverContent>
+              </Popover>
+              <div className="h-5 w-px bg-border" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-none rounded-r-md"
+                onClick={handleNextMonth}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 justify-self-end"
+            className="h-9 w-9 justify-self-end shrink-0"
             onClick={openFilterSheet}
           >
             <Filter className="h-4 w-4" />
@@ -493,74 +517,159 @@ export default function LedgerManagementPage() {
           <TooltipProvider delayDuration={150}>
             <div className="flex w-max min-w-full items-center gap-2 pb-1">
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex h-8 items-center gap-1 rounded-full border border-green-300 bg-green-50 px-3 text-sm text-green-800 hover:bg-green-100"
-                    onClick={openFilterSheet}
-                  >
-                    {statusSummary}
-                    {statusFilter !== "all" && (
-                      <button
-                        type="button"
-                        className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-green-200"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setStatusFilter("all");
-                        }}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-green-300 bg-green-50 px-3 text-sm text-green-800 hover:bg-green-100"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </TooltipTrigger>
+                        {statusSummary}
+                        {statusFilter !== "all" && (
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-green-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setStatusFilter("all");
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent className={popoverPanelClass} side="bottom" align="start">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        className={statusFilter === "all" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        onClick={() => setStatusFilter("all")}
+                      >
+                        전체
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className={statusFilter === "unregistered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        onClick={() => setStatusFilter("unregistered")}
+                      >
+                        미등록
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className={statusFilter === "registered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        onClick={() => setStatusFilter("registered")}
+                      >
+                        등록완료
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <TooltipContent>{statusTooltip}</TooltipContent>
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex h-8 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-3 text-sm text-amber-800 hover:bg-amber-100"
-                    onClick={openFilterSheet}
-                  >
-                    {taskSummary}
-                    {selectedTaskTypes.length > 0 && (
-                      <button
-                        type="button"
-                        className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-amber-200"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedTaskTypes([]);
-                        }}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-3 text-sm text-amber-800 hover:bg-amber-100"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </TooltipTrigger>
+                        {taskSummary}
+                        {selectedTaskTypes.length > 0 && (
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-amber-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setSelectedTaskTypes([]);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent className={popoverPanelClass} side="bottom" align="start">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className={getTaskTypeChipClasses(selectedTaskTypes.length === 0)}
+                        onClick={() => setSelectedTaskTypes([])}
+                      >
+                        전체
+                      </Button>
+                      {taskTypeOptions.map((taskType) => (
+                        <Button
+                          key={taskType}
+                          variant="outline"
+                          className={getTaskTypeChipClasses(selectedTaskTypes.includes(taskType))}
+                          onClick={() => handleTaskTypeToggle(taskType)}
+                        >
+                          {taskType}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <TooltipContent>{taskTooltip}</TooltipContent>
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex h-8 items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-3 text-sm text-sky-800 hover:bg-sky-100"
-                    onClick={openFilterSheet}
-                  >
-                    {farmSummary}
-                    {selectedFarmIds.length > 0 && (
-                      <button
-                        type="button"
-                        className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-sky-200"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedFarmIds([]);
-                        }}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-sky-300 bg-sky-50 px-3 text-sm text-sky-800 hover:bg-sky-100"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </TooltipTrigger>
+                        {farmSummary}
+                        {selectedFarmIds.length > 0 && (
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-sky-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setSelectedFarmIds([]);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent className={popoverPanelClass} side="bottom" align="start">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className={getFarmChipClasses(selectedFarmIds.length === 0)}
+                        onClick={() => setSelectedFarmIds([])}
+                      >
+                        전체
+                      </Button>
+                      {(farms || []).map((farm) => (
+                        <Button
+                          key={farm.id}
+                          variant="outline"
+                          className={getFarmChipClasses(selectedFarmIds.includes(farm.id))}
+                          onClick={() => handleFarmToggle(farm.id)}
+                        >
+                          {farm.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <TooltipContent>{farmTooltip}</TooltipContent>
               </Tooltip>
             </div>
@@ -568,51 +677,14 @@ export default function LedgerManagementPage() {
         </div>
       </div>
 
-      {/* 필터 상세 설정 시트 */}
+      {/* 통합 필터 관리 */}
       <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-center">필터 상세 설정</SheetTitle>
           </SheetHeader>
 
           <div className="mt-5 space-y-6 pb-3">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">선택된 필터</h3>
-              <div className="flex flex-wrap gap-2">
-                {draftStatusFilter !== "all" && (
-                  <Badge className="flex items-center gap-1 bg-green-100 text-green-800 hover:bg-green-100">
-                    등록 상태: {getStatusLabel(draftStatusFilter)}
-                    <button type="button" onClick={() => setDraftStatusFilter("all")}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                {draftTaskTypes.map((taskType) => (
-                  <Badge key={taskType} className="flex items-center gap-1 bg-amber-100 text-amber-800 hover:bg-amber-100">
-                    농작업: {taskType}
-                    <button type="button" onClick={() => handleDraftTaskTypeToggle(taskType)}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {draftFarmIds.map((farmId) => {
-                  const farmName = farmNameById.get(farmId);
-                  if (!farmName) return null;
-                  return (
-                    <Badge key={farmId} className="flex items-center gap-1 bg-sky-100 text-sky-800 hover:bg-sky-100">
-                      농장: {farmName}
-                      <button type="button" onClick={() => handleDraftFarmToggle(farmId)}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  );
-                })}
-                {draftStatusFilter === "all" && draftTaskTypes.length === 0 && draftFarmIds.length === 0 && (
-                  <span className="text-xs text-gray-500">모든 필터가 전체로 설정되어 있습니다.</span>
-                )}
-              </div>
-            </div>
-
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">등록 상태</h3>
               <div className="grid grid-cols-3 gap-2">
@@ -645,28 +717,21 @@ export default function LedgerManagementPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
-                  className={`h-8 rounded-full border px-3 text-sm ${
-                    draftTaskTypes.length === 0
-                      ? "border-green-500 bg-green-100 text-green-800"
-                      : "border-slate-300 bg-white text-slate-700"
-                  }`}
+                  className={getTaskTypeChipClasses(draftTaskTypes.length === 0)}
                   onClick={() => setDraftTaskTypes([])}
                 >
                   전체
                 </Button>
-                {taskTypeOptions.map((taskType) => {
-                  const selected = draftTaskTypes.includes(taskType);
-                  return (
-                    <Button
-                      key={taskType}
-                      variant="outline"
-                      className={getTaskTypeChipClasses(selected, true)}
-                      onClick={() => handleDraftTaskTypeToggle(taskType)}
-                    >
-                      {taskType}
-                    </Button>
-                  );
-                })}
+                {taskTypeOptions.map((taskType) => (
+                  <Button
+                    key={taskType}
+                    variant="outline"
+                    className={getTaskTypeChipClasses(draftTaskTypes.includes(taskType))}
+                    onClick={() => handleDraftTaskTypeToggle(taskType)}
+                  >
+                    {taskType}
+                  </Button>
+                ))}
               </div>
             </div>
 
@@ -675,33 +740,26 @@ export default function LedgerManagementPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
-                  className={`h-8 rounded-full border px-3 text-sm ${
-                    draftFarmIds.length === 0
-                      ? "border-green-500 bg-green-100 text-green-800"
-                      : "border-slate-300 bg-white text-slate-700"
-                  }`}
+                  className={getFarmChipClasses(draftFarmIds.length === 0)}
                   onClick={() => setDraftFarmIds([])}
                 >
                   전체
                 </Button>
-                {(farms || []).map((farm) => {
-                  const selected = draftFarmIds.includes(farm.id);
-                  return (
-                    <Button
-                      key={farm.id}
-                      variant="outline"
-                      className={getFarmChipClasses(selected)}
-                      onClick={() => handleDraftFarmToggle(farm.id)}
-                    >
-                      {farm.name}
-                    </Button>
-                  );
-                })}
+                {(farms || []).map((farm) => (
+                  <Button
+                    key={farm.id}
+                    variant="outline"
+                    className={getFarmChipClasses(draftFarmIds.includes(farm.id))}
+                    onClick={() => handleDraftFarmToggle(farm.id)}
+                  >
+                    {farm.name}
+                  </Button>
+                ))}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <Button variant="outline" onClick={resetFilters}>
+              <Button variant="outline" onClick={resetDraftFilters}>
                 초기화
               </Button>
               <Button className="bg-green-600 hover:bg-green-700" onClick={applyFilters}>
