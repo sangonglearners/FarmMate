@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { CalendarIcon, Check, Search, Calculator, ChevronDown, Plus, Minus } from "lucide-react";
-import { format, eachDayOfInterval } from "date-fns";
+import { format, eachDayOfInterval, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -155,6 +156,9 @@ export default function AddTaskDialog({
   const [taskGroup, setTaskGroup] = useState<Task[]>([]);
   const [customTaskType, setCustomTaskType] = useState("");
   const [memoImageUrls, setMemoImageUrls] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // 농작업 계산기로 적용된 일정 (저장하기 버튼 눌렀을 때 사용)
+  const [calculatedTasks, setCalculatedTasks] = useState<InsertTask[] | null>(null);
 
   // 이미지 URL 파싱/정리 유틸
   const extractImageUrls = (text: string): string[] =>
@@ -519,10 +523,8 @@ export default function AddTaskDialog({
         console.log("제목에서 작물명 추출:", cropNameFromTitle);
         setCropSearchTerm(cropNameFromTitle);
         setCustomCropName(cropNameFromTitle);
+        setIsCropSelectedFromList(true); // fallback 설정 시에도 불필요한 검색 실행 방지
       }
-      
-      // 리스트 선택 상태 초기화
-      setIsCropSelectedFromList(false);
 
       // 농장 정보 먼저 설정 (farms 데이터가 있으면 바로 설정)
       console.log("수정 모드 농장 설정 시도:", {
@@ -565,7 +567,8 @@ export default function AddTaskDialog({
           console.log("수정 모드에서 작물 설정:", crop.name);
           setCropSearchTerm(crop.name);
           setSelectedCrop(crop);
-          setCustomCropName(crop.name); // 작물명을 customCropName에도 설정
+          setCustomCropName(crop.name);
+          setIsCropSelectedFromList(true); // 기존 작물 데이터로 설정 시 불필요한 검색 실행 방지
         }
       } else if ((task as any).cropId) {
         // cropId는 있지만 crops 데이터에서 찾을 수 없는 경우
@@ -593,6 +596,7 @@ export default function AddTaskDialog({
       setSelectedWorks([]);
       setSelectedCrop(null);
       setIsCropSelectedFromList(false); // 리스트 선택 상태 초기화
+      setCalculatedTasks(null); // 농작업 계산기 적용 일정 초기화
 
       if (defaultFarm) {
         setSelectedFarm(defaultFarm);
@@ -1122,19 +1126,105 @@ export default function AddTaskDialog({
       const finalDescription = memoImageUrls.length > 0
         ? [memoText, ...memoImageUrls].filter(Boolean).join("\n")
         : memoText;
-      const tasks: InsertTask[] = selectedWorks.map((work) => ({
-        title: form.getValues("title") || `${cropName}_${work}`,
-        description: finalDescription, // 텍스트 + 이미지 URL
-        taskType: work,
-        scheduledDate: startDate,
-        endDate: startDate, // 일괄등록 시 종료날짜를 시작날짜와 동일하게 설정
-        farmId: form.getValues("farmId") || "",
-        cropId: finalCropId || "", // 개선된 cropId 사용
-        rowNumber: rowNumber || undefined,
-      }));
-      
-      console.log("일괄등록으로 생성될 작업들:", tasks);
-      bulkCreateMutation.mutate(tasks);
+
+      let tasksToSave: InsertTask[];
+
+      if (calculatedTasks && calculatedTasks.length > 0) {
+        // 농작업 계산기로 적용된 일정 사용
+        console.log("농작업 계산기 적용 일정으로 저장:", calculatedTasks.length, "개");
+        tasksToSave = calculatedTasks;
+      } else {
+        // 농작업 계산기 미사용 시 자동 계산 (계산기와 동일한 로직)
+        const taskGroupId = `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const registrationCrop = registrationData.find(
+          regCrop =>
+            regCrop.품목 === cropName ||
+            regCrop.품목.includes(cropName) ||
+            cropName.includes(regCrop.품목)
+        );
+        const cropTotalDuration = registrationCrop?.총재배기간 || 70;
+
+        const schedules: { taskType: string; startDate: string; endDate: string }[] = [];
+
+        selectedWorks.forEach((taskType) => {
+          let schedStartDate: string;
+          let schedEndDate: string;
+
+          if (
+            selectedWorks.length === 2 &&
+            selectedWorks.includes("파종") &&
+            selectedWorks.includes("수확")
+          ) {
+            if (taskType === "파종") {
+              schedStartDate = startDate;
+              schedEndDate = startDate;
+            } else if (taskType === "수확") {
+              const harvestDate = addDays(new Date(startDate), cropTotalDuration - 1);
+              schedStartDate = format(harvestDate, "yyyy-MM-dd");
+              schedEndDate = schedStartDate;
+            } else {
+              schedStartDate = startDate;
+              schedEndDate = startDate;
+            }
+          } else if (
+            selectedWorks.length === 3 &&
+            selectedWorks.includes("파종") &&
+            selectedWorks.includes("육묘") &&
+            selectedWorks.includes("수확")
+          ) {
+            const middlePoint = Math.floor(cropTotalDuration / 2);
+            if (taskType === "파종") {
+              schedStartDate = startDate;
+              schedEndDate = startDate;
+            } else if (taskType === "육묘") {
+              const seedlingStart = addDays(new Date(startDate), middlePoint - 1);
+              schedStartDate = format(seedlingStart, "yyyy-MM-dd");
+              const seedlingEnd = addDays(new Date(startDate), cropTotalDuration - 2);
+              schedEndDate = format(seedlingEnd, "yyyy-MM-dd");
+            } else if (taskType === "수확") {
+              const harvestDate = addDays(new Date(startDate), cropTotalDuration - 1);
+              schedStartDate = format(harvestDate, "yyyy-MM-dd");
+              schedEndDate = schedStartDate;
+            } else {
+              schedStartDate = startDate;
+              schedEndDate = startDate;
+            }
+          } else {
+            schedStartDate = startDate;
+            schedEndDate = startDate;
+          }
+
+          schedules.push({ taskType, startDate: schedStartDate, endDate: schedEndDate });
+        });
+
+        tasksToSave = [];
+        schedules.forEach((schedule) => {
+          const [sy, sm, sd] = schedule.startDate.split("-").map(Number);
+          const [ey, em, ed] = schedule.endDate.split("-").map(Number);
+          const sDate = new Date(sy, sm - 1, sd);
+          const eDate = new Date(ey, em - 1, ed);
+          const datesInRange = eachDayOfInterval({ start: sDate, end: eDate });
+
+          datesInRange.forEach((date) => {
+            const dateString = format(date, "yyyy-MM-dd");
+            tasksToSave.push({
+              title: form.getValues("title") || `${cropName}_${schedule.taskType}`,
+              description: finalDescription,
+              taskType: schedule.taskType,
+              scheduledDate: dateString,
+              endDate: dateString,
+              farmId: form.getValues("farmId") || "",
+              cropId: finalCropId || "",
+              rowNumber: rowNumber || undefined,
+              taskGroupId,
+            } as InsertTask);
+          });
+        });
+
+        console.log("자동 계산으로 생성될 작업들 (총재배기간:", cropTotalDuration, "일):", tasksToSave);
+      }
+
+      bulkCreateMutation.mutate(tasksToSave);
     } else {
       // individual: 한 작업을 날짜 범위로 (하나의 작업으로 시작일과 종료일만 저장)
       console.log("🔹 개별등록 모드 시작", {
@@ -1237,66 +1327,13 @@ export default function AddTaskDialog({
     }
   };
 
-  const handleWorkCalculatorSave = async (tasks: InsertTask[]) => {
-    console.log("WorkCalculator 작업 저장:", tasks);
-    console.log("WorkCalculator - 전달받은 tasks의 rowNumber:", tasks.map(t => t.rowNumber));
-    
-    // 각 작업을 saveTask 함수를 사용하여 사용자별로 저장
-    try {
-      for (const task of tasks) {
-        console.log("WorkCalculator - 개별 task 저장:", {
-          title: task.title,
-          rowNumber: task.rowNumber,
-          description: task.description,
-          farmId: task.farmId
-        });
-        
-        // endDate가 있는 경우 taskApi.createTask를 직접 사용
-        if ((task as any).endDate) {
-          const { taskApi } = await import("@/shared/api/tasks");
-          await taskApi.createTask({
-            title: task.title,
-            description: task.description || "",
-            taskType: task.taskType || "기타",
-            scheduledDate: task.scheduledDate,
-            endDate: (task as any).endDate,
-            farmId: task.farmId || "",
-            cropId: task.cropId || "",
-            rowNumber: task.rowNumber || null,
-            taskGroupId: (task as any).taskGroupId || null,
-            completed: 0,
-          });
-        } else {
-          await saveTask({
-            title: task.title,
-            memo: task.description || undefined,
-            scheduledAt: task.scheduledDate,
-            farmId: task.farmId ? task.farmId : undefined,
-            cropId: task.cropId ? task.cropId : undefined,
-            taskType: task.taskType,
-            rowNumber: task.rowNumber || undefined,
-            taskGroupId: (task as any).taskGroupId || undefined,
-          });
-        }
-      }
-
-      // 쿼리 무효화로 UI 업데이트
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-
-      toast({
-        title: "농작업 일정이 등록되었습니다.",
-        description: `${tasks.length}개의 작업이 단계별로 추가되었습니다.`,
-      });
-      
-      onOpenChange(false);
-    } catch (error) {
-      console.error("작업 저장 중 오류:", error);
-      toast({
-        title: "저장 실패",
-        description: "작업 저장 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    }
+  const handleWorkCalculatorSave = (tasks: InsertTask[]) => {
+    console.log("WorkCalculator 일정 적용:", tasks);
+    setCalculatedTasks(tasks);
+    toast({
+      title: "일정이 적용되었습니다.",
+      description: `${tasks.length}개의 작업 일정이 준비되었습니다. 저장하기 버튼을 눌러 등록하세요.`,
+    });
   };
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
@@ -1512,16 +1549,18 @@ export default function AddTaskDialog({
   };
 
   // 작업 삭제 함수
-  const handleDeleteTask = async () => {
+  const handleDeleteTask = () => {
     if (!task?.id) return;
-    
-    if (window.confirm('정말로 이 작업을 삭제하시겠습니까?')) {
-      try {
-        await deleteMutation.mutateAsync(task.id.toString());
-        onOpenChange(false);
-      } catch (error) {
-        // 에러는 hook에서 toast로 처리됨
-      }
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDeleteTask = async () => {
+    if (!task?.id) return;
+    try {
+      await deleteMutation.mutateAsync(task.id.toString());
+      onOpenChange(false);
+    } catch (error) {
+      // 에러는 hook에서 toast로 처리됨
     }
   };
 
@@ -2412,6 +2451,17 @@ export default function AddTaskDialog({
           }
         }}
         taskGroup={taskGroup}
+      />
+
+      {/* 작업 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="작업을 삭제하시겠습니까?"
+        description="삭제된 작업은 복구할 수 없습니다."
+        confirmText="삭제"
+        cancelText="취소"
+        onConfirm={handleConfirmDeleteTask}
       />
     </>
   );

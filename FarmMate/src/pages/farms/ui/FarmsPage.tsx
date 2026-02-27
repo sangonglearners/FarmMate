@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Plus, Sprout, MapPin, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddFarmDialog, useFarms, useDeleteFarm } from "@features/farm-management";
@@ -25,6 +26,12 @@ export default function FarmsPage() {
   const [isAddCropDialogOpen, setIsAddCropDialogOpen] = useState(false);
   const [editingFarm, setEditingFarm] = useState<FarmEntity | null>(null);
   const [editingCrop, setEditingCrop] = useState<Crop | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", description: "", onConfirm: () => {} });
   
   // 현재 사용자 정보 가져오기
   const { user } = useAuth();
@@ -146,9 +153,12 @@ export default function FarmsPage() {
                             <DropdownMenuItem 
                               className="text-destructive" 
                               onClick={() => {
-                                if (window.confirm(`정말로 "${farm.name}" 농장을 삭제하시겠습니까?\n\n이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.`)) {
-                                  deleteFarm.mutate(farm.id);
-                                }
+                                setConfirmDialog({
+                                  open: true,
+                                  title: `"${farm.name}" 농장을 삭제하시겠습니까?`,
+                                  description: "이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.",
+                                  onConfirm: () => deleteFarm.mutate(farm.id),
+                                });
                               }}
                             >
                               <Trash2 className="w-4 h-4 mr-2" /> 삭제
@@ -219,9 +229,13 @@ export default function FarmsPage() {
                             <DropdownMenuItem 
                               className="text-destructive" 
                               onClick={() => {
-                                if (shareId && window.confirm(`정말로 "${farm.name}" 농장의 공유를 취소하시겠습니까?\n\n나에게 공유된 권한만 제거되며, 농장 자체는 삭제되지 않습니다.`)) {
-                                  removeSharedUser.mutate(shareId);
-                                }
+                                if (!shareId) return;
+                                setConfirmDialog({
+                                  open: true,
+                                  title: `"${farm.name}" 공유를 취소하시겠습니까?`,
+                                  description: "나에게 공유된 권한만 제거되며, 농장 자체는 삭제되지 않습니다.",
+                                  onConfirm: () => removeSharedUser.mutate(shareId),
+                                });
                               }}
                             >
                               <Trash2 className="w-4 h-4 mr-2" /> 삭제
@@ -293,9 +307,12 @@ export default function FarmsPage() {
                         <DropdownMenuItem 
                           className="text-destructive" 
                           onClick={() => {
-                            if (window.confirm(`정말로 "${crop.name}" 작물을 삭제하시겠습니까?\n\n이 작물에 연결된 모든 작업도 함께 삭제됩니다.`)) {
-                              deleteCrop.mutate(crop.id);
-                            }
+                            setConfirmDialog({
+                              open: true,
+                              title: `"${crop.name}" 작물을 삭제하시겠습니까?`,
+                              description: "이 작물에 연결된 모든 작업도 함께 삭제됩니다.",
+                              onConfirm: () => deleteCrop.mutate(crop.id),
+                            });
                           }}
                         >
                           <Trash2 className="w-4 h-4 mr-2" /> 삭제
@@ -331,6 +348,16 @@ export default function FarmsPage() {
         open={isAddCropDialogOpen}
         onOpenChange={(open) => { setIsAddCropDialogOpen(open); if (!open) setEditingCrop(null); }}
         crop={editingCrop}
+      />
+
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="삭제"
+        cancelText="취소"
+        onConfirm={confirmDialog.onConfirm}
       />
     </div>
   );
