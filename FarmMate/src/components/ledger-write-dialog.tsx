@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { Plus, Minus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,9 @@ const HARVEST_UNITS = ["kg", "g", "box", "포대", "근"];
 // 품질 등급 목록
 const QUALITY_GRADES = ["최상", "상", "중", "하"];
 
+// 판매처 목록
+const SALES_CHANNELS = ["도매시장", "직거래", "마트/도소매", "온라인", "기타"];
+
 const expenseItemSchema = z.object({
   category: z.string().min(1, "카테고리를 선택해주세요"),
   customCategory: z.string().optional(),
@@ -111,7 +114,13 @@ export default function LedgerWriteDialog({
       harvestUnit: null,
       qualityGrade: null,
       salesChannel: null,
-      expenseItems: [],
+      expenseItems: [
+        {
+          category: "",
+          customCategory: undefined,
+          cost: 0,
+        },
+      ],
     },
   });
 
@@ -129,11 +138,20 @@ export default function LedgerWriteDialog({
         harvestUnit: ledger.harvestUnit || null,
         qualityGrade: ledger.qualityGrade || null,
         salesChannel: ledger.salesChannel || null,
-      expenseItems: ledger.expenseItems.map(item => ({
-        category: EXPENSE_CATEGORIES.includes(item.category) ? item.category : "기타",
-        customCategory: EXPENSE_CATEGORIES.includes(item.category) ? undefined : item.category,
-        cost: item.cost,
-      })),
+        expenseItems:
+          ledger.expenseItems.length > 0
+            ? ledger.expenseItems.map(item => ({
+                category: EXPENSE_CATEGORIES.includes(item.category) ? item.category : "기타",
+                customCategory: EXPENSE_CATEGORIES.includes(item.category) ? undefined : item.category,
+                cost: item.cost,
+              }))
+            : [
+                {
+                  category: "",
+                  customCategory: undefined,
+                  cost: 0,
+                },
+              ],
       });
       calculateTotalExpense(ledger.expenseItems.map(item => item.cost));
     } else if (task && open && !ledger) {
@@ -144,7 +162,13 @@ export default function LedgerWriteDialog({
         harvestUnit: null,
         qualityGrade: null,
         salesChannel: null,
-        expenseItems: [],
+        expenseItems: [
+          {
+            category: "",
+            customCategory: undefined,
+            cost: 0,
+          },
+        ],
       });
       setTotalExpense(0);
     }
@@ -270,10 +294,6 @@ export default function LedgerWriteDialog({
     }
   };
 
-  const addExpenseItem = () => {
-    append({ category: "", customCategory: undefined, cost: 0 });
-  };
-
   const removeExpenseItem = (index: number) => {
     remove(index);
   };
@@ -316,6 +336,7 @@ export default function LedgerWriteDialog({
             <div className="space-y-4">
               <div className="text-sm font-medium text-gray-700">매출 정보</div>
 
+              {/* 1. 수확량 / 단위 */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -367,52 +388,7 @@ export default function LedgerWriteDialog({
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="qualityGrade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>품질 등급</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value ?? ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="선택" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {QUALITY_GRADES.map((grade) => (
-                          <SelectItem key={grade} value={grade}>
-                            {grade}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="salesChannel"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>판매처</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="판매처를 입력하세요"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+              {/* 2. 총 매출액 */}
               <FormField
                 control={form.control}
                 name="revenueAmount"
@@ -436,29 +412,70 @@ export default function LedgerWriteDialog({
                   </FormItem>
                 )}
               />
+
+              {/* 3. 품질 등급 / 판매처 (선택 항목) */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="qualityGrade"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>품질 등급</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value ?? ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="선택" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {QUALITY_GRADES.map((grade) => (
+                            <SelectItem key={grade} value={grade}>
+                              {grade}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="salesChannel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>판매처</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value ?? ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="선택" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {SALES_CHANNELS.map((channel) => (
+                            <SelectItem key={channel} value={channel}>
+                              {channel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             {/* 비용 입력 영역 */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-gray-700">비용 정보</div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addExpenseItem}
-                  className="flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  비용 카테고리 추가
-                </Button>
-              </div>
-
-              {fields.length === 0 && (
-                <div className="text-sm text-gray-500 text-center py-4">
-                  비용 항목이 없습니다. 위 버튼을 눌러 추가하세요.
-                </div>
-              )}
+              <div className="text-sm font-medium text-gray-700">비용 정보</div>
 
               {fields.map((field, index) => {
                 const categoryValue = form.watch(`expenseItems.${index}.category`);
