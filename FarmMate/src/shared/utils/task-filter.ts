@@ -87,6 +87,154 @@ export function filterTasksByCurrentWeek(
 }
 
 /**
+ * 최근 8주 범위(이번 주 월요일부터 8주 전 월요일까지)를 반환하는 함수
+ * @param baseDate 기준 날짜 (기본값: 오늘)
+ * @returns { startDateStr: string, endDateStr: string } 시작일과 종료일 날짜 문자열 (YYYY-MM-DD 형식)
+ */
+export function getLast8WeeksRange(baseDate: Date = new Date()): {
+  startDateStr: string;
+  endDateStr: string;
+} {
+  const today = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  today.setHours(0, 0, 0, 0);
+
+  // 이번 주의 월요일 구하기
+  const currentDayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+  const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+  const thisWeekMonday = new Date(today);
+  thisWeekMonday.setDate(today.getDate() - daysFromMonday);
+  thisWeekMonday.setHours(0, 0, 0, 0);
+
+  // 이번 주의 일요일 구하기 (월요일 + 6일)
+  const thisWeekSunday = new Date(thisWeekMonday);
+  thisWeekSunday.setDate(thisWeekMonday.getDate() + 6);
+  thisWeekSunday.setHours(23, 59, 59, 999);
+
+  // 8주 전 월요일 구하기 (이번 주 월요일 - 49일 = 7주 전 월요일)
+  const eightWeeksAgoMonday = new Date(thisWeekMonday);
+  eightWeeksAgoMonday.setDate(thisWeekMonday.getDate() - 49);
+  eightWeeksAgoMonday.setHours(0, 0, 0, 0);
+
+  // 날짜 문자열로 변환 (YYYY-MM-DD)
+  const startDateStr = `${eightWeeksAgoMonday.getFullYear()}-${String(eightWeeksAgoMonday.getMonth() + 1).padStart(2, '0')}-${String(eightWeeksAgoMonday.getDate()).padStart(2, '0')}`;
+  const endDateStr = `${thisWeekSunday.getFullYear()}-${String(thisWeekSunday.getMonth() + 1).padStart(2, '0')}-${String(thisWeekSunday.getDate()).padStart(2, '0')}`;
+
+  return { startDateStr, endDateStr };
+}
+
+/**
+ * 작업 목록을 최근 8주(이번 주 월요일부터 8주 전 월요일까지)로 필터링하는 함수
+ * @param tasks 작업 목록
+ * @param baseDate 기준 날짜 (기본값: 오늘)
+ * @returns 필터링된 작업 목록
+ */
+export function filterTasksByLast8Weeks(
+  tasks: Task[],
+  baseDate: Date = new Date()
+): Task[] {
+  const { startDateStr, endDateStr } = getLast8WeeksRange(baseDate);
+  return filterTasksByDateRange(tasks, startDateStr, endDateStr);
+}
+
+/**
+ * 올해 1월 1일부터 이번 주 일요일까지의 범위를 반환하는 함수
+ * @param baseDate 기준 날짜 (기본값: 오늘)
+ * @returns { startDateStr: string, endDateStr: string } 시작일과 종료일 날짜 문자열 (YYYY-MM-DD 형식)
+ */
+export function getCurrentYearRange(baseDate: Date = new Date()): {
+  startDateStr: string;
+  endDateStr: string;
+} {
+  const today = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  today.setHours(0, 0, 0, 0);
+
+  // 올해 1월 1일 구하기
+  const startOfYear = new Date(today.getFullYear(), 0, 1);
+  startOfYear.setHours(0, 0, 0, 0);
+
+  // 이번 주의 일요일 구하기
+  const currentDayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+  const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+  const thisWeekMonday = new Date(today);
+  thisWeekMonday.setDate(today.getDate() - daysFromMonday);
+  thisWeekMonday.setHours(0, 0, 0, 0);
+  
+  const thisWeekSunday = new Date(thisWeekMonday);
+  thisWeekSunday.setDate(thisWeekMonday.getDate() + 6);
+  thisWeekSunday.setHours(23, 59, 59, 999);
+
+  // 날짜 문자열로 변환 (YYYY-MM-DD)
+  const startDateStr = `${startOfYear.getFullYear()}-${String(startOfYear.getMonth() + 1).padStart(2, '0')}-${String(startOfYear.getDate()).padStart(2, '0')}`;
+  const endDateStr = `${thisWeekSunday.getFullYear()}-${String(thisWeekSunday.getMonth() + 1).padStart(2, '0')}-${String(thisWeekSunday.getDate()).padStart(2, '0')}`;
+
+  return { startDateStr, endDateStr };
+}
+
+/**
+ * 작업 목록을 올해 1월 1일부터 이번 주 일요일까지로 필터링하는 함수
+ * @param tasks 작업 목록
+ * @param baseDate 기준 날짜 (기본값: 오늘)
+ * @returns 필터링된 작업 목록
+ */
+export function filterTasksByCurrentYear(
+  tasks: Task[],
+  baseDate: Date = new Date()
+): Task[] {
+  const { startDateStr, endDateStr } = getCurrentYearRange(baseDate);
+  return filterTasksByDateRange(tasks, startDateStr, endDateStr);
+}
+
+/**
+ * 최근 5년의 1월 1일부터 이번 주 일요일까지의 범위를 반환하는 함수
+ * @param baseDate 기준 날짜 (기본값: 오늘)
+ * @returns { startDateStr: string, endDateStr: string } 시작일과 종료일 날짜 문자열 (YYYY-MM-DD 형식)
+ */
+export function getLast5YearsRange(baseDate: Date = new Date()): {
+  startDateStr: string;
+  endDateStr: string;
+} {
+  const today = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  today.setHours(0, 0, 0, 0);
+
+  // 5년 전 1월 1일 구하기
+  const fiveYearsAgo = new Date(today);
+  fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+  const startOfFiveYearsAgo = new Date(fiveYearsAgo.getFullYear(), 0, 1);
+  startOfFiveYearsAgo.setHours(0, 0, 0, 0);
+
+  // 이번 주의 일요일 구하기
+  const currentDayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+  const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+  const thisWeekMonday = new Date(today);
+  thisWeekMonday.setDate(today.getDate() - daysFromMonday);
+  thisWeekMonday.setHours(0, 0, 0, 0);
+  
+  const thisWeekSunday = new Date(thisWeekMonday);
+  thisWeekSunday.setDate(thisWeekMonday.getDate() + 6);
+  thisWeekSunday.setHours(23, 59, 59, 999);
+
+  // 날짜 문자열로 변환 (YYYY-MM-DD)
+  const startDateStr = `${startOfFiveYearsAgo.getFullYear()}-${String(startOfFiveYearsAgo.getMonth() + 1).padStart(2, '0')}-${String(startOfFiveYearsAgo.getDate()).padStart(2, '0')}`;
+  const endDateStr = `${thisWeekSunday.getFullYear()}-${String(thisWeekSunday.getMonth() + 1).padStart(2, '0')}-${String(thisWeekSunday.getDate()).padStart(2, '0')}`;
+
+  return { startDateStr, endDateStr };
+}
+
+/**
+ * 작업 목록을 최근 5년의 1월 1일부터 이번 주 일요일까지로 필터링하는 함수
+ * @param tasks 작업 목록
+ * @param baseDate 기준 날짜 (기본값: 오늘)
+ * @returns 필터링된 작업 목록
+ */
+export function filterTasksByLast5Years(
+  tasks: Task[],
+  baseDate: Date = new Date()
+): Task[] {
+  const { startDateStr, endDateStr } = getLast5YearsRange(baseDate);
+  return filterTasksByDateRange(tasks, startDateStr, endDateStr);
+}
+
+/**
  * 특정 날짜가 작업의 날짜 범위 내에 있는지 확인하는 함수
  * @param task 작업 객체
  * @param dateStr 확인할 날짜 (YYYY-MM-DD 형식)

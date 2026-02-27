@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 export default function LedgerManagementPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -53,6 +54,7 @@ export default function LedgerManagementPage() {
   const queryClient = useQueryClient();
   const { data: farms } = useFarms();
   const { data: crops } = useCrops();
+  const [, navigate] = useLocation();
 
   // 선택된 월의 시작일과 종료일
   const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
@@ -255,9 +257,21 @@ export default function LedgerManagementPage() {
   return (
     <div className="p-4 space-y-6">
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">장부 관리</h1>
-        <p className="text-gray-600 text-sm">매출 및 비용 내역을 관리합니다</p>
+      <div className="relative">
+        {/* 뒤로가기 버튼 (좌측 고정) */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 absolute left-0 top-1/2 -translate-y-1/2"
+          onClick={() => navigate("/my-page")}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        {/* 중앙 정렬 타이틀 */}
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-gray-900 mb-1">장부 관리</h1>
+          <p className="text-gray-600 text-sm">매출 및 비용 내역을 관리합니다</p>
+        </div>
       </div>
 
       {/* 필터 영역 */}
