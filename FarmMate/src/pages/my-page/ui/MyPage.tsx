@@ -196,7 +196,7 @@ export default function MyPage() {
       <div className="space-y-3">
         <button
           type="button"
-          onClick={() => setLocation("/ledger-management")}
+          onClick={() => setLocation("/ledger-management?from=my-page")}
           className="w-full rounded-lg border-2 border-gray-400 bg-white p-4 flex items-center justify-between text-left"
         >
           <div className="flex items-center gap-3">

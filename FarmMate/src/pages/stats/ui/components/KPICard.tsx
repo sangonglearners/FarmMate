@@ -11,11 +11,11 @@ interface KPICardProps {
 
 export function KPICard({ title, value, change, formula, className }: KPICardProps) {
   const changeColor = change !== undefined 
-    ? change >= 0 ? "text-green-600" : "text-red-600"
+    ? change >= 0 ? "text-[#4CAF50]" : "text-red-600"
     : "";
 
   return (
-    <Card className={cn("rounded-lg shadow-sm", className)}>
+    <Card className={cn("rounded-xl shadow-sm border border-gray-100", className)}>
       <CardContent className="p-6">
         <div className="flex-1">
           <p className="text-sm text-gray-600 mb-2">{title}</p>

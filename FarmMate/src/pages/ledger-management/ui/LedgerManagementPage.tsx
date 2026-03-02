@@ -82,7 +82,8 @@ export default function LedgerManagementPage() {
   const queryClient = useQueryClient();
   const { data: farms } = useFarms();
   const { data: crops } = useCrops();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const showBackButton = location.includes("from=my-page");
 
   // 선택된 월의 시작일과 종료일
   const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
@@ -300,20 +301,25 @@ export default function LedgerManagementPage() {
   };
 
   const getTaskTypeChipClasses = (selected: boolean) => {
+    const base = "h-8 rounded-full border px-3 text-sm";
     const active = selected
-      ? "border-amber-500 bg-amber-100 text-amber-800"
+      ? "border-amber-500 bg-amber-100 text-amber-800 active:bg-amber-100 active:border-amber-500 focus:bg-amber-100 focus:border-amber-500 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
-    return `h-8 rounded-full border px-3 text-sm ${active}`;
+    return `${base} ${active}`;
   };
 
   const getFarmChipClasses = (selected: boolean) => {
+    const base = "h-8 rounded-full border px-3 text-sm";
     const active = selected
-      ? "border-sky-500 bg-sky-100 text-sky-800"
+      ? "border-sky-500 bg-sky-100 text-sky-800 active:bg-sky-100 active:border-sky-500 focus:bg-sky-100 focus:border-sky-500 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
-    return `h-8 rounded-full border px-3 text-sm ${active}`;
+    return `${base} ${active}`;
   };
 
   const yearMonthLabel = format(selectedMonth, "yyyy년 M월");
+
+  const statusFilterSelectedClass =
+    "border-green-500 bg-green-100 text-green-800 active:bg-green-100 active:border-green-500 focus:bg-green-100 focus:border-green-500 focus-visible:ring-green-400 focus-visible:ring-offset-2";
 
   const openFilterSheet = () => {
     setDraftStatusFilter(statusFilter);
@@ -414,15 +420,16 @@ export default function LedgerManagementPage() {
     <div className="p-4 space-y-6">
       {/* Header */}
       <div className="relative">
-        {/* 뒤로가기 버튼 (좌측 고정) */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 absolute left-0 top-1/2 -translate-y-1/2"
-          onClick={() => navigate("/my-page")}
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
+        {showBackButton && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 absolute left-0 top-1/2 -translate-y-1/2"
+            onClick={() => navigate("/my-page")}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        )}
         {/* 중앙 정렬 타이틀 */}
         <div className="text-center">
           <h1 className="text-xl font-bold text-gray-900 mb-1">장부 관리</h1>
@@ -546,21 +553,21 @@ export default function LedgerManagementPage() {
                     <div className="grid grid-cols-3 gap-2">
                       <Button
                         variant="outline"
-                        className={statusFilter === "all" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        className={statusFilter === "all" ? statusFilterSelectedClass : ""}
                         onClick={() => setStatusFilter("all")}
                       >
                         전체
                       </Button>
                       <Button
                         variant="outline"
-                        className={statusFilter === "unregistered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        className={statusFilter === "unregistered" ? statusFilterSelectedClass : ""}
                         onClick={() => setStatusFilter("unregistered")}
                       >
                         미등록
                       </Button>
                       <Button
                         variant="outline"
-                        className={statusFilter === "registered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                        className={statusFilter === "registered" ? statusFilterSelectedClass : ""}
                         onClick={() => setStatusFilter("registered")}
                       >
                         등록완료
@@ -690,21 +697,21 @@ export default function LedgerManagementPage() {
               <div className="grid grid-cols-3 gap-2">
                 <Button
                   variant="outline"
-                  className={draftStatusFilter === "all" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                  className={draftStatusFilter === "all" ? statusFilterSelectedClass : ""}
                   onClick={() => setDraftStatusFilter("all")}
                 >
                   전체
                 </Button>
                 <Button
                   variant="outline"
-                  className={draftStatusFilter === "unregistered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                  className={draftStatusFilter === "unregistered" ? statusFilterSelectedClass : ""}
                   onClick={() => setDraftStatusFilter("unregistered")}
                 >
                   미등록
                 </Button>
                 <Button
                   variant="outline"
-                  className={draftStatusFilter === "registered" ? "border-green-500 bg-green-100 text-green-800" : ""}
+                  className={draftStatusFilter === "registered" ? statusFilterSelectedClass : ""}
                   onClick={() => setDraftStatusFilter("registered")}
                 >
                   등록완료

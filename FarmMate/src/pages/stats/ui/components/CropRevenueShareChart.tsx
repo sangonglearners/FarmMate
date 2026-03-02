@@ -3,45 +3,34 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
 import { useState, useRef, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-interface CropData {
-  name: string;
-  value: number; // 이랑 수
-  percentage: number; // 전체 대비 %
-  others?: string[]; // 기타 항목에 포함된 작물 목록
-}
-
-interface CropMixChartProps {
-  data: CropData[];
-  totalRows: number;
-  usedRows: number;
-}
-
-// 농업/자연 테마 색상 팔레트 (잎·흙·밀·하늘 톤)
 const COLORS = [
-  "#166534", // forest green (잎)
-  "#0d9488", // teal (녹물/물)
-  "#ca8a04", // wheat (밀/골드)
-  "#b45309", // amber (흙/갈색)
-  "#1e3a2f", // sage (잎진한 녹색)
-  "#78716c", // warm stone (기타 - 중립적 흙톤)
-  "#0f766e", // teal green
-  "#4d7c0f", // lime (연한 잎)
-  "#92400e", // brown (흙)
-  "#1e40af", // sky blue (하늘)
-  "#15803d", // green
-  "#65a30d", // light green
+  "#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#F44336",
+  "#00BCD4", "#FFEB3B", "#795548", "#E91E63", "#3F51B5",
+  "#009688", "#CDDC39", "#673AB7", "#FF5722", "#8BC34A",
+  "#03A9F4", "#FFC107", "#607D8B", "#9E9E9E", "#4CAF50",
 ];
 
-export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
+interface CropRevenueShareChartProps {
+  title?: string;
+  data: { name: string; value: number }[];
+}
+
+export function CropRevenueShareChart({ title = "작물별 매출 비중", data }: CropRevenueShareChartProps) {
+  const fullTotal = data.reduce((s, d) => s + d.value, 0);
+  const withPercentage = data.map((d) => ({
+    ...d,
+    percentage: fullTotal > 0 ? (d.value / fullTotal) * 100 : 0,
+  }));
   // 기타를 맨 아래로, 기타 포함 최대 6개
-  const nonEtc = data.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
-  const etc = data.filter((d) => d.name === "기타");
+  const nonEtc = withPercentage.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
+  const etc = withPercentage.filter((d) => d.name === "기타");
   const displayRaw = [...nonEtc.slice(0, 5), ...etc];
   const displayTotal = displayRaw.reduce((s, d) => s + d.value, 0);
   const chartData = displayRaw.map((d) => ({
     ...d,
     percentage: displayTotal > 0 ? (d.value / displayTotal) * 100 : 0,
   }));
+  const total = fullTotal;
 
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const isMobile = useIsMobile();
@@ -77,19 +66,31 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
     }
   };
 
+  if (chartData.length === 0) {
+    return (
+      <Card className="rounded-lg shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-900">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500 py-8 text-center">기간 내 데이터가 없습니다</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="rounded-lg shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">작물 구성</CardTitle>
+        <CardTitle className="text-lg font-semibold text-gray-900">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-row items-start gap-1">
-          {/* 왼쪽: 원그래프 + 호버 시 툴팁(차트 바깥 왼쪽에 고정) */}
+          {/* 왼쪽: 원그래프 (작물 구성과 동일 크기·배치) */}
           <div
             ref={chartRef}
             className={`flex-shrink-0 relative ${isMobile ? "h-40 w-40 -ml-2" : "h-64 w-64 -ml-6"}`}
           >
-            {/* 호버한 조각의 상세 정보 - 차트 바깥 왼쪽에 표시, 범례와 겹치지 않음 */}
             {activeIndex !== undefined && chartData[activeIndex] && (
               <div
                 className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-lg shadow-lg pointer-events-none ${
@@ -101,23 +102,11 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   {chartData[activeIndex].name}
                 </p>
                 <p className={isMobile ? "text-xs text-gray-600" : "text-sm text-gray-600"}>
-                  이랑 수: {chartData[activeIndex].value}개
+                  ₩{chartData[activeIndex].value.toLocaleString()}
                 </p>
                 <p className={isMobile ? "text-xs text-gray-600" : "text-sm text-gray-600"}>
                   비율: {chartData[activeIndex].percentage.toFixed(2)}%
                 </p>
-                {chartData[activeIndex].name === "기타" &&
-                  chartData[activeIndex].others &&
-                  chartData[activeIndex].others!.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs font-medium text-gray-700 mb-1">
-                        포함 작물:
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {chartData[activeIndex].others!.join(", ")}
-                      </p>
-                    </div>
-                  )}
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
@@ -138,42 +127,40 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   onMouseLeave={handleMouseLeave}
                   onClick={handleSliceClick}
                 >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {chartData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center">
-                <p className={`font-bold text-gray-900 ${isMobile ? "text-lg" : "text-2xl"}`}>{usedRows}</p>
-                <p className={`text-gray-600 ${isMobile ? "text-xs" : "text-sm"}`}>사용 이랑</p>
+                <p className={`font-bold text-gray-900 ${isMobile ? "text-lg" : "text-2xl"}`}>
+                  {total >= 10000 ? `₩${(total / 10000).toFixed(0)}만` : `₩${total.toLocaleString()}`}
+                </p>
+                <p className={`text-gray-600 ${isMobile ? "text-xs" : "text-sm"}`}>총액</p>
               </div>
             </div>
           </div>
-          
-          {/* 오른쪽: 작물 구성 텍스트 */}
+
+          {/* 오른쪽: 작물별 목록 (기타 맨 아래) */}
           <div className={`flex-1 pt-2 min-w-0 ${isMobile ? "space-y-1.5" : "space-y-2.5"}`}>
-            {chartData.length > 0 ? (
-              chartData.map((crop, index) => (
-                <div key={crop.name} className={`flex items-center min-w-0 ${isMobile ? "gap-2" : "gap-2.5"}`}>
-                  <div 
-                    className={`rounded-full flex-shrink-0 ${isMobile ? "w-3 h-3" : "w-4 h-4"}`}
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-gray-900 truncate ${isMobile ? "text-xs" : "text-sm"}`}>
-                      {crop.name}
-                    </p>
-                    <p className={`text-gray-600 truncate ${isMobile ? "text-[10px]" : "text-xs"}`}>
-                      이랑 {crop.value}개 · {crop.percentage.toFixed(2)}%
-                    </p>
-                  </div>
+            {chartData.map((d, index) => (
+              <div key={`${d.name}-${index}`} className={`flex items-center min-w-0 ${isMobile ? "gap-2" : "gap-2.5"}`}>
+                <div
+                  className={`rounded-full flex-shrink-0 ${isMobile ? "w-3 h-3" : "w-4 h-4"}`}
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium text-gray-900 truncate ${isMobile ? "text-xs" : "text-sm"}`}>
+                    {d.name}
+                  </p>
+                  <p className={`text-gray-600 truncate ${isMobile ? "text-[10px]" : "text-xs"}`}>
+                    ₩{d.value.toLocaleString()} · {d.percentage.toFixed(2)}%
+                  </p>
                 </div>
-              ))
-            ) : (
-              <p className={isMobile ? "text-xs text-gray-500" : "text-sm text-gray-500"}>등록된 작물이 없습니다</p>
-            )}
+              </div>
+            ))}
           </div>
         </div>
       </CardContent>

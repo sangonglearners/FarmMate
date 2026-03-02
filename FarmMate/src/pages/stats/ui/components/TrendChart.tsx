@@ -1,94 +1,47 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import type { ViewUnit } from "../../utils/stats-data";
 
-interface RevenueData {
-  period: string; // week, day, month, year
+export interface RevenueDataPoint {
+  period: string;
   value: number;
-  change?: number; // 전주/전일/전월/전년 대비 증감률
 }
 
 interface TrendChartProps {
-  data: RevenueData[];
-  periodType: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+  chartTitle?: string;
+  data: RevenueDataPoint[];
+  viewUnit: ViewUnit;
+  onViewUnitChange: (unit: ViewUnit) => void;
+  /** 토글 오른쪽에 표시할 기준 구간 (예: 25.03~26.03 월) */
+  criterionLabel?: string;
 }
 
-// CSS 변수에서 primary 색상을 읽어오는 함수
-const getPrimaryColor = (): string => {
-  if (typeof window === "undefined") return "#5cb85c"; // 기본값 (hsl(122, 39%, 49%)의 hex 근사값)
-  
-  const root = document.documentElement;
-  const primaryHsl = getComputedStyle(root).getPropertyValue("--primary").trim();
-  
-  // hsl(122, 39%, 49%) 형식을 hex로 변환
-  if (primaryHsl.startsWith("hsl")) {
-    const matches = primaryHsl.match(/\d+/g);
-    if (matches && matches.length >= 3) {
-      const h = parseInt(matches[0]);
-      const s = parseInt(matches[1]) / 100;
-      const l = parseInt(matches[2]) / 100;
-      
-      // HSL to RGB 변환
-      const c = (1 - Math.abs(2 * l - 1)) * s;
-      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-      const m = l - c / 2;
-      
-      let r = 0, g = 0, b = 0;
-      
-      if (h >= 0 && h < 60) {
-        r = c; g = x; b = 0;
-      } else if (h >= 60 && h < 120) {
-        r = x; g = c; b = 0;
-      } else if (h >= 120 && h < 180) {
-        r = 0; g = c; b = x;
-      } else if (h >= 180 && h < 240) {
-        r = 0; g = x; b = c;
-      } else if (h >= 240 && h < 300) {
-        r = x; g = 0; b = c;
-      } else {
-        r = c; g = 0; b = x;
-      }
-      
-      r = Math.round((r + m) * 255);
-      g = Math.round((g + m) * 255);
-      b = Math.round((b + m) * 255);
-      
-      return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    }
-  }
-  
-  return "#5cb85c"; // 기본값
-};
+const DEEP_GREEN = "#4CAF50";
+
+const VIEW_UNITS: { value: ViewUnit; label: string }[] = [
+  { value: "daily", label: "일" },
+  { value: "monthly", label: "월" },
+  { value: "quarterly", label: "분기" },
+  { value: "yearly", label: "연" },
+];
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
-    const data = payload[0].payload;
+    const d = payload[0].payload;
     return (
-      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-        <p className="text-sm font-medium text-gray-900 mb-1">
-          {data.period}
-        </p>
-        <p className="text-lg font-bold text-gray-900">
-          ₩{data.value.toLocaleString()}
-        </p>
-        {data.change !== undefined && (
-          <p className={`text-sm font-medium ${data.change >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {data.change >= 0 ? "+" : ""}{data.change.toFixed(2)}%
-          </p>
-        )}
+      <div className="bg-white p-3 border border-gray-200 rounded-xl shadow-lg">
+        <p className="text-sm font-medium text-gray-900">{d.period}</p>
+        <p className="text-lg font-bold text-gray-900">₩{Math.round(d.value).toLocaleString()}</p>
       </div>
     );
   }
   return null;
 };
 
-// 월간 필터용 커스텀 XAxis Tick ("1월" 형식, 일부만 렌더링해서 겹침 방지)
 const CustomMonthTick = ({ x, y, payload }: any) => {
-  // 너무 많은 레이블로 인한 UI 깨짐 방지를 위해 절반만 표시
-  if (payload.index % 2 !== 0) {
-    return null;
-  }
-
+  if (payload.index % 2 !== 0) return null;
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={16} textAnchor="middle" fill="#6b7280" fontSize="12px">
@@ -98,84 +51,129 @@ const CustomMonthTick = ({ x, y, payload }: any) => {
   );
 };
 
-export function TrendChart({ data, periodType }: TrendChartProps) {
-  const [primaryColor, setPrimaryColor] = useState<string>("#5cb85c");
+/** 분기: 월처럼 두 개마다 한 번씩만 표시 (24.Q1, 24.Q3, 25.Q1 …) */
+const CustomQuarterTick = ({ x, y, payload, isMobile }: any) => {
+  if (payload.index % 2 !== 0) return null;
+  const fontSize = isMobile ? 14 : 12;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={16}
+        textAnchor="middle"
+        fill="#6b7280"
+        fontSize={fontSize}
+        fontWeight={500}
+        style={{ textRendering: "optimizeLegibility" }}
+      >
+        {payload.value}
+      </text>
+    </g>
+  );
+};
 
-  // 세로축(매출액) 눈금: 500 단위로 딱 떨어지도록 계산
+/** 연도: 모바일에서 분기/연 라벨이 깨지지 않도록 폰트 보정 */
+const CustomYearTick = ({ x, y, payload, isMobile }: any) => {
+  const fontSize = isMobile ? 14 : 12;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={16}
+        textAnchor="middle"
+        fill="#6b7280"
+        fontSize={fontSize}
+        fontWeight={500}
+        style={{ textRendering: "optimizeLegibility" }}
+      >
+        {payload.value}
+      </text>
+    </g>
+  );
+};
+
+export function TrendChart({ chartTitle = "매출액 추이", data, viewUnit, onViewUnitChange, criterionLabel }: TrendChartProps) {
+  const isMobile = useIsMobile();
   const yAxisConfig = useMemo(() => {
-    if (!data || data.length === 0) {
-      return {
-        domain: [0, 5000000],
-        ticks: [0, 500000, 1000000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000, 4500000, 5000000],
-      };
+    if (!data?.length) {
+      return { domain: [0, 5000000] as [number, number], ticks: [0, 1000000, 2000000, 3000000, 4000000, 5000000] };
     }
-
     const values = data.map((d) => d.value);
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
-
-    const step = 500000; // 50만(500 단위) 간격
-
-    const minTick = Math.floor(minVal / step) * step;
-    const maxTick = Math.ceil(maxVal / step) * step;
-
+    const minVal = Math.min(...values, 0);
+    const maxVal = Math.max(...values, 0);
+    const step = 500000;
+    const minTick = minVal < 0 ? Math.floor(minVal / step) * step : 0;
+    const maxTick = Math.ceil(maxVal / step) * step || step;
     const ticks: number[] = [];
-    for (let v = minTick; v <= maxTick; v += step) {
-      ticks.push(v);
-    }
-
-    return {
-      domain: [minTick, maxTick],
-      ticks,
-    };
+    for (let v = minTick; v <= maxTick; v += step) ticks.push(v);
+    return { domain: [minTick, maxTick] as [number, number], ticks };
   }, [data]);
 
-  useEffect(() => {
-    setPrimaryColor(getPrimaryColor());
-  }, []);
-
   return (
-    <Card className="rounded-lg shadow-sm">
-      <CardHeader>
-        <div className="flex items-baseline justify-between">
-          <CardTitle className="text-lg font-semibold">매출액 추이</CardTitle>
-          <span className="text-xs text-gray-500">단위: 천원</span>
+    <Card className="rounded-xl shadow-sm border border-gray-100">
+      <CardHeader className="pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <CardTitle className="text-lg font-semibold text-gray-900">{chartTitle}</CardTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex w-fit max-w-full rounded-xl bg-gray-100 p-1 gap-0.5 [&_button]:touch-manipulation [&_button]:outline-none [&_button]:[-webkit-tap-highlight-color:transparent]">
+              {VIEW_UNITS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onViewUnitChange(value)}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    viewUnit === value
+                      ? "bg-[#4CAF50] text-white shadow-sm active:bg-[#4CAF50] focus:bg-[#4CAF50] focus-visible:ring-2 focus-visible:ring-green-400/60 focus-visible:ring-offset-1"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-200 active:bg-gray-200 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-1"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {criterionLabel && (
+              <span className="text-xs text-gray-500 whitespace-nowrap">{criterionLabel}</span>
+            )}
+          </div>
         </div>
+        <p className="text-xs text-gray-500 mt-1">단위: 천원</p>
       </CardHeader>
       <CardContent>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={data} 
-              margin={{ 
-                top: 5, 
-                right: 20, 
-                bottom: 20, 
-                left: 0 
-              }}
-            >
+            <LineChart data={data} margin={{ top: 5, right: 20, bottom: isMobile ? 28 : 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="period" 
+              <XAxis
+                dataKey="period"
                 stroke="#6b7280"
-                style={{ fontSize: "12px" }}
-                interval={0}
-                tick={periodType === "monthly" ? <CustomMonthTick /> : undefined}
+                style={{ fontSize: isMobile ? 14 : 12 }}
+                interval={viewUnit === "yearly" && isMobile ? 1 : 0}
+                tick={
+                  viewUnit === "monthly"
+                    ? <CustomMonthTick />
+                    : viewUnit === "quarterly"
+                      ? <CustomQuarterTick isMobile={isMobile} />
+                      : viewUnit === "yearly"
+                        ? <CustomYearTick isMobile={isMobile} />
+                        : undefined
+                }
               />
-              <YAxis 
+              <YAxis
                 stroke="#6b7280"
                 style={{ fontSize: "12px" }}
-                domain={yAxisConfig.domain as [number, number]}
+                domain={yAxisConfig.domain}
                 ticks={yAxisConfig.ticks}
-                tickFormatter={(value) => `${(Number(value) / 1000).toLocaleString()}`}
+                tickFormatter={(v) => `${Math.round(Number(v) / 1000).toLocaleString()}`}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke={primaryColor} 
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={DEEP_GREEN}
                 strokeWidth={2}
-                dot={{ fill: primaryColor, r: 4 }}
+                dot={{ fill: DEEP_GREEN, r: 4 }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>
