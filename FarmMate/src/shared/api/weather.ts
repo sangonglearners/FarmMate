@@ -23,6 +23,64 @@ export interface WeatherData {
   baseTime: string; // 발표시각
 }
 
+// ── localStorage 캐시 ─────────────────────────────────────────────────────────
+
+const CACHE_KEY = 'weather_cache';
+const CACHE_TTL = 30 * 60 * 1000; // 30분
+
+interface WeatherCacheEntry {
+  data: WeatherData;
+  timestamp: number;
+  nx: number;
+  ny: number;
+}
+
+function readCache(nx: number, ny: number): { data: WeatherData; isExpired: boolean } | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const entry: WeatherCacheEntry = JSON.parse(raw);
+    if (entry.nx !== nx || entry.ny !== ny) return null;
+    return { data: entry.data, isExpired: Date.now() - entry.timestamp > CACHE_TTL };
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(data: WeatherData, nx: number, ny: number): void {
+  try {
+    const entry: WeatherCacheEntry = { data, timestamp: Date.now(), nx, ny };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(entry));
+  } catch (e) {
+    console.warn('[날씨 캐시] 저장 실패:', e);
+  }
+}
+
+/**
+ * 캐시된 날씨 데이터를 반환합니다 (좌표 검증 포함)
+ * 만료 여부와 무관하게 저장된 데이터를 반환합니다
+ */
+export function getWeatherCacheByCoords(nx: number, ny: number): WeatherData | null {
+  return readCache(nx, ny)?.data ?? null;
+}
+
+/**
+ * 좌표 검증 없이 localStorage에 저장된 날씨 캐시를 즉시 반환합니다
+ * GPS 응답을 기다리지 않고 컴포넌트 마운트 직후 사용하기 위한 함수입니다
+ */
+export function getAnyWeatherCache(): WeatherData | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const entry: WeatherCacheEntry = JSON.parse(raw);
+    return entry.data;
+  } catch {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // 지역별 좌표 (nx, ny)
 const LOCATION_COORDINATES: Record<string, { nx: number; ny: number; name: string }> = {
   seoul: { nx: 60, ny: 127, name: '서울' },
@@ -150,84 +208,109 @@ export async function getCurrentLocation(): Promise<{ lat: number; lon: number; 
 }
 
 /**
- * 위도/경도로 날씨 정보를 가져옵니다
+ * 실제 기상청 API를 호출합니다 (캐시 없음, 에러 시 throw)
+ */
+async function _fetchWeatherApiByCoords(
+  lat: number,
+  lon: number,
+  locationName: string,
+  serviceKey: string
+): Promise<WeatherData> {
+  const grid = convertLatLonToGrid(lat, lon);
+  const now = new Date();
+  const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const baseTime = getBaseTime(now);
+
+  const apiBaseUrl = getApiBaseUrl();
+  const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst`);
+  url.searchParams.set('serviceKey', serviceKey);
+  url.searchParams.set('pageNo', '1');
+  url.searchParams.set('numOfRows', '10');
+  url.searchParams.set('dataType', 'JSON');
+  url.searchParams.set('base_date', baseDate);
+  url.searchParams.set('base_time', baseTime);
+  url.searchParams.set('nx', grid.nx.toString());
+  url.searchParams.set('ny', grid.ny.toString());
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error(`날씨 API 호출 실패: ${response.status}`);
+
+  const data = await response.json();
+  if (data.response?.header?.resultCode !== '00') {
+    throw new Error(`날씨 API 오류: ${data.response?.header?.resultMsg || '알 수 없는 오류'}`);
+  }
+
+  const items = data.response?.body?.items?.item || [];
+  if (items.length === 0) return getDummyWeatherDataForLocation(locationName, lat, lon);
+
+  const temperature = items.find((item: any) => item.category === 'T1H')?.obsrValue || '0';
+  const humidity = items.find((item: any) => item.category === 'REH')?.obsrValue || '0';
+  const windSpeed = items.find((item: any) => item.category === 'WSD')?.obsrValue || '0';
+  const skyCondition = items.find((item: any) => item.category === 'SKY')?.obsrValue || '1';
+  const precipitation = items.find((item: any) => item.category === 'PCP')?.obsrValue || '0';
+  const precipitationType = items.find((item: any) => item.category === 'PTY')?.obsrValue || '0';
+
+  const forecastData = await getDailyTemperatureRangeForGrid(grid, baseDate, serviceKey);
+
+  return {
+    temperature,
+    maxTemperature: forecastData.maxTemp,
+    minTemperature: forecastData.minTemp,
+    humidity,
+    windSpeed,
+    skyCondition,
+    precipitation,
+    precipitationType,
+    location: locationName,
+    baseDate,
+    baseTime,
+  };
+}
+
+/**
+ * 위도/경도로 날씨 정보를 가져옵니다 (localStorage 캐싱 + stale-while-revalidate)
+ *
+ * - 유효한 캐시(30분 이내, 동일 nx/ny): 즉시 반환
+ * - 만료된 캐시: stale 데이터 즉시 반환 + 백그라운드에서 API 재호출 후 캐시 갱신
+ * - 캐시 없음: API 호출 후 캐시 저장 후 반환
  */
 export async function getWeatherDataByCoordinates(
   lat: number,
   lon: number,
   locationName?: string
 ): Promise<WeatherData | null> {
-  try {
-    const serviceKey = import.meta.env.VITE_KMA_SERVICE_KEY;
-    
-    if (!serviceKey) {
-      console.warn('기상청 API 키가 설정되지 않았습니다.');
-      const name = locationName || getLocationNameFromCoordinates(lat, lon);
-      return getDummyWeatherDataForLocation(name, lat, lon);
-    }
+  const serviceKey = import.meta.env.VITE_KMA_SERVICE_KEY;
 
-    const grid = convertLatLonToGrid(lat, lon);
-    const locationNameStr = locationName || getLocationNameFromCoordinates(lat, lon);
-    
-    const now = new Date();
-    const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const baseTime = getBaseTime(now);
-    
-    // API URL (초단기실황)
-    const apiBaseUrl = getApiBaseUrl();
-    const url = new URL(`${apiBaseUrl}/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst`);
-    url.searchParams.set('serviceKey', serviceKey);
-    url.searchParams.set('pageNo', '1');
-    url.searchParams.set('numOfRows', '10');
-    url.searchParams.set('dataType', 'JSON');
-    url.searchParams.set('base_date', baseDate);
-    url.searchParams.set('base_time', baseTime);
-    url.searchParams.set('nx', grid.nx.toString());
-    url.searchParams.set('ny', grid.ny.toString());
-
-    const response = await fetch(url.toString());
-    
-    if (!response.ok) {
-      throw new Error(`날씨 API 호출 실패: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.response?.header?.resultCode !== '00') {
-      throw new Error(`날씨 API 오류: ${data.response?.header?.resultMsg || '알 수 없는 오류'}`);
-    }
-
-    const items = data.response?.body?.items?.item || [];
-    if (items.length === 0) {
-      return getDummyWeatherDataForLocation(locationNameStr, lat, lon);
-    }
-
-    const temperature = items.find((item: any) => item.category === 'T1H')?.obsrValue || '0';
-    const humidity = items.find((item: any) => item.category === 'REH')?.obsrValue || '0';
-    const windSpeed = items.find((item: any) => item.category === 'WSD')?.obsrValue || '0';
-    const skyCondition = items.find((item: any) => item.category === 'SKY')?.obsrValue || '1';
-    const precipitation = items.find((item: any) => item.category === 'PCP')?.obsrValue || '0';
-    const precipitationType = items.find((item: any) => item.category === 'PTY')?.obsrValue || '0';
-
-    const forecastData = await getDailyTemperatureRangeForGrid(grid, baseDate, serviceKey);
-    
-    return {
-      temperature,
-      maxTemperature: forecastData.maxTemp,
-      minTemperature: forecastData.minTemp,
-      humidity,
-      windSpeed,
-      skyCondition,
-      precipitation,
-      precipitationType,
-      location: locationNameStr,
-      baseDate,
-      baseTime,
-    };
-  } catch (error) {
-    console.error('날씨 정보 가져오기 실패:', error);
+  if (!serviceKey) {
+    console.warn('기상청 API 키가 설정되지 않았습니다.');
     const name = locationName || getLocationNameFromCoordinates(lat, lon);
     return getDummyWeatherDataForLocation(name, lat, lon);
+  }
+
+  const grid = convertLatLonToGrid(lat, lon);
+  const locationNameStr = locationName || getLocationNameFromCoordinates(lat, lon);
+  const cached = readCache(grid.nx, grid.ny);
+
+  if (cached && !cached.isExpired) {
+    return cached.data;
+  }
+
+  if (cached && cached.isExpired) {
+    // 만료된 캐시: stale 즉시 반환 + 백그라운드 갱신
+    _fetchWeatherApiByCoords(lat, lon, locationNameStr, serviceKey)
+      .then(data => writeCache(data, grid.nx, grid.ny))
+      .catch(err => console.error('[날씨 캐시] 백그라운드 갱신 실패:', err));
+    return cached.data;
+  }
+
+  // 캐시 없음: API 호출 후 저장
+  try {
+    const data = await _fetchWeatherApiByCoords(lat, lon, locationNameStr, serviceKey);
+    writeCache(data, grid.nx, grid.ny);
+    return data;
+  } catch (error) {
+    console.error('날씨 정보 가져오기 실패:', error);
+    return getDummyWeatherDataForLocation(locationNameStr, lat, lon);
   }
 }
 

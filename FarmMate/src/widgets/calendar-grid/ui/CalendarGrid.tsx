@@ -1,7 +1,8 @@
 import type { Task, Crop } from "@shared/schema";
 import { 
   getTaskColor, 
-  getCropCategoryColor,
+  getTaskTypeDotColor,
+  getBatchTaskGroupIds,
   getTasksForDate, 
   getCropName, 
   getCalendarDays,
@@ -24,6 +25,9 @@ interface CalendarGridProps {
 export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, onTaskClick, selectedDate, showTaskGroups = false }: CalendarGridProps) {
   const days = getCalendarDays(currentDate);
   const today = new Date();
+
+  // 일괄등록 그룹 ID 목록 (점 색상 판별용)
+  const batchTaskGroupIds = getBatchTaskGroupIds(tasks);
   
   // 연속된 일정 그룹화 (14일 주간 뷰용) - showTaskGroups가 true일 때만 계산
   const calendarDaysData = showTaskGroups ? days.map((dayInfo, index) => ({
@@ -148,15 +152,9 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, o
                   {singleDayTasks.slice(0, 3).map((task: Task) => (
                     <div
                       key={task.id}
-                      className="w-2 h-2 rounded-full flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
-                      style={{ backgroundColor: getCropCategoryColor(crops, task.cropId, task.title) }}
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: getTaskTypeDotColor(task.taskType, !!(task.taskGroupId && batchTaskGroupIds.has(task.taskGroupId))) }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onTaskClick) {
-                          onTaskClick(task);
-                        }
-                      }}
                     />
                   ))}
                   {singleDayTasks.length > 3 && (

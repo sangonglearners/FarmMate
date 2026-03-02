@@ -1,6 +1,7 @@
 import type { Task, Crop } from "@shared/schema";
 import { 
-  getCropCategoryColor,
+  getTaskTypeDotColor,
+  getBatchTaskGroupIds,
   getTasksForDate, 
   getCropName, 
   weekDays
@@ -18,6 +19,9 @@ interface MonthCalendarProps {
 export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, onTaskClick, selectedDate }: MonthCalendarProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  // 일괄등록 그룹 ID 목록 (점 색상 판별용)
+  const batchTaskGroupIds = getBatchTaskGroupIds(tasks);
   
   // 해당 월의 첫 번째 날과 마지막 날
   const firstDay = new Date(year, month, 1);
@@ -145,17 +149,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                   {singleDayTasks.slice(0, 3).map((task) => (
                     <div
                       key={`${task.id}-${dayInfo.day}`}
-                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
-                      style={{ backgroundColor: getCropCategoryColor(crops, task.cropId, task.title) }}
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: getTaskTypeDotColor(task.taskType, !!(task.taskGroupId && batchTaskGroupIds.has(task.taskGroupId))) }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onTaskClick) {
-                          onTaskClick(task);
-                        } else {
-                          onDateClick(dateStr);
-                        }
-                      }}
                     />
                   ))}
                   {singleDayTasks.length > 3 && (
