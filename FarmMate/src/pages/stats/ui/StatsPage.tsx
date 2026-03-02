@@ -612,11 +612,6 @@ export default function StatsPage() {
           change={revenueChange}
           formula="현재 기간 평균값"
         />
-        <KPICard
-          title="작업 완료율"
-          value={`${completionRate.toFixed(1)}%`}
-          formula="(내가 완료한 작업 수 / 내가 적은 전체 작업 수) × 100"
-        />
       </div>
 
       {/* 매출액 추이 차트 */}
@@ -627,6 +622,13 @@ export default function StatsPage() {
         data={cropMixData.length > 0 ? cropMixData : []} 
         totalRows={totalRows}
         usedRows={totalUsedRows}
+      />
+
+      {/* 작업 완료율 */}
+      <KPICard
+        title="작업 완료율"
+        value={`${completionRate.toFixed(1)}%`}
+        formula="(내가 완료한 작업 수 / 내가 적은 전체 작업 수) × 100"
       />
 
       {/* 농장별 작업 상태 */}
