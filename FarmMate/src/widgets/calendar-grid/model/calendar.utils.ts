@@ -9,6 +9,45 @@ export interface CalendarDay {
   dayOfWeek: number;
 }
 
+// 작업 유형별 점 색상 매핑
+export const TASK_TYPE_DOT_COLORS: Record<string, string> = {
+  "파종": "#F5C842",
+  "육묘": "#7BC67E",
+  "이랑준비": "#A07850",
+  "정식": "#2E8B57",
+  "풀/병해충/수분 관리": "#E8824A",
+  "고르기": "#5B9BD5",
+  "수확": "#D94F4F",
+  "저장-포장": "#8B72BE",
+  "기타": "#9E9E9E",
+};
+
+// 일괄등록 점 색상
+export const BATCH_TASK_DOT_COLOR = "#29B6C8";
+
+// 작업 유형 → 점 색상 반환 (일괄등록이면 별도 색상)
+export const getTaskTypeDotColor = (taskType: string, isBatch: boolean): string => {
+  if (isBatch) return BATCH_TASK_DOT_COLOR;
+  return TASK_TYPE_DOT_COLORS[taskType] ?? "#9E9E9E";
+};
+
+// tasks 배열에서 일괄등록 그룹의 taskGroupId Set 반환
+// 일괄등록: taskGroupId를 공유하는 작업들 중 taskType이 2종 이상인 그룹
+export const getBatchTaskGroupIds = (tasks: Task[]): Set<string> => {
+  const grouped = new Map<string, Set<string>>();
+  tasks.forEach(task => {
+    if (!task.taskGroupId) return;
+    const types = grouped.get(task.taskGroupId) ?? new Set<string>();
+    types.add(task.taskType);
+    grouped.set(task.taskGroupId, types);
+  });
+  const batchIds = new Set<string>();
+  grouped.forEach((types, groupId) => {
+    if (types.size > 1) batchIds.add(groupId);
+  });
+  return batchIds;
+};
+
 export const getTaskColor = (taskType: string) => {
   switch (taskType) {
     case "파종":

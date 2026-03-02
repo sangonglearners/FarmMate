@@ -449,8 +449,8 @@ export default function AddTaskDialog({
         if (titleParts && titleParts.length >= 2) {
           setCropSearchTerm(titleParts[0]);
           setCustomCropName(titleParts[0]);
+          setIsCropSelectedFromList(true);
         }
-        setIsCropSelectedFromList(false);
         if (farms && (firstTask as any).farmId) {
           const farm = farms.find((f) => f.id === (firstTask as any).farmId);
           if (farm) {
@@ -469,8 +469,11 @@ export default function AddTaskDialog({
             setCropSearchTerm(crop.name);
             setSelectedCrop(crop);
             setCustomCropName(crop.name);
+            setIsCropSelectedFromList(true);
           }
         }
+        // 수정 모드에서는 항상 검색을 억제
+        setIsCropSelectedFromList(true);
         setTimeout(() => {
           if (taskRowNumber) form.setValue("rowNumber", taskRowNumber);
         }, 100);
@@ -575,6 +578,9 @@ export default function AddTaskDialog({
         console.log("crops 데이터에서 작물을 찾을 수 없음. cropId:", (task as any).cropId);
         console.log("사용 가능한 crops:", crops?.map(c => ({ id: c.id, name: c.name })));
       }
+
+      // 수정 모드에서는 항상 검색을 억제 (어떤 경로로 진입해도 불필요한 검색이 실행되지 않도록)
+      setIsCropSelectedFromList(true);
       
     } else if (!task && open) {
       const defaultFarm =
@@ -2175,9 +2181,11 @@ export default function AddTaskDialog({
                         </DialogContent>
                       </Dialog>
                       <FormMessage />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        농작업별 세부 작업 일정은 하단의 농작업 계산기에서 선택 가능합니다
-                      </p>
+                      {registrationMode === "batch" && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          농작업별 세부 작업 일정은 하단의 농작업 계산기에서 선택 가능합니다
+                        </p>
+                      )}
                     </FormItem>
                   );
                 }}

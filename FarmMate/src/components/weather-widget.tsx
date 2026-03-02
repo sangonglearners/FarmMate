@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Cloud, MapPin } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import {
   getWeatherDataByCoordinates,
+  getWeatherCacheByCoords,
+  getAnyWeatherCache,
+  convertLatLonToGrid,
   getCurrentLocation,
   getWeatherIcon,
   type WeatherData,
@@ -15,38 +18,51 @@ interface WeatherWidgetProps {
 
 export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number; name: string } | null>(null);
+  const [isLocationLoading, setIsLocationLoading] = useState(true);
+
+  // 마운트 직후 좌표 없이도 즉시 읽을 수 있는 캐시 (GPS 대기 불필요)
+  const preloadedCache = useMemo(() => getAnyWeatherCache(), []);
 
   // 사용자 위치 가져오기 (GPS 기반)
   useEffect(() => {
     getCurrentLocation()
       .then((location) => {
-        if (location) {
-          setUserLocation(location);
-        } else {
-          // 위치를 가져올 수 없으면 기본값(서울) 사용
-          setUserLocation({ lat: 37.5665, lon: 126.9780, name: '서울' });
-        }
+        setUserLocation(location ?? { lat: 37.5665, lon: 126.9780, name: '서울' });
       })
       .catch(() => {
-        // 위치를 가져올 수 없으면 기본값(서울) 사용
         setUserLocation({ lat: 37.5665, lon: 126.9780, name: '서울' });
-      });
+      })
+      .finally(() => setIsLocationLoading(false));
   }, []);
 
-  const { data: weather, isLoading, error } = useQuery<WeatherData | null>({
+  // 위치 확정 후 좌표로 검증된 캐시 (위치가 바뀌었을 때 무효화용)
+  const coordinateValidatedCache = useMemo<WeatherData | undefined>(() => {
+    if (!userLocation) return undefined;
+    const grid = convertLatLonToGrid(userLocation.lat, userLocation.lon);
+    return getWeatherCacheByCoords(grid.nx, grid.ny) ?? undefined;
+  }, [userLocation]);
+
+  const { data: weather, isLoading, isError } = useQuery<WeatherData | null>({
     queryKey: ["weather", userLocation?.lat, userLocation?.lon],
     queryFn: () => {
-      if (!userLocation) {
-        return Promise.resolve(null);
-      }
+      if (!userLocation) return Promise.resolve(null);
       return getWeatherDataByCoordinates(userLocation.lat, userLocation.lon, userLocation.name);
     },
     enabled: !!userLocation,
-    staleTime: 10 * 60 * 1000, // 10분간 캐시
-    refetchInterval: 30 * 60 * 1000, // 30분마다 자동 갱신
+    staleTime: 30 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+    initialData: coordinateValidatedCache,
   });
 
-  if (isLoading) {
+  // TanStack Query 데이터 → 좌표 검증 캐시 → 즉시 읽은 캐시 순으로 표시
+  const displayWeather = weather ?? preloadedCache;
+
+  // 표시할 데이터가 없을 때만 스켈레톤
+  const showSkeleton = (isLocationLoading || isLoading) && !displayWeather;
+  // 로딩이 완전히 끝난 후 실제 에러가 발생했을 때만 에러 메시지
+  const showError = !isLocationLoading && !isLoading && isError && !displayWeather;
+
+  if (showSkeleton) {
     return (
       <Card className={`${className || ''} h-full`}>
         <CardContent className="p-4 h-full flex items-center">
@@ -68,7 +84,7 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
     );
   }
 
-  if (error || !weather) {
+  if (showError) {
     return (
       <Card className={`${className || ''} h-full border-orange-200 bg-orange-50`}>
         <CardContent className="p-4 h-full flex items-center">
@@ -81,11 +97,13 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
     );
   }
 
-  const weatherIcon = getWeatherIcon(weather.skyCondition, weather.precipitationType);
-  const currentTemp = parseInt(weather.temperature) || 0;
-  const maxTemp = weather.maxTemperature ? parseInt(weather.maxTemperature) : null;
-  const minTemp = weather.minTemperature ? parseInt(weather.minTemperature) : null;
-  const humidity = parseInt(weather.humidity) || 0;
+  if (!displayWeather) return null;
+
+  const weatherIcon = getWeatherIcon(displayWeather.skyCondition, displayWeather.precipitationType);
+  const currentTemp = parseInt(displayWeather.temperature) || 0;
+  const maxTemp = displayWeather.maxTemperature ? parseInt(displayWeather.maxTemperature) : null;
+  const minTemp = displayWeather.minTemperature ? parseInt(displayWeather.minTemperature) : null;
+  const humidity = parseInt(displayWeather.humidity) || 0;
 
   return (
     <Card className={`${className || ''} h-full border bg-white`}>
@@ -95,7 +113,7 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
         <div className="flex flex-col gap-1 md:hidden">
           <div className="flex items-center gap-1 text-xs text-gray-600">
             <MapPin className="w-3 h-3 flex-shrink-0" />
-            <span className="font-medium truncate">{weather.location}</span>
+            <span className="font-medium truncate">{displayWeather.location}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-3xl leading-none">{weatherIcon}</span>
@@ -123,7 +141,7 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-1 text-base text-gray-600">
               <MapPin className="w-4 h-4" />
-              <span className="font-semibold">{weather.location}</span>
+              <span className="font-semibold">{displayWeather.location}</span>
             </div>
             <div className="text-sm text-gray-600">습도 {humidity}%</div>
             <div className="flex gap-3 text-sm">
