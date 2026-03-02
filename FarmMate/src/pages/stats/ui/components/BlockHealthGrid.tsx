@@ -53,6 +53,19 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
     blocksByFarm[farmName].sort((a, b) => a.rowNumber - b.rowNumber);
   });
 
+  // 전체 이랑 사용률 (empty가 아닌 블록 = 사용 이랑)
+  const totalBlocks = blocks.length;
+  const usedBlocks = blocks.filter(b => b.status !== "empty").length;
+  const overallUsagePct = totalBlocks > 0 ? ((usedBlocks / totalBlocks) * 100).toFixed(1) : "0";
+
+  // 농장별 이랑 사용률
+  const getFarmUsage = (farmBlocks: BlockStatus[]) => {
+    const total = farmBlocks.length;
+    const used = farmBlocks.filter(b => b.status !== "empty").length;
+    const pct = total > 0 ? ((used / total) * 100).toFixed(1) : "0";
+    return { used, total, pct };
+  };
+
   // 농장별 최고 심각도 상태 (조치 필요 > 주의, 정상/empty는 농장 색깔 없음)
   const getFarmStatus = (farmBlocks: BlockStatus[]): "danger" | "watch" | null => {
     const hasDanger = farmBlocks.some(b => b.status === "danger");
@@ -72,12 +85,18 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   return (
     <Card className="rounded-lg shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">농장별 작업 상태</CardTitle>
+        <div className="flex flex-col gap-0.5">
+          <CardTitle className="text-lg font-semibold">농장별 작업 상태</CardTitle>
+          <span className="text-xs text-gray-600">
+            이랑 사용률: {overallUsagePct}% ({usedBlocks}개/{totalBlocks}개)
+          </span>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6 mb-4">
           {Object.entries(blocksByFarm).map(([farmName, farmBlocks]) => {
             const isExpanded = expandedFarms[farmName] ?? false;
+            const farmUsage = getFarmUsage(farmBlocks);
 
             return (
               <div key={farmName} className="space-y-3">
@@ -98,6 +117,9 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
                   <h3 className="text-base font-normal text-gray-900">
                     {farmName}
                   </h3>
+                  <span className="text-xs text-gray-600 shrink-0">
+                    {farmUsage.pct}% ({farmUsage.used}개/{farmUsage.total}개)
+                  </span>
                 </button>
 
                 {/* 해당 농장의 이랑들 - 토글 열었을 때만 표시 */}
@@ -140,7 +162,7 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
             );
           })}
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500" />
             <span className="text-gray-700">정상</span>
