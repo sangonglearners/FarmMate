@@ -148,15 +148,9 @@ export default function CalendarGrid({ currentDate, tasks, crops, onDateClick, o
                   {singleDayTasks.slice(0, 3).map((task: Task) => (
                     <div
                       key={task.id}
-                      className="w-2 h-2 rounded-full flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                      className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: getCropCategoryColor(crops, task.cropId, task.title) }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onTaskClick) {
-                          onTaskClick(task);
-                        }
-                      }}
                     />
                   ))}
                   {singleDayTasks.length > 3 && (

@@ -145,17 +145,9 @@ export default function MonthCalendar({ currentDate, tasks, crops, onDateClick, 
                   {singleDayTasks.slice(0, 3).map((task) => (
                     <div
                       key={`${task.id}-${dayInfo.day}`}
-                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: getCropCategoryColor(crops, task.cropId, task.title) }}
                       title={task.title || `${getCropName(crops, task.cropId)} - ${task.taskType}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onTaskClick) {
-                          onTaskClick(task);
-                        } else {
-                          onDateClick(dateStr);
-                        }
-                      }}
                     />
                   ))}
                   {singleDayTasks.length > 3 && (
