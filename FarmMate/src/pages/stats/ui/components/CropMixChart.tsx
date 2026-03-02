@@ -73,11 +73,11 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
         <CardTitle className="text-lg font-semibold">작물 구성</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* 실제 사용 이랑 & 전체 이랑 텍스트 표시 */}
+        {/* 이랑 사용률 표시 */}
         <div className={`mb-4 text-gray-600 ${isMobile ? "text-xs" : "text-sm"}`}>
-          <span className="font-medium">사용 이랑: {usedRows}개</span>
-          <span className="mx-2">·</span>
-          <span className="font-medium">전체 이랑: {totalRows}개</span>
+          <span className="font-medium">
+            이랑 사용률: {totalRows > 0 ? ((usedRows / totalRows) * 100).toFixed(1) : "0"}% ({usedRows}개/{totalRows}개)
+          </span>
         </div>
         
         <div className="flex flex-row items-start gap-1">

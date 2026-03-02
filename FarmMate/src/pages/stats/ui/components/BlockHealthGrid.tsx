@@ -53,10 +53,26 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
     blocksByFarm[farmName].sort((a, b) => a.rowNumber - b.rowNumber);
   });
 
+  // 농장별 최고 심각도 상태 (조치 필요 > 주의, 정상/empty는 농장 색깔 없음)
+  const getFarmStatus = (farmBlocks: BlockStatus[]): "danger" | "watch" | null => {
+    const hasDanger = farmBlocks.some(b => b.status === "danger");
+    const hasWatch = farmBlocks.some(b => b.status === "watch");
+    if (hasDanger) return "danger";
+    if (hasWatch) return "watch";
+    return null;
+  };
+
+  const farmHeaderBorderClass = (farmBlocks: BlockStatus[]) => {
+    const status = getFarmStatus(farmBlocks);
+    if (status === "danger") return "border-l-4 border-l-red-500";
+    if (status === "watch") return "border-l-4 border-l-yellow-500";
+    return "";
+  };
+
   return (
     <Card className="rounded-lg shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">이랑별 작업 상태</CardTitle>
+        <CardTitle className="text-lg font-semibold">농장별 작업 상태</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6 mb-4">
@@ -74,14 +90,14 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
                       [farmName]: !isExpanded,
                     }))
                   }
-                  className="w-full flex items-center justify-between border-b border-gray-200 pb-2 text-left"
+                  className={cn(
+                    "w-full flex items-center justify-between border-b border-gray-200 pb-2 text-left rounded-t px-2 -mx-2",
+                    farmHeaderBorderClass(farmBlocks)
+                  )}
                 >
                   <h3 className="text-base font-normal text-gray-900">
                     {farmName}
                   </h3>
-                  <span className="text-xs text-gray-500">
-                    {isExpanded ? "접기" : "열어서 이랑 보기"}
-                  </span>
                 </button>
 
                 {/* 해당 농장의 이랑들 - 토글 열었을 때만 표시 */}

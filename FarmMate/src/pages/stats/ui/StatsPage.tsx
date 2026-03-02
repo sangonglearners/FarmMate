@@ -629,7 +629,7 @@ export default function StatsPage() {
         usedRows={totalUsedRows}
       />
 
-      {/* 이랑별 작업 상태 */}
+      {/* 농장별 작업 상태 */}
       {blockStatuses.length > 0 && (
         <BlockHealthGrid blocks={blockStatuses} />
       )}
