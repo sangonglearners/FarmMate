@@ -716,7 +716,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const scrollToCurrentMonth = () => {
     if (viewMode === "yearly" && scrollContainerRef.current) {
       const currentMonth = today.getMonth() + 1; // 1-12 (9월 = 9)
-      const cellWidth = viewMode === "yearly" ? 100 : 120; // 연간 뷰: 100px, 월간 뷰: 120px
+      const cellWidth = viewMode === "yearly" ? (isMobile ? 60 : 100) : 120; // 연간 뷰: 모바일 60px / 데스크톱 100px
       
       // 현재 월(9월)이 딱 왼쪽에 붙도록 계산
       // 9월이 첫 번째로 보이도록 8개월만큼 스크롤 (1월~8월까지 스크롤)
@@ -1532,10 +1532,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             style={{
               width: viewMode === "monthly" 
                 ? (isMobile ? `${40 + 60 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
-                : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`),
+                : (isMobile ? `${40 + 60 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`),
               minWidth: viewMode === "monthly" 
                 ? (isMobile ? `${40 + 60 * currentPeriods.length}px` : `${60 + 120 * currentPeriods.length}px`)
-                : (isMobile ? `${40 + 100 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`)
+                : (isMobile ? `${40 + 60 * currentPeriods.length}px` : `${60 + 100 * currentPeriods.length}px`)
             }}
           >
             {/* 헤더 */}
@@ -1559,7 +1559,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               {currentPeriods.map((dayInfo, index) => (
                 <div 
                   key={viewMode === "monthly" ? `${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : (dayInfo as any).month}
-                  className={`${viewMode === "yearly" ? "w-[100px]" : "w-[60px] md:w-[120px]"} flex-shrink-0 p-1 md:p-3 text-center font-medium border-r border-gray-200 ${
+                  className={`${viewMode === "yearly" ? "w-[60px] md:w-[100px]" : "w-[60px] md:w-[120px]"} flex-shrink-0 p-1 md:p-3 text-center font-medium border-r border-gray-200 ${
                     isToday(dayInfo) 
                       ? "bg-green-100 text-green-800 font-bold" 
                       : "text-gray-600"
@@ -1682,8 +1682,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       const horizontalPadding = 4; // 좌우 여백
                       
                       if (viewMode === "yearly") {
-                        // 연간 뷰
-                        const cellWidth = 100;
+                        // 연간 뷰: 모바일 60px / 데스크톱 100px
+                        const cellWidth = isMobile ? 60 : 100;
                         if (spanUnits === 1) {
                           // 단일 셀: 여백을 두고 중앙 배치
                           leftPosition = `${taskGroup.startDayIndex * cellWidth + horizontalPadding}px`;
@@ -1848,7 +1848,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       return (
                         <div
                           key={viewMode === "monthly" ? `${rowNumber}-${(dayInfo as any).year}-${(dayInfo as any).month}-${(dayInfo as any).day}` : `${rowNumber}-${(dayInfo as any).month}`}
-                          className={`${viewMode === "yearly" ? "w-[100px]" : "w-[60px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                          className={`${viewMode === "yearly" ? "w-[60px] md:w-[100px]" : "w-[60px] md:w-[120px]"} flex-shrink-0 p-1 md:p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors relative ${
                             isTodayCell ? "bg-green-50 border-green-200" : ""
                           } ${viewMode === "monthly" && (dayInfo as any).isCurrentMonth === false ? "bg-gray-25" : ""} ${
                             viewMode === "monthly" && selectedCellDate === cellDateStr ? "bg-blue-50 border-blue-300 border-2" : ""
