@@ -2175,9 +2175,11 @@ export default function AddTaskDialog({
                         </DialogContent>
                       </Dialog>
                       <FormMessage />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        농작업별 세부 작업 일정은 하단의 농작업 계산기에서 선택 가능합니다
-                      </p>
+                      {registrationMode === "batch" && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          농작업별 세부 작업 일정은 하단의 농작업 계산기에서 선택 가능합니다
+                        </p>
+                      )}
                     </FormItem>
                   );
                 }}
