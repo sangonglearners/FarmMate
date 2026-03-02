@@ -197,7 +197,7 @@ export default function MyPage() {
         <button
           type="button"
           onClick={() => setLocation("/ledger-management")}
-          className="w-full rounded-lg border border-gray-200 bg-white p-4 flex items-center justify-between text-left"
+          className="w-full rounded-lg border-2 border-gray-400 bg-white p-4 flex items-center justify-between text-left"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
@@ -208,13 +208,12 @@ export default function MyPage() {
               <p className="text-xs text-gray-500">매출 및 비용 내역을 관리합니다</p>
             </div>
           </div>
-          <span className="text-xs text-gray-400">세부 정보 보기</span>
         </button>
 
         <button
           type="button"
           onClick={() => setLocation("/farm-crop-management")}
-          className="w-full rounded-lg border border-gray-200 bg-white p-4 flex items-center justify-between text-left"
+          className="w-full rounded-lg border-2 border-gray-400 bg-white p-4 flex items-center justify-between text-left"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
@@ -225,7 +224,6 @@ export default function MyPage() {
               <p className="text-xs text-gray-500">내 농장과 작물 정보를 관리합니다</p>
             </div>
           </div>
-          <span className="text-xs text-gray-400">세부 정보 보기</span>
         </button>
       </div>
 
