@@ -1633,6 +1633,7 @@ export default function AddTaskDialog({
                   <div className="flex bg-gray-100 rounded-lg p-1">
                     <button
                       type="button"
+                      id="bulk-register-btn"
                       onClick={() => setRegistrationMode("batch")}
                       className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
                         registrationMode === "batch"
