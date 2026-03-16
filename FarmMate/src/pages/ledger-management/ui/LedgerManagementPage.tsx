@@ -519,7 +519,7 @@ export default function LedgerManagementPage() {
         </div>
 
         {/* 필터 요약 칩 (가로 스크롤) */}
-        <div className="text-xs font-medium text-gray-500">필터 표시</div>
+        <div className="text-xs font-medium text-gray-500">조회 기준</div>
         <div className="overflow-x-auto">
           <TooltipProvider delayDuration={150}>
             <div className="flex w-max min-w-full items-center gap-2 pb-1">

@@ -133,7 +133,7 @@ export function TrendChart({
     <>
       <div className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h3 className="text-lg font-semibold text-gray-900">{chartTitle}</h3>
+          <h3 className="text-base font-semibold text-gray-900">{chartTitle}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex w-fit max-w-full rounded-xl bg-gray-100 p-1 gap-0.5 [&_button]:touch-manipulation [&_button]:outline-none [&_button]:[-webkit-tap-highlight-color:transparent]">
               {navigation?.enabled && (

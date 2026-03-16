@@ -80,7 +80,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
   return (
     <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">작물 구성</CardTitle>
+        <CardTitle className="text-base font-semibold">작물 구성</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-row items-start gap-1">

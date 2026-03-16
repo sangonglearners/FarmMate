@@ -78,7 +78,7 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
     if (embedded) {
       return (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">{title}</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">{title}</h3>
           {emptyContent}
         </div>
       );
@@ -86,9 +86,9 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
 
     return (
       <Card className="rounded-lg shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-900">{title}</CardTitle>
-        </CardHeader>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold text-gray-900">{title}</CardTitle>
+      </CardHeader>
         <CardContent>{emptyContent}</CardContent>
       </Card>
     );
@@ -96,7 +96,7 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
 
   const chartBody = (
     <>
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">{title}</h3>
+      <h3 className="text-base font-semibold text-gray-900 mb-3">{title}</h3>
       <div>
         <div className="flex flex-row items-start gap-1">
           {/* 왼쪽: 원그래프 (작물 구성과 동일 크기·배치) */}

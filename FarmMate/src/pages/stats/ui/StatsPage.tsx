@@ -46,7 +46,7 @@ export default function StatsPage() {
     netProfit: "순수익",
   };
   const aggregateLabelMap: Record<AggregateMode, string> = {
-    detail: "세부",
+    detail: "상세",
     average: "평균",
   };
 
@@ -342,9 +342,8 @@ export default function StatsPage() {
       </div>
 
       <div className="p-4 space-y-6 max-w-5xl mx-auto">
-        {/* 기간 선택 */}
+        {/* 기간 선택 (라벨 없이 날짜만) */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">기간</span>
           <input
             type="date"
             value={startDateStr}
@@ -367,7 +366,7 @@ export default function StatsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-medium text-gray-500">Filter by:</span>
+            <span className="text-xs font-medium text-gray-500">조회 기준</span>
             <Popover open={metricPopoverOpen} onOpenChange={setMetricPopoverOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -416,7 +415,7 @@ export default function StatsPage() {
               <PopoverContent className="w-auto p-2" align="start">
                 <div className="flex flex-col gap-1 min-w-[96px]">
                   {[
-                    { value: "detail" as const, label: "세부" },
+                    { value: "detail" as const, label: "상세" },
                     { value: "average" as const, label: "평균" },
                   ].map((item) => (
                     <button
