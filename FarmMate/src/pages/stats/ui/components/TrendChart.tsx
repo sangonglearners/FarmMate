@@ -16,6 +16,15 @@ interface TrendChartProps {
   onViewUnitChange: (unit: ViewUnit) => void;
   /** 토글 오른쪽에 표시할 기준 구간 (예: 25.03~26.03 월) */
   criterionLabel?: string;
+  viewUnitOptions?: { value: ViewUnit; label: string }[];
+  embedded?: boolean;
+  navigation?: {
+    enabled: boolean;
+    onPrev: () => void;
+    onNext: () => void;
+    canPrev: boolean;
+    canNext: boolean;
+  };
 }
 
 const DEEP_GREEN = "#4CAF50";
@@ -53,7 +62,6 @@ const CustomMonthTick = ({ x, y, payload }: any) => {
 
 /** 분기: 월처럼 두 개마다 한 번씩만 표시 (24.Q1, 24.Q3, 25.Q1 …) */
 const CustomQuarterTick = ({ x, y, payload, isMobile }: any) => {
-  if (payload.index % 2 !== 0) return null;
   const fontSize = isMobile ? 14 : 12;
   return (
     <g transform={`translate(${x},${y})`}>
@@ -94,8 +102,18 @@ const CustomYearTick = ({ x, y, payload, isMobile }: any) => {
   );
 };
 
-export function TrendChart({ chartTitle = "매출액 추이", data, viewUnit, onViewUnitChange, criterionLabel }: TrendChartProps) {
+export function TrendChart({
+  chartTitle = "매출액 추이",
+  data,
+  viewUnit,
+  onViewUnitChange,
+  criterionLabel,
+  viewUnitOptions,
+  embedded = false,
+  navigation,
+}: TrendChartProps) {
   const isMobile = useIsMobile();
+  const units = viewUnitOptions ?? VIEW_UNITS;
   const yAxisConfig = useMemo(() => {
     if (!data?.length) {
       return { domain: [0, 5000000] as [number, number], ticks: [0, 1000000, 2000000, 3000000, 4000000, 5000000] };
@@ -111,14 +129,25 @@ export function TrendChart({ chartTitle = "매출액 추이", data, viewUnit, on
     return { domain: [minTick, maxTick] as [number, number], ticks };
   }, [data]);
 
-  return (
-    <Card className="rounded-xl shadow-sm border border-gray-100">
-      <CardHeader className="pb-2">
+  const content = (
+    <>
+      <div className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <CardTitle className="text-lg font-semibold text-gray-900">{chartTitle}</CardTitle>
+          <h3 className="text-lg font-semibold text-gray-900">{chartTitle}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex w-fit max-w-full rounded-xl bg-gray-100 p-1 gap-0.5 [&_button]:touch-manipulation [&_button]:outline-none [&_button]:[-webkit-tap-highlight-color:transparent]">
-              {VIEW_UNITS.map(({ value, label }) => (
+              {navigation?.enabled && (
+                <button
+                  type="button"
+                  onClick={navigation.onPrev}
+                  disabled={!navigation.canPrev}
+                  className="shrink-0 px-2 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="이전 구간"
+                >
+                  {"<"}
+                </button>
+              )}
+              {units.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
@@ -132,6 +161,17 @@ export function TrendChart({ chartTitle = "매출액 추이", data, viewUnit, on
                   {label}
                 </button>
               ))}
+              {navigation?.enabled && (
+                <button
+                  type="button"
+                  onClick={navigation.onNext}
+                  disabled={!navigation.canNext}
+                  className="shrink-0 px-2 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="다음 구간"
+                >
+                  {">"}
+                </button>
+              )}
             </div>
             {criterionLabel && (
               <span className="text-xs text-gray-500 whitespace-nowrap">{criterionLabel}</span>
@@ -139,47 +179,58 @@ export function TrendChart({ chartTitle = "매출액 추이", data, viewUnit, on
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-1">단위: 천원</p>
+      </div>
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 20, bottom: isMobile ? 28 : 20, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="period"
+              stroke="#6b7280"
+              style={{ fontSize: isMobile ? 14 : 12 }}
+              interval={0}
+              tick={
+                viewUnit === "monthly"
+                  ? <CustomMonthTick />
+                  : viewUnit === "quarterly"
+                    ? <CustomQuarterTick isMobile={isMobile} />
+                    : viewUnit === "yearly"
+                      ? <CustomYearTick isMobile={isMobile} />
+                      : undefined
+              }
+            />
+            <YAxis
+              stroke="#6b7280"
+              style={{ fontSize: "12px" }}
+              domain={yAxisConfig.domain}
+              ticks={yAxisConfig.ticks}
+              tickFormatter={(v) => `${Math.round(Number(v) / 1000).toLocaleString()}`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={DEEP_GREEN}
+              strokeWidth={2}
+              dot={{ fill: DEEP_GREEN, r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div>{content}</div>;
+  }
+
+  return (
+    <Card className="rounded-xl shadow-sm border border-gray-100">
+      <CardHeader className="pb-2">
+        <CardTitle className="sr-only">{chartTitle}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 20, bottom: isMobile ? 28 : 20, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="period"
-                stroke="#6b7280"
-                style={{ fontSize: isMobile ? 14 : 12 }}
-                interval={viewUnit === "yearly" && isMobile ? 1 : 0}
-                tick={
-                  viewUnit === "monthly"
-                    ? <CustomMonthTick />
-                    : viewUnit === "quarterly"
-                      ? <CustomQuarterTick isMobile={isMobile} />
-                      : viewUnit === "yearly"
-                        ? <CustomYearTick isMobile={isMobile} />
-                        : undefined
-                }
-              />
-              <YAxis
-                stroke="#6b7280"
-                style={{ fontSize: "12px" }}
-                domain={yAxisConfig.domain}
-                ticks={yAxisConfig.ticks}
-                tickFormatter={(v) => `${Math.round(Number(v) / 1000).toLocaleString()}`}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={DEEP_GREEN}
-                strokeWidth={2}
-                dot={{ fill: DEEP_GREEN, r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
+      <CardContent>{content}</CardContent>
     </Card>
   );
 }

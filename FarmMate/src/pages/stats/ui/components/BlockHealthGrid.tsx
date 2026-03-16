@@ -83,7 +83,7 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   };
 
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
         <div className="flex flex-col gap-0.5">
           <CardTitle className="text-lg font-semibold">농장별 작업 상태</CardTitle>
