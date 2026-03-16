@@ -216,12 +216,96 @@ export default function StatsPage() {
       getCropRevenueShare(
         ledgersWithValue,
         allTasks,
-        chartStart,
-        chartEnd,
+        normalizedStart,
+        normalizedEnd,
         cropNameById
       ),
-    [ledgersWithValue, allTasks, chartStart, chartEnd, crops]
+    [ledgersWithValue, allTasks, normalizedStart, normalizedEnd, crops]
   );
+
+  const insights = useMemo(() => {
+    const metricLabel = metricLabelMap[metricMode];
+
+    // 이번 달(달력 기준) 총 {매출/비용/순수익}
+    const endDate = parseISO(normalizedEnd);
+    const monthStartStr = format(startOfMonth(endDate), "yyyy-MM-dd");
+    const monthEndStr = format(endOfMonth(endDate), "yyyy-MM-dd");
+
+    const getTaskEndStr = (t: Task) => (t as any).endDate || t.scheduledDate;
+
+    const totalValue = ledgersWithValue.reduce((sum, l) => {
+      if (!l.taskId) return sum;
+      const task = allTasks.find((x) => x.id === l.taskId);
+      if (!task) return sum;
+      const d = getTaskEndStr(task);
+      if (d < monthStartStr || d > monthEndStr) return sum;
+      return sum + l.value;
+    }, 0);
+
+    // 선택한 기간 기준 단위별 평균 (기존 로직 유지: 차트 데이터 기반)
+    const avgValue =
+      revenueTrendData.length > 0
+        ? revenueTrendData.reduce((sum, p) => sum + p.value, 0) /
+          revenueTrendData.length
+        : 0;
+
+    // 텍스트용 기간/단위 레이블 (예: 25.01~26.01, 분기별)
+    const periodStart = parseISO(normalizedStart);
+    const periodEnd = parseISO(normalizedEnd);
+    const periodLabel = `${format(periodStart, "yy.MM")}~${format(
+      periodEnd,
+      "yy.MM"
+    )}`;
+    const unitLabel =
+      viewUnit === "daily"
+        ? "요일별"
+        : viewUnit === "monthly"
+        ? "월별"
+        : viewUnit === "quarterly"
+        ? "분기별"
+        : "연도별";
+
+    // 이번 달 기준 작물별 상위 매출
+    const monthlyCropRevenue = getCropRevenueShare(
+      ledgersWithValue,
+      allTasks,
+      monthStartStr,
+      monthEndStr,
+      cropNameById
+    );
+
+    const cropsExcludingOthers = monthlyCropRevenue.filter(
+      (c) => c.name !== "기타"
+    );
+    const cropTotal = cropsExcludingOthers.reduce((sum, c) => sum + c.value, 0);
+    const topCrops = cropsExcludingOthers.slice(0, 3);
+    const topShare =
+      cropTotal > 0
+        ? (topCrops.reduce((sum, c) => sum + c.value, 0) / cropTotal) * 100
+        : 0;
+
+    return {
+      metricLabel,
+      totalValue,
+      avgValue,
+      periodLabel,
+      unitLabel,
+      hasRevenue: totalValue > 0,
+      hasCropShare: monthlyCropRevenue.length > 0 && cropTotal > 0,
+      topCrops,
+      topShare,
+    };
+  }, [
+    metricMode,
+    metricLabelMap,
+    revenueTrendData,
+    cropRevenueData,
+    ledgersWithValue,
+    allTasks,
+    normalizedStart,
+    normalizedEnd,
+    viewUnit,
+  ]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{
@@ -358,6 +442,96 @@ export default function StatsPage() {
             className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50] outline-none"
           />
         </div>
+
+        {/* 이번 달 인사이트 */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">
+              이번 달 인사이트
+            </h2>
+          </div>
+          <Card className="rounded-xl border border-gray-100 shadow-sm">
+            <CardContent className="p-4 space-y-3">
+              {/* 1. 총 매출/평균 매출 카드형 요약 */}
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 text-base">✓</span>
+                <div className="flex-1 space-y-1">
+                  {insights.hasRevenue ? (
+                    <>
+                      <p className="text-xs text-gray-600">
+                        이번 달 <span className="font-semibold">총 {insights.metricLabel}</span>
+                      </p>
+                      <p className="text-xl font-bold text-[#4CAF50]">
+                        ₩{Math.round(insights.totalValue).toLocaleString()}원
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {insights.periodLabel} 기간 동안{" "}
+                        <span className="font-semibold">
+                          {insights.unitLabel} 평균 {insights.metricLabel}
+                        </span>
+                        은
+                        <br className="block md:hidden" />
+                        {" "}
+                        <span className="font-semibold text-gray-900">
+                          약 ₩{Math.round(insights.avgValue).toLocaleString()}원
+                        </span>
+                        이에요.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-700">
+                      이번 달 {insights.metricLabel} 데이터가 아직 없어요. 기간을 넓혀보거나 장부에
+                      거래를 등록해보세요.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. 상위 작물 카드형 요약 */}
+              <div className="flex items-start gap-2 pt-1 border-t border-gray-100">
+                <span className="mt-0.5 text-base">✓</span>
+                <div className="flex-1 space-y-1">
+                  {insights.hasCropShare ? (
+                    <>
+                      <p className="text-xs text-gray-600">
+                        이번 달{" "}
+                        <span className="font-semibold">
+                          {insights.metricLabel} 상위 작물 순위
+                        </span>
+                        예요.
+                      </p>
+                      <ol className="mt-1 space-y-0.5 text-sm text-gray-900">
+                        {insights.topCrops.map((crop, index) => (
+                          <li key={crop.name} className="flex items-baseline gap-1">
+                            <span className="text-xs text-gray-500">
+                              {index + 1}.
+                            </span>
+                            <span>{crop.name}</span>
+                            <span className="mx-1 text-gray-500">:</span>
+                            <span className="font-semibold">
+                              ₩{Math.round(crop.value).toLocaleString()}원
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                      <p className="text-xs text-gray-600">
+                        상위 3개 작물이 전체 {insights.metricLabel}의 약{" "}
+                        <span className="font-semibold">
+                          {insights.topShare.toFixed(1)}%
+                        </span>
+                        을 차지하고 있어요.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-700">
+                      이번 달 작물별 {insights.metricLabel} 비중을 계산할 수 있는 데이터가 없어요.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
         {/* 내 농장의 수익 현황은? */}
         <section className="space-y-3">
