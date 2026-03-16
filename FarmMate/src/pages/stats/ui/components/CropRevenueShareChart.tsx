@@ -13,9 +13,10 @@ const COLORS = [
 interface CropRevenueShareChartProps {
   title?: string;
   data: { name: string; value: number }[];
+  embedded?: boolean;
 }
 
-export function CropRevenueShareChart({ title = "작물별 매출 비중", data }: CropRevenueShareChartProps) {
+export function CropRevenueShareChart({ title = "작물별 매출 비중", data, embedded = false }: CropRevenueShareChartProps) {
   const fullTotal = data.reduce((s, d) => s + d.value, 0);
   const withPercentage = data.map((d) => ({
     ...d,
@@ -66,25 +67,37 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data 
     }
   };
 
-  if (chartData.length === 0) {
+  if (chartData.length === 0 || total === 0) {
+    const emptyContent = (
+      <div className="py-8 text-center">
+        <p className="text-lg font-semibold text-gray-900">₩0</p>
+        <p className="text-sm text-gray-500 mt-1">조건에 해당하는 데이터가 없습니다</p>
+      </div>
+    );
+
+    if (embedded) {
+      return (
+        <div>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">{title}</h3>
+          {emptyContent}
+        </div>
+      );
+    }
+
     return (
       <Card className="rounded-lg shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-900">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500 py-8 text-center">기간 내 데이터가 없습니다</p>
-        </CardContent>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold text-gray-900">{title}</CardTitle>
+      </CardHeader>
+        <CardContent>{emptyContent}</CardContent>
       </Card>
     );
   }
 
-  return (
-    <Card className="rounded-lg shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-gray-900">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
+  const chartBody = (
+    <>
+      <h3 className="text-base font-semibold text-gray-900 mb-3">{title}</h3>
+      <div>
         <div className="flex flex-row items-start gap-1">
           {/* 왼쪽: 원그래프 (작물 구성과 동일 크기·배치) */}
           <div
@@ -163,6 +176,21 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data 
             ))}
           </div>
         </div>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div>{chartBody}</div>;
+  }
+
+  return (
+    <Card className="rounded-lg shadow-sm">
+      <CardHeader>
+        <CardTitle className="sr-only">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {chartBody}
       </CardContent>
     </Card>
   );

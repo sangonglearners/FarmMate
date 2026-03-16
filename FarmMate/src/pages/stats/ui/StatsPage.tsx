@@ -1,34 +1,69 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, subMonths, subDays, subYears, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, parseISO, getQuarter } from "date-fns";
+import {
+  format,
+  subMonths,
+  subDays,
+  subYears,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  parseISO,
+} from "date-fns";
 import { useTasks } from "@/features/task-management";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   generateRevenueTrendData,
   getCropRevenueShare,
+  type AggregateMode,
   type ViewUnit,
 } from "../utils/stats-data";
-import { KPICard } from "./components/KPICard";
-import { NetProfitCard } from "./components/NetProfitCard";
 import { TrendChart } from "./components/TrendChart";
 import { CropRevenueShareChart } from "./components/CropRevenueShareChart";
 import { CropMixChart } from "./components/CropMixChart";
 import { BlockHealthGrid } from "./components/BlockHealthGrid";
 import type { Task } from "@shared/schema";
 
+type MetricMode = "revenue" | "netProfit" | "cost";
+
 export default function StatsPage() {
+  const metricLabelMap: Record<MetricMode, string> = {
+    revenue: "매출",
+    cost: "비용",
+    netProfit: "순수익",
+  };
+  const aggregateLabelMap: Record<AggregateMode, string> = {
+    detail: "상세",
+    average: "평균",
+  };
+
   const { user } = useAuth();
   const today = new Date();
+  const initialEndDateStr = format(today, "yyyy-MM-dd");
 
-  const [referenceDateStr, setReferenceDateStr] = useState(() => format(today, "yyyy-MM-dd"));
-  const [viewUnit, setViewUnit] = useState<ViewUnit>("quarterly");
-  const [metricMode, setMetricMode] = useState<"revenue" | "netProfit">("revenue");
-
-  const referenceDate = useMemo(() => parseISO(referenceDateStr), [referenceDateStr]);
+  const [endDateStr, setEndDateStr] = useState(() => initialEndDateStr);
+  const [startDateStr, setStartDateStr] = useState(() =>
+    format(subYears(parseISO(initialEndDateStr), 1), "yyyy-MM-dd")
+  );
+  const [viewUnit, setViewUnit] = useState<ViewUnit>("monthly");
+  const [metricMode, setMetricMode] = useState<MetricMode>("revenue");
+  const [aggregateMode, setAggregateMode] = useState<AggregateMode>("detail");
+  const [detailPeriodOffset, setDetailPeriodOffset] = useState(0);
+  const [metricPopoverOpen, setMetricPopoverOpen] = useState(false);
+  const [aggregatePopoverOpen, setAggregatePopoverOpen] = useState(false);
 
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
   const { data: farms = [] } = useFarms();
@@ -38,82 +73,119 @@ export default function StatsPage() {
     queryFn: () => listLedgers(),
   });
 
-  // 선택한 기준 날짜 기준 고정 기간: 일 90일 / 월 12개월 / 분기 12분기(3년) / 연 5년
   const { normalizedStart, normalizedEnd } = useMemo(() => {
+    if (startDateStr <= endDateStr) {
+      return { normalizedStart: startDateStr, normalizedEnd: endDateStr };
+    }
+    return { normalizedStart: endDateStr, normalizedEnd: startDateStr };
+  }, [startDateStr, endDateStr]);
+
+  useEffect(() => {
+    if (aggregateMode === "average" && viewUnit === "yearly") {
+      setViewUnit("quarterly");
+    }
+  }, [aggregateMode, viewUnit]);
+
+  const chartViewOptions = useMemo(
+    () =>
+      aggregateMode === "average"
+        ? [
+            { value: "daily" as const, label: "일" },
+            { value: "monthly" as const, label: "월" },
+            { value: "quarterly" as const, label: "분기" },
+          ]
+        : [
+            { value: "daily" as const, label: "일" },
+            { value: "monthly" as const, label: "월" },
+            { value: "quarterly" as const, label: "분기" },
+            { value: "yearly" as const, label: "연" },
+          ],
+    [aggregateMode]
+  );
+
+  const { chartStart, chartEnd } = useMemo(() => {
+    const endBaseRaw = parseISO(normalizedEnd);
+    const startBaseRaw = parseISO(normalizedStart);
+    if (aggregateMode === "average") {
+      return {
+        chartStart: normalizedStart,
+        chartEnd: normalizedEnd,
+      };
+    }
+
     let start: Date;
     let end: Date;
+
     switch (viewUnit) {
-      case "daily":
-        end = referenceDate;
-        start = subDays(end, 89);
+      case "daily": {
+        const shiftedEnd = subDays(endBaseRaw, detailPeriodOffset * 7);
+        end = shiftedEnd < startBaseRaw ? startBaseRaw : shiftedEnd;
+        const startCandidate = subDays(end, 6);
+        start = startCandidate < startBaseRaw ? startBaseRaw : startCandidate;
         break;
-      case "monthly":
-        end = endOfMonth(referenceDate);
-        start = startOfMonth(subMonths(end, 11));
+      }
+      case "monthly": {
+        const shiftedEnd = subMonths(endBaseRaw, detailPeriodOffset);
+        end = shiftedEnd < startBaseRaw ? startBaseRaw : shiftedEnd;
+        const startCandidate = subMonths(end, 11);
+        start = startCandidate < startBaseRaw ? startBaseRaw : startCandidate;
         break;
-      case "quarterly":
-        end = endOfQuarter(referenceDate);
-        start = startOfQuarter(subMonths(end, 33));
+      }
+      case "quarterly": {
+        const shiftedEnd = subMonths(endBaseRaw, detailPeriodOffset * 3);
+        end = shiftedEnd < startBaseRaw ? startBaseRaw : shiftedEnd;
+        const startCandidate = subMonths(end, 9);
+        start = startCandidate < startBaseRaw ? startBaseRaw : startCandidate;
         break;
-      case "yearly":
-        end = endOfYear(referenceDate);
-        start = startOfYear(subYears(end, 4));
+      }
+      case "yearly": {
+        end = endBaseRaw;
+        const cappedStart = subYears(end, 4);
+        const selectedStart = startBaseRaw;
+        start = selectedStart > cappedStart ? selectedStart : cappedStart;
         break;
+      }
     }
+
     return {
-      normalizedStart: format(start, "yyyy-MM-dd"),
-      normalizedEnd: format(end, "yyyy-MM-dd"),
+      chartStart: format(start, "yyyy-MM-dd"),
+      chartEnd: format(end, "yyyy-MM-dd"),
     };
-  }, [viewUnit, referenceDate]);
+  }, [aggregateMode, viewUnit, normalizedStart, normalizedEnd, detailPeriodOffset]);
+
+  const canGoPrev = useMemo(() => {
+    if (aggregateMode !== "detail" || viewUnit === "yearly") return false;
+    return chartStart > normalizedStart;
+  }, [aggregateMode, viewUnit, chartStart, normalizedStart]);
+
+  const rangeLabel = useMemo(() => {
+    const start = parseISO(chartStart);
+    const end = parseISO(chartEnd);
+    const startYY = format(start, "yy");
+    const endYY = format(end, "yy");
+    const startMM = format(start, "MM");
+    const endMM = format(end, "MM");
+    const startDD = format(start, "dd");
+    const endDD = format(end, "dd");
+    const startQ = Math.floor(start.getMonth() / 3) + 1;
+    const endQ = Math.floor(end.getMonth() / 3) + 1;
+
+    if (viewUnit === "daily") {
+      return `${startYY}.${startMM}.${startDD}~${endYY}.${endMM}.${endDD}`;
+    }
+    if (viewUnit === "monthly") {
+      return `${startYY}.${startMM}~${endYY}.${endMM}`;
+    }
+    if (viewUnit === "quarterly") {
+      return `${startYY}.Q${startQ}~${endYY}.Q${endQ}`;
+    }
+    return `${startYY}~${endYY}`;
+  }, [chartStart, chartEnd, viewUnit]);
 
   const tasks = useMemo(
     () => filterTasksByDateRange(allTasks, normalizedStart, normalizedEnd),
     [allTasks, normalizedStart, normalizedEnd]
   );
-
-  const ledgersInRange = useMemo(() => {
-    const getTaskEndStr = (t: Task) => (t as any).endDate || t.scheduledDate;
-    return allLedgers.filter((l: { taskId?: string | null }) => {
-      if (!l.taskId) return false;
-      const task = allTasks.find((x) => x.id === l.taskId);
-      if (!task) return false;
-      const d = getTaskEndStr(task);
-      return d >= normalizedStart && d <= normalizedEnd;
-    });
-  }, [allLedgers, allTasks, normalizedStart, normalizedEnd]);
-
-  // 데이터가 처음 기록된 시점부터 차트 시작 (월/분기/연만 적용)
-  const { chartStart, chartEnd } = useMemo(() => {
-    const getTaskEndStr = (t: Task) => (t as any).endDate || t.scheduledDate;
-    const taskIdsInLedgers = new Set(
-      ledgersInRange.map((l: { taskId?: string | null }) => l.taskId).filter(Boolean) as string[]
-    );
-    const datesWithData = allTasks
-      .filter((t: Task) => taskIdsInLedgers.has(t.id))
-      .map((t: Task) => getTaskEndStr(t))
-      .filter((d: string) => d >= normalizedStart && d <= normalizedEnd) as string[];
-    const minDateStr = datesWithData.length > 0 ? datesWithData.sort()[0] : null;
-
-    if (viewUnit === "daily" || !minDateStr) {
-      return { chartStart: normalizedStart, chartEnd: normalizedEnd };
-    }
-    const minDate = parseISO(minDateStr);
-    let start: string;
-    switch (viewUnit) {
-      case "monthly":
-        start = format(startOfMonth(minDate), "yyyy-MM-dd");
-        break;
-      case "quarterly":
-        start = format(startOfQuarter(minDate), "yyyy-MM-dd");
-        break;
-      case "yearly":
-        start = format(startOfYear(minDate), "yyyy-MM-dd");
-        break;
-      default:
-        start = normalizedStart;
-    }
-    return { chartStart: start, chartEnd: normalizedEnd };
-  }, [viewUnit, normalizedStart, normalizedEnd, ledgersInRange, allTasks]);
 
   const ledgersWithValue = useMemo(() => {
     return allLedgers.map((l: { taskId?: string | null; revenueAmount?: number | null; expenseItems?: { cost: number }[] }) => {
@@ -125,21 +197,6 @@ export default function StatsPage() {
     });
   }, [allLedgers, metricMode]);
 
-  const totalRevenue = useMemo(
-    () =>
-      ledgersInRange.reduce((s: number, l: { revenueAmount?: number | null }) => s + (l.revenueAmount || 0), 0),
-    [ledgersInRange]
-  );
-  const totalCost = useMemo(
-    () =>
-      ledgersInRange.reduce(
-        (s: number, l: { expenseItems?: { cost: number }[] }) =>
-          s + (l.expenseItems?.reduce((sum, e) => sum + e.cost, 0) ?? 0),
-        0
-      ),
-    [ledgersInRange]
-  );
-
   const revenueTrendData = useMemo(
     () =>
       generateRevenueTrendData(
@@ -147,38 +204,11 @@ export default function StatsPage() {
         allTasks,
         chartStart,
         chartEnd,
-        viewUnit
+        viewUnit,
+        aggregateMode
       ),
-    [ledgersWithValue, allTasks, chartStart, chartEnd, viewUnit]
+    [ledgersWithValue, allTasks, chartStart, chartEnd, viewUnit, aggregateMode]
   );
-
-  const averageRevenue = useMemo(() => {
-    if (revenueTrendData.length === 0) return 0;
-    const total = revenueTrendData.reduce((s, d) => s + d.value, 0);
-    return total / revenueTrendData.length;
-  }, [revenueTrendData]);
-
-  const previousHalfAverage = useMemo(() => {
-    if (revenueTrendData.length < 2) return 0;
-    const half = Math.floor(revenueTrendData.length / 2);
-    const first = revenueTrendData.slice(0, half);
-    const sum = first.reduce((s, d) => s + d.value, 0);
-    return sum / first.length;
-  }, [revenueTrendData]);
-
-  const revenueChange = useMemo(() => {
-    if (previousHalfAverage === 0) return 0;
-    return ((averageRevenue - previousHalfAverage) / previousHalfAverage) * 100;
-  }, [averageRevenue, previousHalfAverage]);
-
-  const completionRate = useMemo(() => {
-    if (!user?.id) return 0;
-    const currentUserId = String(user.id);
-    const myTasks = tasks.filter((t) => String(t.userId || "") === currentUserId);
-    if (myTasks.length === 0) return 0;
-    const completed = myTasks.filter((t) => Number(t.completed) === 1 || t.completed === true);
-    return (completed.length / myTasks.length) * 100;
-  }, [tasks, user?.id]);
 
   const cropNameById = (id: string) => crops.find((c) => c.id === id)?.name ?? "기타";
   const cropRevenueData = useMemo(
@@ -186,11 +216,11 @@ export default function StatsPage() {
       getCropRevenueShare(
         ledgersWithValue,
         allTasks,
-        normalizedStart,
-        normalizedEnd,
+        chartStart,
+        chartEnd,
         cropNameById
       ),
-    [ledgersWithValue, allTasks, normalizedStart, normalizedEnd, crops]
+    [ledgersWithValue, allTasks, chartStart, chartEnd, crops]
   );
 
   const blockStatuses = useMemo(() => {
@@ -312,139 +342,164 @@ export default function StatsPage() {
       </div>
 
       <div className="p-4 space-y-6 max-w-5xl mx-auto">
-        {/* 기준 날짜 선택 */}
+        {/* 기간 선택 (라벨 없이 날짜만) */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">기준 날짜</span>
           <input
             type="date"
-            value={referenceDateStr}
-            onChange={(e) => setReferenceDateStr(e.target.value)}
+            value={startDateStr}
+            onChange={(e) => setStartDateStr(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50] outline-none"
+          />
+          <span className="text-sm text-gray-400">~</span>
+          <input
+            type="date"
+            value={endDateStr}
+            onChange={(e) => setEndDateStr(e.target.value)}
             className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50] outline-none"
           />
         </div>
 
-        {/* 매출 / 순수익 / 비용 선택 */}
-        <div className="flex rounded-xl bg-gray-100 p-1 gap-0.5 w-fit">
-            <button
-              type="button"
-              onClick={() => setMetricMode("revenue")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                metricMode === "revenue"
-                  ? "bg-[#4CAF50] text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-              }`}
-            >
-              매출
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetricMode("netProfit")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                metricMode === "netProfit"
-                  ? "bg-[#4CAF50] text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-              }`}
-            >
-              순수익
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetricMode("cost")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                metricMode === "cost"
-                  ? "bg-[#4CAF50] text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-              }`}
-            >
-              비용
-            </button>
-        </div>
-
-        {/* Summary Section: 매출/순수익/비용 카드 */}
-        <section>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <NetProfitCard
-              mode={metricMode}
-              averageValue={averageRevenue}
-              totalRevenue={totalRevenue}
-              totalCost={totalCost}
-              className="rounded-xl shadow-sm border border-gray-100"
-            />
+        {/* 내 농장의 수익 현황은? */}
+        <section className="space-y-3">
+          <div className="w-full rounded-xl bg-[#E8F5E9] px-4 py-2">
+            <h2 className="text-xl font-bold text-gray-900">내 농장의 수익 현황은?</h2>
           </div>
-        </section>
 
-        {/* Main Chart: 매출/순수익 추이 (내부 세그먼트 컨트롤) */}
-        <section>
-          {(() => {
-            const start = parseISO(chartStart);
-            const end = parseISO(chartEnd);
-            const yy = (d: Date) => String(d.getFullYear()).slice(-2);
-            const MM = (d: Date) => String(d.getMonth() + 1).padStart(2, "0");
-            const dd = (d: Date) => String(d.getDate()).padStart(2, "0");
-            const qNum = (d: Date) => getQuarter(d);
-            const criterionLabel =
-              viewUnit === "daily"
-                ? `${yy(start)}.${MM(start)}.${dd(start)}~${yy(end)}.${MM(end)}.${dd(end)} 일`
-                : viewUnit === "monthly"
-                  ? `${yy(start)}.${MM(start)}~${yy(end)}.${MM(end)} 월`
-                  : viewUnit === "quarterly"
-                    ? `${yy(start)}.Q${qNum(start)}~${yy(end)}.Q${qNum(end)} 분기`
-                    : `${yy(start)}~${yy(end)} 연`;
-            return (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-medium text-gray-500">조회 기준</span>
+            <Popover open={metricPopoverOpen} onOpenChange={setMetricPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 items-center whitespace-nowrap rounded-full border border-green-300 bg-green-50 px-3 text-sm text-green-800 hover:bg-green-100"
+                >
+                  {metricLabelMap[metricMode]}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" align="start">
+                <div className="flex flex-col gap-1 min-w-[96px]">
+                  {[
+                    { value: "revenue" as const, label: "매출" },
+                    { value: "cost" as const, label: "비용" },
+                    { value: "netProfit" as const, label: "순수익" },
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => {
+                        setMetricMode(item.value);
+                        setMetricPopoverOpen(false);
+                      }}
+                      className={`h-8 rounded-md px-3 text-left text-sm ${
+                        metricMode === item.value
+                          ? "bg-green-100 text-green-800"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Popover open={aggregatePopoverOpen} onOpenChange={setAggregatePopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 items-center whitespace-nowrap rounded-full border border-orange-300 bg-orange-50 px-3 text-sm text-orange-800 hover:bg-orange-100"
+                >
+                  {aggregateLabelMap[aggregateMode]}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" align="start">
+                <div className="flex flex-col gap-1 min-w-[96px]">
+                  {[
+                    { value: "detail" as const, label: "상세" },
+                    { value: "average" as const, label: "평균" },
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => {
+                        setAggregateMode(item.value);
+                        setDetailPeriodOffset(0);
+                        setAggregatePopoverOpen(false);
+                      }}
+                      className={`h-8 rounded-md px-3 text-left text-sm ${
+                        aggregateMode === item.value
+                          ? "bg-orange-100 text-orange-800"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <Card className="rounded-xl shadow-sm border border-gray-100">
+            <CardContent className="p-4 space-y-6">
               <TrendChart
+                embedded
                 chartTitle={
                   metricMode === "revenue" ? "매출액 추이" : metricMode === "cost" ? "비용 추이" : "순수익 추이"
                 }
                 data={revenueTrendData}
                 viewUnit={viewUnit}
-                onViewUnitChange={setViewUnit}
-                criterionLabel={criterionLabel}
+                onViewUnitChange={(unit) => {
+                  setViewUnit(unit);
+                  setDetailPeriodOffset(0);
+                }}
+                viewUnitOptions={chartViewOptions}
+                criterionLabel={rangeLabel}
+                navigation={{
+                  enabled: aggregateMode === "detail",
+                  onPrev: () => {
+                    if (viewUnit === "yearly" || !canGoPrev) return;
+                    setDetailPeriodOffset((v) => v + 1);
+                  },
+                  onNext: () => {
+                    if (viewUnit === "yearly") return;
+                    setDetailPeriodOffset((v) => Math.max(v - 1, 0));
+                  },
+                  canPrev: canGoPrev,
+                  canNext: viewUnit === "yearly" ? false : detailPeriodOffset > 0,
+                }}
               />
-            );
-          })()}
+              <div className="border-t border-gray-100 pt-4">
+                <CropRevenueShareChart
+                  embedded
+                  title={
+                    metricMode === "revenue"
+                      ? "작물별 매출 비중"
+                      : metricMode === "cost"
+                        ? "작물별 비용 비중"
+                        : "작물별 순수익 비중"
+                  }
+                  data={cropRevenueData}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </section>
 
-        {/* Analysis Section: 작물별 비중 */}
-        <section>
-          <CropRevenueShareChart
-            title={
-              metricMode === "revenue"
-                ? "작물별 매출 비중"
-                : metricMode === "cost"
-                  ? "작물별 비용 비중"
-                  : "작물별 순수익 비중"
-            }
-            data={cropRevenueData}
-          />
-        </section>
-
-        {/* 작업 완료율 */}
-        <section>
-          <KPICard
-            title="작업 완료율"
-            value={`${completionRate.toFixed(1)}%`}
-            formula="완료 수 / 전체 수"
-            className="rounded-xl shadow-sm border border-gray-100"
-          />
-        </section>
-
-        {/* 농장별 작업 상태 (기존 유지) */}
-        {blockStatuses.length > 0 && (
-          <section>
-            <BlockHealthGrid blocks={blockStatuses} />
-          </section>
-        )}
-
-        {/* 작물 구성도: 어떤 작물이 몇 개의 이랑을 사용하는지 */}
-        {cropMixData.totalRows > 0 && (
-          <section>
+        {/* 내 농장의 작업 현황은? */}
+        <section className="space-y-4">
+          <div className="w-full rounded-xl bg-[#E8F5E9] px-4 py-2">
+            <h2 className="text-xl font-bold text-gray-900">내 농장의 작업 현황은?</h2>
+          </div>
+          {cropMixData.totalRows > 0 && (
             <CropMixChart
               data={cropMixData.data}
               totalRows={cropMixData.totalRows}
               usedRows={cropMixData.usedRows}
             />
-          </section>
-        )}
+          )}
+          {blockStatuses.length > 0 && <BlockHealthGrid blocks={blockStatuses} />}
+        </section>
       </div>
     </div>
   );

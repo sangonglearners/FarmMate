@@ -83,10 +83,10 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   };
 
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
         <div className="flex flex-col gap-0.5">
-          <CardTitle className="text-lg font-semibold">농장별 작업 상태</CardTitle>
+          <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
           <span className="text-xs text-gray-600">
             이랑 사용률: {overallUsagePct}% ({usedBlocks}개/{totalBlocks}개)
           </span>
