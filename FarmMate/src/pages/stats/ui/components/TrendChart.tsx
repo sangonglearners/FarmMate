@@ -25,6 +25,7 @@ const Y_AXIS_WIDTH = 56;
 const CHART_MARGIN_TOP = 8;
 const CHART_MARGIN_RIGHT = 20;
 const CHART_MARGIN_LEFT = 0;
+const CHART_MARGIN_BOTTOM = 10;
 const X_AXIS_PADDING_LEFT = 30;
 const X_AXIS_PADDING_RIGHT = 12;
 const MIN_Y_TICKS = 4;
@@ -65,7 +66,7 @@ const CustomMonthTick = ({ x, y, payload, index }: any) => {
       <text
         x={0}
         y={0}
-        dy={10}
+        dy={6}
         textAnchor="middle"
         dominantBaseline="hanging"
         fill="#6b7280"
@@ -85,7 +86,7 @@ const CustomQuarterTick = ({ x, y, payload, isMobile }: any) => {
       <text
         x={0}
         y={0}
-        dy={10}
+        dy={6}
         textAnchor="middle"
         dominantBaseline="hanging"
         fill="#6b7280"
@@ -107,7 +108,7 @@ const CustomYearTick = ({ x, y, payload, isMobile }: any) => {
       <text
         x={0}
         y={0}
-        dy={10}
+        dy={6}
         textAnchor="middle"
         dominantBaseline="hanging"
         fill="#6b7280"
@@ -284,7 +285,7 @@ export function TrendChart({
   );
   const chartInnerWidth = chartWidthMeta.chartInnerWidth;
   const chartMargin = useMemo(
-    () => ({ top: CHART_MARGIN_TOP, right: CHART_MARGIN_RIGHT, bottom: 2, left: CHART_MARGIN_LEFT }),
+    () => ({ top: CHART_MARGIN_TOP, right: CHART_MARGIN_RIGHT, bottom: CHART_MARGIN_BOTTOM, left: CHART_MARGIN_LEFT }),
     []
   );
   const xAxisHeight = isMobile ? 34 : 28;
@@ -352,11 +353,17 @@ export function TrendChart({
         <div className="h-full w-full flex overflow-hidden rounded-lg border border-gray-100 bg-white">
           <div
             className="shrink-0 border-r border-gray-100 bg-white"
-            style={{ width: `${Y_AXIS_WIDTH}px`, paddingBottom: `${scrollbarHeight}px` }}
+            style={{ width: `${Y_AXIS_WIDTH}px` }}
           >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={chartMargin}>
-                <XAxis dataKey="period" hide height={xAxisHeight} />
+                <XAxis
+                  dataKey="period"
+                  height={xAxisHeight}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={false}
+                />
                 <YAxis
                   stroke="#6b7280"
                   width={Y_AXIS_WIDTH}
