@@ -2,8 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   format,
-  subMonths,
-  subDays,
   subYears,
   startOfMonth,
   endOfMonth,
@@ -61,7 +59,6 @@ export default function StatsPage() {
   const [viewUnit, setViewUnit] = useState<ViewUnit>("monthly");
   const [metricMode, setMetricMode] = useState<MetricMode>("revenue");
   const [aggregateMode, setAggregateMode] = useState<AggregateMode>("detail");
-  const [detailPeriodOffset, setDetailPeriodOffset] = useState(0);
   const [metricPopoverOpen, setMetricPopoverOpen] = useState(false);
   const [aggregatePopoverOpen, setAggregatePopoverOpen] = useState(false);
 
@@ -103,60 +100,8 @@ export default function StatsPage() {
     [aggregateMode]
   );
 
-  const { chartStart, chartEnd } = useMemo(() => {
-    const endBaseRaw = parseISO(normalizedEnd);
-    const startBaseRaw = parseISO(normalizedStart);
-    if (aggregateMode === "average") {
-      return {
-        chartStart: normalizedStart,
-        chartEnd: normalizedEnd,
-      };
-    }
-
-    let start: Date;
-    let end: Date;
-
-    switch (viewUnit) {
-      case "daily": {
-        const shiftedEnd = subDays(endBaseRaw, detailPeriodOffset * 7);
-        end = shiftedEnd < startBaseRaw ? startBaseRaw : shiftedEnd;
-        const startCandidate = subDays(end, 6);
-        start = startCandidate < startBaseRaw ? startBaseRaw : startCandidate;
-        break;
-      }
-      case "monthly": {
-        const shiftedEnd = subMonths(endBaseRaw, detailPeriodOffset);
-        end = shiftedEnd < startBaseRaw ? startBaseRaw : shiftedEnd;
-        const startCandidate = subMonths(end, 11);
-        start = startCandidate < startBaseRaw ? startBaseRaw : startCandidate;
-        break;
-      }
-      case "quarterly": {
-        const shiftedEnd = subMonths(endBaseRaw, detailPeriodOffset * 3);
-        end = shiftedEnd < startBaseRaw ? startBaseRaw : shiftedEnd;
-        const startCandidate = subMonths(end, 9);
-        start = startCandidate < startBaseRaw ? startBaseRaw : startCandidate;
-        break;
-      }
-      case "yearly": {
-        end = endBaseRaw;
-        const cappedStart = subYears(end, 4);
-        const selectedStart = startBaseRaw;
-        start = selectedStart > cappedStart ? selectedStart : cappedStart;
-        break;
-      }
-    }
-
-    return {
-      chartStart: format(start, "yyyy-MM-dd"),
-      chartEnd: format(end, "yyyy-MM-dd"),
-    };
-  }, [aggregateMode, viewUnit, normalizedStart, normalizedEnd, detailPeriodOffset]);
-
-  const canGoPrev = useMemo(() => {
-    if (aggregateMode !== "detail" || viewUnit === "yearly") return false;
-    return chartStart > normalizedStart;
-  }, [aggregateMode, viewUnit, chartStart, normalizedStart]);
+  const chartStart = normalizedStart;
+  const chartEnd = normalizedEnd;
 
   const rangeLabel = useMemo(() => {
     const start = parseISO(chartStart);
@@ -597,7 +542,6 @@ export default function StatsPage() {
                       type="button"
                       onClick={() => {
                         setAggregateMode(item.value);
-                        setDetailPeriodOffset(0);
                         setAggregatePopoverOpen(false);
                       }}
                       className={`h-8 rounded-md px-3 text-left text-sm ${
@@ -623,25 +567,9 @@ export default function StatsPage() {
                 }
                 data={revenueTrendData}
                 viewUnit={viewUnit}
-                onViewUnitChange={(unit) => {
-                  setViewUnit(unit);
-                  setDetailPeriodOffset(0);
-                }}
+                onViewUnitChange={setViewUnit}
                 viewUnitOptions={chartViewOptions}
                 criterionLabel={rangeLabel}
-                navigation={{
-                  enabled: aggregateMode === "detail",
-                  onPrev: () => {
-                    if (viewUnit === "yearly" || !canGoPrev) return;
-                    setDetailPeriodOffset((v) => v + 1);
-                  },
-                  onNext: () => {
-                    if (viewUnit === "yearly") return;
-                    setDetailPeriodOffset((v) => Math.max(v - 1, 0));
-                  },
-                  canPrev: canGoPrev,
-                  canNext: viewUnit === "yearly" ? false : detailPeriodOffset > 0,
-                }}
               />
               <div className="border-t border-gray-100 pt-4">
                 <CropRevenueShareChart
