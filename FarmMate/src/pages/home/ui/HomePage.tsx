@@ -16,6 +16,7 @@ import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
 import LedgerWriteDialog from "../../../components/ledger-write-dialog";
 import { useOwnFarms, useSharedFarms } from "@/features/farm-management/model/farm.hooks";
+import { TodayReportCardGoButton } from "@/widgets/today-report-card";
 import { 
   getValidFarmIds, 
   getOwnFarmIds, 
@@ -31,7 +32,13 @@ import { sendPageView } from "../../../shared/ga";
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  });
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
   const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
@@ -409,9 +416,14 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* Weather Widget - 전체 폭 사용 */}
-        <div className="w-full">
-          <WeatherWidget className="mb-0 w-full" />
+        {/* 날씨(왼쪽) + 오늘의 농장 리포트(오른쪽) - 항상 우측 배치 */}
+        <div className="w-full grid grid-cols-2 gap-4 items-stretch">
+          <div>
+            <WeatherWidget className="mb-0 w-full h-full" />
+          </div>
+          <div className="h-full">
+            <TodayReportCardGoButton />
+          </div>
         </div>
 
         {/* Calendar Planner */}

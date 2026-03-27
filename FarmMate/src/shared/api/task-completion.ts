@@ -150,3 +150,51 @@ export async function deleteTaskCompletionsByTaskId(taskId: string): Promise<voi
     throw error;
   }
 }
+
+// 특정 날짜의 작업 완료 상태를 "전체 작업" 기준으로 조회
+export async function listTaskCompletionsByDate(date: string): Promise<TaskCompletion[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) {
+    throw new Error("사용자가 로그인되어 있지 않습니다.");
+  }
+
+  const { data, error } = await supabase
+    .from("task_completion_dates")
+    .select("*")
+    .eq("completion_date", date)
+    .eq("user_id", auth.user.id)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("작업 완료 상태(날짜별) 조회 오류:", error);
+    throw error;
+  }
+
+  return (data || []).map(toTaskCompletion);
+}
+
+// 특정 기간의 작업 완료 상태를 "전체 작업" 기준으로 조회
+export async function listTaskCompletionsByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<TaskCompletion[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) {
+    throw new Error("사용자가 로그인되어 있지 않습니다.");
+  }
+
+  const { data, error } = await supabase
+    .from("task_completion_dates")
+    .select("*")
+    .eq("user_id", auth.user.id)
+    .gte("completion_date", startDate)
+    .lte("completion_date", endDate)
+    .order("completion_date", { ascending: true });
+
+  if (error) {
+    console.error("작업 완료 상태(기간별) 조회 오류:", error);
+    throw error;
+  }
+
+  return (data || []).map(toTaskCompletion);
+}
