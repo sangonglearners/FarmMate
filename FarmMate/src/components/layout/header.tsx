@@ -1,4 +1,4 @@
-import { Sprout, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 
 export default function Header() {
@@ -16,11 +16,12 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center space-x-3 cursor-pointer">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Sprout className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-lg font-bold text-primary">FarmMate</h1>
+            <div className="flex items-center cursor-pointer">
+              <img
+                src="/f_log_logo_v3.png"
+                alt="서비스 로고"
+                className="h-8 w-auto object-contain"
+              />
             </div>
           </Link>
 

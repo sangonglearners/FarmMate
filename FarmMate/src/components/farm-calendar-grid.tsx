@@ -256,7 +256,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const handleExportGoogleSheets = async () => {
     try {
       const csv = buildCsvForSelectedFarm();
-      const filename = `FarmMate 캘린더 ${new Date().toISOString().split("T")[0]}`;
+      const filename = `F_log 캘린더 ${new Date().toISOString().split("T")[0]}`;
       const sheetId = await uploadCsvToGoogleAsSheet(csv, filename);
       if (sheetId) {
         window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, "_blank");

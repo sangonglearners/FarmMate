@@ -6,6 +6,22 @@ import { useAuth } from '../contexts/AuthContext';
 export const LoginPage: React.FC = () => {
   const { signInWithGoogle, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const soilSpots = [
+    { left: 5.93, top: 64.96, soft: true },
+    { left: 10.77, top: 68.12, soft: false },
+    { left: 5.93, top: 71.27, soft: false },
+    { left: 17.8, top: 73.67, soft: true },
+    { left: 21.98, top: 65.72, soft: false },
+    { left: 34.07, top: 69.53, soft: true },
+    { left: 41.1, top: 73.67, soft: false },
+    { left: 54.07, top: 71.93, soft: true },
+    { left: 67.69, top: 73.34, soft: false },
+    { left: 74.73, top: 69.86, soft: false },
+    { left: 76.04, top: 64.31, soft: true },
+    { left: 88.57, top: 67.14, soft: false },
+    { left: 88.57, top: 72.25, soft: true },
+    { left: 92.09, top: 63.66, soft: false },
+  ]
 
   const handleGoogleLogin = async () => {
     try {
@@ -19,46 +35,86 @@ export const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center">
-      <div className="w-full bg-white min-h-screen shadow-xl flex flex-col justify-center p-6">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">FarmMate</h1>
-          <p className="text-gray-600">농장 관리 시스템에 로그인하세요</p>
+    <div className="min-h-screen w-full bg-[#F4F6E1]">
+      <div className="relative h-[100dvh] w-full">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="relative h-full max-h-[100dvh] w-auto max-w-full aspect-[455/919] overflow-hidden bg-[#F4F6E1] [font-family:Roboto,sans-serif]">
+          <img
+            src="/f_log_logo_login_final.png"
+            alt="F_log 로고"
+            className="absolute left-[27.47%] top-[8.38%] w-[45.27%] h-auto object-contain"
+          />
+
+          <div className="absolute left-[12.97%] top-[26.01%] w-[74.07%] text-center">
+            <p
+              className="text-[#7DA463] font-light tracking-[0.21px]"
+              style={{ fontSize: 'clamp(14px, 2.1vh, 22.4px)', lineHeight: '1.5' }}
+            >
+              쉽고, 빠르고, 연결된
+            </p>
+            <p
+              className="text-[#7DA463] font-bold tracking-[0.21px] whitespace-nowrap"
+              style={{ fontSize: 'clamp(15px, 2.35vh, 24px)', lineHeight: '1.5' }}
+            >
+              나만의 농장 관리 플랫폼 F_log
+            </p>
+          </div>
+
+          <img
+            src="/f_log_character.png"
+            alt="F_log 캐릭터"
+            className="absolute left-[21.98%] top-[38.41%] w-[56.26%] h-[32.10%] object-contain z-30"
+          />
+
+          <div className="absolute left-0 top-[62.57%] w-full h-[13.93%] bg-[#BF7D57] shadow-[0_0_20px_rgba(0,0,0,0.25)] z-10" />
+
+          {soilSpots.map((spot, index) => (
+            <span
+              key={`${spot.left}-${spot.top}-${index}`}
+              className={`absolute z-20 rounded-[10px] ${spot.soft ? 'bg-[#975F4080]' : 'bg-[#975F40]'}`}
+              style={{ left: `${spot.left}%`, top: `${spot.top}%`, width: '7.03%', height: '1.41%' }}
+            />
+          ))}
+
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            aria-label="Google 계정으로 로그인"
+            className="absolute left-[16.04%] top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white px-[6.7%] py-[1.22%] flex items-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-[45%] w-auto animate-spin text-[#5F6368]" />
+                <span
+                  className="font-normal tracking-[0.21px] text-black/50 whitespace-nowrap"
+                  style={{ fontSize: 'clamp(12px, 2.1vh, 22.4px)', lineHeight: '1.5' }}
+                >
+                  로그인 중...
+                </span>
+              </>
+            ) : (
+              <>
+                <svg className="h-[52%] w-auto shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.2-.9 2.2-1.9 2.9l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.5-.2-2.2H12z" />
+                  <path fill="#34A853" d="M12 22c2.7 0 5-.9 6.7-2.6l-3.1-2.4c-.9.6-2 .9-3.6.9-2.7 0-5-1.8-5.8-4.3l-3.2 2.5C4.7 19.6 8.1 22 12 22z" />
+                  <path fill="#4285F4" d="M6.2 13.6c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8L3 7.5C2.4 8.8 2 10.3 2 11.8s.4 3 1 4.3l3.2-2.5z" />
+                  <path fill="#FBBC05" d="M12 5.7c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.8 14.6 2 12 2 8.1 2 4.7 4.4 3 7.5L6.2 10c.8-2.5 3.1-4.3 5.8-4.3z" />
+                </svg>
+                <span
+                  className="font-normal tracking-[0.21px] text-black/50 whitespace-nowrap"
+                  style={{ fontSize: 'clamp(12px, 2.1vh, 22.4px)', lineHeight: '1.5' }}
+                >
+                  Google 계정으로 로그인
+                </span>
+              </>
+            )}
+          </button>
         </div>
-        
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="currentColor"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-          )}
-          Google로 로그인
-        </button>
-        
+        </div>
+
         {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600 whitespace-pre-line">{error}</p>
+          <div className="absolute left-1/2 bottom-3 -translate-x-1/2 w-[min(92vw,430px)] p-4 bg-red-50 border border-red-200 rounded-md z-50">
+            <p className="text-base text-red-600 whitespace-pre-line">{error}</p>
           </div>
         )}
       </div>

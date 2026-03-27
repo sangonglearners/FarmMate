@@ -412,7 +412,11 @@ export default function HomePage() {
       <div className="p-4 space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">FarmMate</h1>
+          <img
+            src="/f_log_logo_v3.png"
+            alt="서비스 로고"
+            className="h-14 w-auto object-contain mx-auto mb-2"
+          />
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
