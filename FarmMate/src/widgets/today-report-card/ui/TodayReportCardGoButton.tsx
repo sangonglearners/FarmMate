@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { TodayReportCardDialog } from "./TodayReportCardDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/features/task-management";
@@ -37,7 +36,15 @@ function useTodayDateStr() {
   }, []);
 }
 
-export function TodayReportCardGoButton() {
+interface TodayReportCardGoButtonProps {
+  buttonLabel?: string;
+  buttonClassName?: string;
+}
+
+export function TodayReportCardGoButton({
+  buttonLabel = "오늘의 농장 리포트 보러가기",
+  buttonClassName,
+}: TodayReportCardGoButtonProps = {}) {
   const { user } = useAuth();
   const todayDateStr = useTodayDateStr();
   const streakStartDateStr = useMemo(() => {
@@ -214,20 +221,17 @@ export function TodayReportCardGoButton() {
 
   return (
     <>
-      <Card className="h-full border bg-white">
-        <CardContent className="p-3 md:p-5 h-full flex flex-col justify-center gap-3">
-          <Button
-            type="button"
-            className="w-full rounded-xl bg-[#4CAF50] text-white hover:bg-[#43A047]"
-            onClick={() => {
-              setDialogOpen(true);
-              setReportNeedsUpdate(true);
-            }}
-          >
-            오늘의 농장 리포트 보러가기
-          </Button>
-        </CardContent>
-      </Card>
+      <Button
+        type="button"
+        variant="outline"
+        className={buttonClassName ?? "w-full justify-between bg-white"}
+        onClick={() => {
+          setDialogOpen(true);
+          setReportNeedsUpdate(true);
+        }}
+      >
+        {buttonLabel}
+      </Button>
 
       <TodayReportCardDialog
         open={dialogOpen}

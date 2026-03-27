@@ -14,9 +14,10 @@ import {
 
 interface WeatherWidgetProps {
   className?: string;
+  compact?: boolean;
 }
 
-export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
+export function WeatherWidget({ className, compact = false }: WeatherWidgetProps = {}) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number; name: string } | null>(null);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
 
@@ -63,6 +64,15 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   const showError = !isLocationLoading && !isLoading && isError && !displayWeather;
 
   if (showSkeleton) {
+    if (compact) {
+      return (
+        <Card className={`${className || ''}`}>
+          <CardContent className="h-full px-3 py-2 flex items-center">
+            <p className="text-sm text-gray-500 truncate">날씨 정보를 불러오는 중...</p>
+          </CardContent>
+        </Card>
+      );
+    }
     return (
       <Card className={`${className || ''} h-full`}>
         <CardContent className="p-4 h-full flex items-center">
@@ -85,6 +95,15 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   }
 
   if (showError) {
+    if (compact) {
+      return (
+        <Card className={`${className || ''}`}>
+          <CardContent className="h-full px-3 py-2 flex items-center">
+            <p className="text-sm text-orange-700 truncate">날씨 정보를 불러올 수 없습니다</p>
+          </CardContent>
+        </Card>
+      );
+    }
     return (
       <Card className={`${className || ''} h-full border-orange-200 bg-orange-50`}>
         <CardContent className="p-4 h-full flex items-center">
@@ -104,6 +123,34 @@ export function WeatherWidget({ className }: WeatherWidgetProps = {}) {
   const maxTemp = displayWeather.maxTemperature ? parseInt(displayWeather.maxTemperature) : null;
   const minTemp = displayWeather.minTemperature ? parseInt(displayWeather.minTemperature) : null;
   const humidity = parseInt(displayWeather.humidity) || 0;
+
+  if (compact) {
+    return (
+      <Card className={`${className || ''}`}>
+        <CardContent className="h-full px-3 py-2 flex items-center">
+          <p className="text-sm text-gray-800 truncate">
+            <span className="font-medium">{displayWeather.location}</span>
+            <span className="mx-1">{weatherIcon}</span>
+            <span className="font-semibold">{currentTemp}°</span>
+            <span className="mx-1 text-gray-400">|</span>
+            <span>습도 {humidity}%</span>
+            {maxTemp !== null && (
+              <>
+                <span className="mx-1 text-gray-400">|</span>
+                <span className="text-red-500 font-medium">최고 {maxTemp}°</span>
+              </>
+            )}
+            {minTemp !== null && (
+              <>
+                <span className="mx-1 text-gray-400">|</span>
+                <span className="text-blue-500 font-medium">최저 {minTemp}°</span>
+              </>
+            )}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={`${className || ''} h-full border bg-white`}>

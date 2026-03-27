@@ -420,15 +420,35 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* 날씨(왼쪽) + 오늘의 농장 리포트(오른쪽) - 항상 우측 배치 */}
-        <div className="w-full grid grid-cols-2 gap-4 items-stretch">
-          <div>
-            <WeatherWidget className="mb-0 w-full h-full" />
+        {/* 상단 요약 블록 */}
+        <section className="rounded-xl border border-black bg-[#F3F5E0] p-3">
+          <div className="grid grid-cols-[88px_1fr] gap-3 items-stretch">
+            <div className="flex items-end justify-center">
+              <img
+                src="/f_log_character.png"
+                alt="프르그 캐릭터"
+                className="h-24 w-24 object-contain"
+              />
+            </div>
+            <div className="space-y-2">
+              <WeatherWidget compact className="h-11 w-full rounded-md border border-gray-300 bg-white" />
+              <div className="grid grid-cols-2 gap-2">
+                <TodayReportCardGoButton
+                  buttonLabel="농장 레포트 >"
+                  buttonClassName="h-12 w-full justify-center rounded-xl border border-primary bg-primary text-white text-base font-semibold hover:bg-primary/90"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 w-full justify-center rounded-xl border-2 border-primary bg-[#F3F5E0] text-primary text-base font-semibold hover:bg-[#E9EECF]"
+                  onClick={() => setLocation("/my-page")}
+                >
+                  MY Page &gt;
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="h-full">
-            <TodayReportCardGoButton />
-          </div>
-        </div>
+        </section>
 
         {/* Calendar Planner */}
         <Card>

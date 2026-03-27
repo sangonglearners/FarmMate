@@ -442,11 +442,11 @@ export default function LedgerManagementPage() {
         {/* 날짜 선택기 (중앙 콤팩트) */}
         <div className="grid grid-cols-[1fr_auto] items-center gap-2">
           <div className="flex justify-start">
-            <div className="inline-flex h-9 items-center rounded-md border border-input bg-background">
+            <div className="inline-flex h-9 items-center rounded-md border border-input bg-white">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-none rounded-l-md"
+                className="h-9 w-9 rounded-none rounded-l-md bg-white"
                 onClick={handlePreviousMonth}
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -456,7 +456,7 @@ export default function LedgerManagementPage() {
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="h-9 min-w-[136px] justify-start rounded-none px-3 text-left sm:min-w-[156px]"
+                    className="h-9 min-w-[136px] justify-start rounded-none bg-white px-3 text-left sm:min-w-[156px]"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {yearMonthLabel}
@@ -467,7 +467,7 @@ export default function LedgerManagementPage() {
                     <div>
                       <label className="text-sm font-medium mb-2 block">연도</label>
                       <Select value={currentYear.toString()} onValueChange={handleYearChange}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -482,7 +482,7 @@ export default function LedgerManagementPage() {
                     <div>
                       <label className="text-sm font-medium mb-2 block">월</label>
                       <Select value={currentMonth.toString()} onValueChange={handleMonthChange}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -501,7 +501,7 @@ export default function LedgerManagementPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-none rounded-r-md"
+                className="h-9 w-9 rounded-none rounded-r-md bg-white"
                 onClick={handleNextMonth}
               >
                 <ChevronRight className="w-4 h-4" />
@@ -511,7 +511,7 @@ export default function LedgerManagementPage() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 justify-self-end shrink-0"
+            className="h-9 w-9 justify-self-end shrink-0 bg-white"
             onClick={openFilterSheet}
           >
             <Filter className="h-4 w-4" />

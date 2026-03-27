@@ -348,7 +348,7 @@ export default function StatsPage() {
 
   if (tasksLoading || ledgersLoading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen">
         <div className="p-4 space-y-6">
           <div className="h-8 bg-gray-200 rounded-xl animate-pulse w-32" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -362,15 +362,14 @@ export default function StatsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* 페이지 타이틀 (캘린더·장부처럼 중앙 정렬) */}
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-100">
-        <div className="px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-900 text-center">통계</h1>
-        </div>
-      </div>
-
+    <div className="min-h-screen">
       <div className="p-4 space-y-6 max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-gray-900 mb-2">통계</h1>
+          <p className="text-gray-600 text-sm">농장 현황을 데이터로 확인해 보세요</p>
+        </div>
+
         {/* 기간 선택 (라벨 없이 날짜만) */}
         <div className="flex flex-wrap items-center gap-2">
           <input

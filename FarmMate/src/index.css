@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 100%);
+  --background: hsl(0, 0%, 96.1%);
   --foreground: hsl(20, 14.3%, 4.1%);
   --muted: hsl(60, 4.8%, 95.9%);
   --muted-foreground: hsl(25, 5.3%, 44.7%);
@@ -13,7 +13,7 @@
   --card-foreground: hsl(20, 14.3%, 4.1%);
   --border: hsl(20, 5.9%, 90%);
   --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(122, 39%, 49%);
+  --primary: hsl(96.6, 25.8%, 51.4%);
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(36, 100%, 50%);
   --secondary-foreground: hsl(24, 9.8%, 10%);
@@ -25,9 +25,9 @@
   --radius: 0.5rem;
   
   /* Custom farm theme colors */
-  --farm-green: hsl(122, 39%, 49%);
+  --farm-green: hsl(96.6, 25.8%, 51.4%);
   --farm-green-light: hsl(122, 39%, 95%);
-  --farm-green-dark: hsl(122, 39%, 35%);
+  --farm-green-dark: hsl(96.6, 25.8%, 36%);
   --farm-orange: hsl(36, 100%, 50%);
   --farm-orange-light: hsl(36, 100%, 95%);
 }
@@ -43,7 +43,7 @@
   --card-foreground: hsl(0, 0%, 98%);
   --border: hsl(240, 3.7%, 15.9%);
   --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(122, 39%, 49%);
+  --primary: hsl(96.6, 25.8%, 51.4%);
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(240, 3.7%, 15.9%);
   --secondary-foreground: hsl(0, 0%, 98%);
@@ -63,7 +63,7 @@
   body {
     @apply font-sans antialiased;
     color: hsl(var(--foreground));
-    background: hsl(var(--background));
+    background: #F5F5F5;
     overflow-x: hidden;
   }
   

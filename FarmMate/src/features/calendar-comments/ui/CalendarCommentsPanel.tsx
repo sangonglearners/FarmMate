@@ -110,7 +110,7 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
     />
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" aria-label="댓글" title="댓글">
+        <Button variant="outline" size="sm" className="bg-white" aria-label="댓글" title="댓글">
           <MessageSquare className="w-4 h-4" />
         </Button>
       </SheetTrigger>

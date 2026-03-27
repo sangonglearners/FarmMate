@@ -1353,11 +1353,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
   return (
     <div className="space-y-4">
-      {/* 헤더 */}
-      <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-4">나의 캘린더</h1>
-      </div>
-
       {/* 컨트롤 */}
       <div className="flex flex-col gap-2">
         {/* 첫 번째 줄: CSV + 공유 + 댓글 버튼 */}
@@ -1367,6 +1362,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
               <Button
                 variant="outline"
                 size="sm"
+                className="bg-white"
                 aria-label="CSV로 내보내기"
                 title="CSV로 내보내기"
               >
@@ -1385,6 +1381,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           <Button
             variant="outline"
             size="sm"
+            className="bg-white"
             onClick={() => setShowShareDialog(true)}
             aria-label="캘린더 공유"
             title="캘린더 공유"
@@ -1412,7 +1409,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                   }
                 }}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-40 bg-white">
                   <SelectValue placeholder="농장 선택" />
                 </SelectTrigger>
                 <SelectContent>
