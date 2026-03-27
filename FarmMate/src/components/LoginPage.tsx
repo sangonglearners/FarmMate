@@ -1,11 +1,16 @@
 import { Loader2 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
   const { signInWithGoogle, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const [viewport, setViewport] = useState({
+    width: 0,
+    height: 0,
+    isMobileTall: false,
+  })
   const soilSpots = [
     { left: 5.93, top: 64.96, soft: true },
     { left: 10.77, top: 68.12, soft: false },
@@ -34,11 +39,36 @@ export const LoginPage: React.FC = () => {
     }
   }
 
+  useEffect(() => {
+    const updateViewportMode = () => {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth
+      const aspectRatio = viewportHeight / Math.max(viewportWidth, 1)
+      setViewport({
+        width: viewportWidth,
+        height: viewportHeight,
+        isMobileTall: viewportHeight < 860 || aspectRatio > 1.92,
+      })
+    }
+    updateViewportMode()
+    window.addEventListener('resize', updateViewportMode)
+    return () => window.removeEventListener('resize', updateViewportMode)
+  }, [])
+
+  const frameStyle = {
+    width: '100%',
+    height: '100dvh',
+    maxWidth: viewport.width > 768 ? 'calc(100dvh * 455 / 919)' : 'none',
+  } as const
+
   return (
     <div className="min-h-screen w-full bg-[#F4F6E1]">
       <div className="relative h-[100dvh] w-full">
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative h-full max-h-[100dvh] w-auto max-w-full aspect-[455/919] overflow-hidden bg-[#F4F6E1] [font-family:Roboto,sans-serif]">
+          <div
+            className="relative overflow-hidden bg-[#F4F6E1] [font-family:Roboto,sans-serif]"
+            style={frameStyle}
+          >
           <img
             src="/f_log_logo_login_final.png"
             alt="F_log 로고"
@@ -63,16 +93,28 @@ export const LoginPage: React.FC = () => {
           <img
             src="/f_log_character.png"
             alt="F_log 캐릭터"
-            className="absolute left-[21.98%] top-[38.41%] w-[56.26%] h-[32.10%] object-contain z-30"
+            className="absolute left-[21.98%] w-[56.26%] h-[32.10%] object-contain z-30"
+            style={{ top: viewport.isMobileTall ? '37.9%' : '38.41%' }}
           />
 
-          <div className="absolute left-0 top-[62.57%] w-full h-[13.93%] bg-[#BF7D57] shadow-[0_0_20px_rgba(0,0,0,0.25)] z-10" />
+          <div
+            className="absolute left-0 w-full bg-[#BF7D57] shadow-[0_0_20px_rgba(0,0,0,0.25)] z-10"
+            style={{
+              top: viewport.isMobileTall ? '61.9%' : '62.57%',
+              height: viewport.isMobileTall ? '15.8%' : '13.93%',
+            }}
+          />
 
           {soilSpots.map((spot, index) => (
             <span
               key={`${spot.left}-${spot.top}-${index}`}
               className={`absolute z-20 rounded-[10px] ${spot.soft ? 'bg-[#975F4080]' : 'bg-[#975F40]'}`}
-              style={{ left: `${spot.left}%`, top: `${spot.top}%`, width: '7.03%', height: '1.41%' }}
+              style={{
+                left: `${spot.left}%`,
+                top: `${viewport.isMobileTall ? spot.top + 0.2 : spot.top}%`,
+                width: '7.03%',
+                height: viewport.isMobileTall ? '1.55%' : '1.41%',
+              }}
             />
           ))}
 
@@ -80,7 +122,7 @@ export const LoginPage: React.FC = () => {
             onClick={handleGoogleLogin}
             disabled={loading}
             aria-label="Google 계정으로 로그인"
-            className="absolute left-[16.04%] top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white px-[6.7%] py-[1.22%] flex items-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
+            className="absolute left-1/2 -translate-x-1/2 top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white px-[6.7%] py-[1.22%] flex items-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
           >
             {loading ? (
               <>
