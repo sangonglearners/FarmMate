@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { TodayReportCardDialog } from "./TodayReportCardDialog";
@@ -22,7 +21,6 @@ import {
 import { computeTodayReportCardMetrics } from "../model/computeTodayReportCardMetrics";
 import {
   generateTodayFarmReportCardPngBlob,
-  generateTodayFarmReportCardPngBlobBack,
   type TodayReportCardMetrics,
 } from "@/pages/stats/utils/report-card";
 
@@ -91,10 +89,7 @@ export function TodayReportCardGoButton({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
-  const [backImageUrl, setBackImageUrl] = useState<string | null>(null);
-  const [backImageBlob, setBackImageBlob] = useState<Blob | null>(null);
   const [reportGenerating, setReportGenerating] = useState(false);
-  const [backGenerating, setBackGenerating] = useState(false);
   const [reportNeedsUpdate, setReportNeedsUpdate] = useState(true);
 
   const { data: taskCompletionsToday = [], isLoading: taskCompletionsTodayLoading } = useQuery({
@@ -134,23 +129,12 @@ export function TodayReportCardGoButton({
 
     setReportGenerating(true);
     try {
-      // front
-      const frontBlob = await generateTodayFarmReportCardPngBlob(todayReportMetrics);
-      setImageBlob(frontBlob);
+      const reportBlob = await generateTodayFarmReportCardPngBlob(todayReportMetrics);
+      setImageBlob(reportBlob);
       setImageUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(frontBlob);
+        return URL.createObjectURL(reportBlob);
       });
-
-      // back(플립 시 도장)
-      setBackGenerating(true);
-      const backBlob = await generateTodayFarmReportCardPngBlobBack(todayReportMetrics);
-      setBackImageBlob(backBlob);
-      setBackImageUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(backBlob);
-      });
-      setBackGenerating(false);
 
       setReportNeedsUpdate(false);
     } finally {
@@ -171,16 +155,13 @@ export function TodayReportCardGoButton({
     taskCompletionsRangeLoading,
   ]);
 
-  const downloadReportCard = (side: "front" | "back") => {
-    const blob = side === "front" ? imageBlob : backImageBlob;
+  const downloadReportCard = () => {
+    const blob = imageBlob;
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const filename =
-      side === "front"
-        ? `farm-report-${todayDateStr}.png`
-        : `farm-report-${todayDateStr}-stamp.png`;
+    const filename = `farm-report-${todayDateStr}.png`;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
@@ -188,14 +169,11 @@ export function TodayReportCardGoButton({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const shareReportCard = async (side: "front" | "back") => {
-    const blob = side === "front" ? imageBlob : backImageBlob;
+  const shareReportCard = async () => {
+    const blob = imageBlob;
     if (!blob) return;
 
-    const filename =
-      side === "front"
-        ? `farm-report-${todayDateStr}.png`
-        : `farm-report-${todayDateStr}-stamp.png`;
+    const filename = `farm-report-${todayDateStr}.png`;
     const file = new File([blob], filename, { type: "image/png" });
 
     try {
@@ -206,8 +184,8 @@ export function TodayReportCardGoButton({
       const canShareFiles = nav.canShare ? nav.canShare({ files: [file] }) : true;
       if (nav.share && canShareFiles) {
         await nav.share({
-          title: "오늘의 농장 리포트 카드",
-          text: "오늘의 농장 리포트 카드입니다.",
+          title: "농장 레포트",
+          text: "나의 오늘의 농장 레포트를 확인해 보세요.",
           files: [file],
         });
         return;
@@ -216,7 +194,7 @@ export function TodayReportCardGoButton({
       // 공유 실패 시 저장으로 폴백
     }
 
-    downloadReportCard(side);
+    downloadReportCard();
   };
 
   return (
@@ -240,14 +218,9 @@ export function TodayReportCardGoButton({
           if (!next) setReportNeedsUpdate(false);
         }}
         imageUrl={imageUrl}
-        backImageUrl={backImageUrl}
-        reportGenerating={reportGenerating}
-        backImageGenerating={backGenerating}
         imageBlobAvailable={!!imageBlob}
-        backImageBlobAvailable={!!backImageBlob}
         onDownload={downloadReportCard}
         onShare={shareReportCard}
-        loadingText={`${format(new Date(todayDateStr), "yyyy.MM.dd")} 한 장 요약`}
       />
     </>
   );

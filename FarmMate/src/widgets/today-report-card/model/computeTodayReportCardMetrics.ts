@@ -42,18 +42,28 @@ function getLocalCompletionsMap(selectedDate: string): Map<string, boolean> {
   }
 }
 
-function deriveCropNameFromTask(task: Task, crops: Crop[]): string {
+function deriveCropNameFromTask(task: Task, crops: Crop[]): string | null {
   if (task.cropId) {
-    return crops.find((c) => c.id === task.cropId)?.name ?? "기타";
+    return crops.find((c) => c.id === task.cropId)?.name ?? null;
   }
   const title = task.title ?? "";
   const part = title.split("_")[0] ?? "";
   const trimmed = part.includes("(") ? part.split("(")[0].trim() : part.trim();
-  return trimmed || "기타";
+  return trimmed || null;
 }
 
 function toCropLabel(cropName: string): string {
+  if (cropName === "작물 없음") return cropName;
   return cropName.endsWith("반") ? cropName : `${cropName}반`;
+}
+
+function topLabelsFromCountMap(countMap: Map<string, number>, fallback: string): string[] {
+  const entries = Array.from(countMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([label]) => label)
+    .filter(Boolean);
+  return entries.length > 0 ? entries : [fallback];
 }
 
 export function computeTodayReportCardMetrics({
@@ -96,10 +106,11 @@ export function computeTodayReportCardMetrics({
   const cropCountMap = new Map<string, number>();
   todayTodoTasks.forEach((task) => {
     const name = deriveCropNameFromTask(task, crops);
+    if (!name) return;
     cropCountMap.set(name, (cropCountMap.get(name) || 0) + 1);
   });
 
-  let primaryCropName = "농장";
+  let primaryCropName = "작물 없음";
   let bestCropCount = -1;
   cropCountMap.forEach((count, name) => {
     if (count > bestCropCount) {
@@ -109,6 +120,18 @@ export function computeTodayReportCardMetrics({
   });
 
   const primaryCropLabel = toCropLabel(primaryCropName);
+  const topCropLabels = topLabelsFromCountMap(
+    new Map(Array.from(cropCountMap.entries()).map(([name, count]) => [toCropLabel(name), count])),
+    "작물 없음"
+  );
+
+  // 작업(오늘 Todo 기준)
+  const taskTypeCountMap = new Map<string, number>();
+  todayTodoTasks.forEach((task) => {
+    const type = task.taskType || "기타";
+    taskTypeCountMap.set(type, (taskTypeCountMap.get(type) || 0) + 1);
+  });
+  const topTaskLabels = topLabelsFromCountMap(taskTypeCountMap, "작업 없음");
 
   // 작업(오늘 Todo에 들어간 task 중 물주기/웃거름주기 비중)
   const waterCount = todayTodoTasks.filter((t) => t.taskType === "물주기").length;
@@ -128,16 +151,7 @@ export function computeTodayReportCardMetrics({
   // 연속 기록: task_completion_dates(물주기/웃거름주기) 기반 유지
   const essentialTypes = ["물주기", "웃거름주기"] as const;
   const taskById = new Map(allTasks.map((t) => [t.id, t]));
-
-  const todayLocal = parseLocalDate(todayDateStr);
-  const streakStartDateStr = format(subDays(todayLocal, 13), "yyyy-MM-dd");
-
-  let streakDays = 0;
-  const maxOffsetDays = 13;
-  for (let offset = 0; offset <= maxOffsetDays; offset++) {
-    const checkDateStr = format(subDays(todayLocal, offset), "yyyy-MM-dd");
-    if (checkDateStr < streakStartDateStr) break;
-
+  const isEssentialDoneOnDate = (checkDateStr: string): boolean => {
     const dueTasksForDate = allTasks.filter(
       (t) =>
         essentialTypes.includes(t.taskType as (typeof essentialTypes)[number]) &&
@@ -158,10 +172,29 @@ export function computeTodayReportCardMetrics({
     const fertilizerDone = completionsForDate.filter(
       (c) => taskById.get(c.taskId)?.taskType === "웃거름주기"
     ).length;
+    return waterDone > 0 && fertilizerDone > 0;
+  };
 
-    if (waterDone > 0 && fertilizerDone > 0) streakDays++;
+  const todayLocal = parseLocalDate(todayDateStr);
+  const streakStartDateStr = format(subDays(todayLocal, 13), "yyyy-MM-dd");
+
+  let streakDays = 0;
+  const maxOffsetDays = 13;
+  for (let offset = 0; offset <= maxOffsetDays; offset++) {
+    const checkDateStr = format(subDays(todayLocal, offset), "yyyy-MM-dd");
+    if (checkDateStr < streakStartDateStr) break;
+    if (isEssentialDoneOnDate(checkDateStr)) streakDays++;
     else break;
   }
+
+  // 이번 주(일~토) 완료 상태
+  const weekStart = new Date(todayLocal);
+  weekStart.setDate(todayLocal.getDate() - todayLocal.getDay());
+  const weeklyDoneFlags = Array.from({ length: 7 }, (_, idx) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + idx);
+    return isEssentialDoneOnDate(format(date, "yyyy-MM-dd"));
+  });
 
   return {
     dateLabel: todayDateStr.replaceAll("-", "."),
@@ -173,6 +206,9 @@ export function computeTodayReportCardMetrics({
     primaryCropLabel,
     primaryTaskType,
     primaryTaskLabel,
+    topCropLabels,
+    topTaskLabels,
+    weeklyDoneFlags,
   };
 }
 

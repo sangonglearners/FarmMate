@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/features/task-management";
@@ -11,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { computeTodayReportCardMetrics } from "../model/computeTodayReportCardMetrics";
 import {
   generateTodayFarmReportCardPngBlob,
-  generateTodayFarmReportCardPngBlobBack,
   type TodayReportCardMetrics,
 } from "@/pages/stats/utils/report-card";
 import { TodayReportCardDialog } from "./TodayReportCardDialog";
@@ -74,10 +72,7 @@ export function TodayReportCardWidget() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
-  const [backImageUrl, setBackImageUrl] = useState<string | null>(null);
-  const [backImageBlob, setBackImageBlob] = useState<Blob | null>(null);
   const [reportGenerating, setReportGenerating] = useState(false);
-  const [backGenerating, setBackGenerating] = useState(false);
   const [reportNeedsUpdate, setReportNeedsUpdate] = useState(true);
 
   const generatePreview = async () => {
@@ -86,21 +81,12 @@ export function TodayReportCardWidget() {
 
     setReportGenerating(true);
     try {
-      const frontBlob = await generateTodayFarmReportCardPngBlob(todayReportMetrics);
-      setImageBlob(frontBlob);
+      const reportBlob = await generateTodayFarmReportCardPngBlob(todayReportMetrics);
+      setImageBlob(reportBlob);
       setImageUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(frontBlob);
+        return URL.createObjectURL(reportBlob);
       });
-
-      setBackGenerating(true);
-      const backBlob = await generateTodayFarmReportCardPngBlobBack(todayReportMetrics);
-      setBackImageBlob(backBlob);
-      setBackImageUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(backBlob);
-      });
-      setBackGenerating(false);
 
       setReportNeedsUpdate(false);
     } finally {
@@ -130,24 +116,23 @@ export function TodayReportCardWidget() {
 
   const filename = `farm-report-${todayDateStr}.png`;
 
-  const download = (side: "front" | "back") => {
-    const blob = side === "front" ? imageBlob : backImageBlob;
+  const download = () => {
+    const blob = imageBlob;
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = side === "front" ? filename : `farm-report-${todayDateStr}-stamp.png`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const share = async (side: "front" | "back") => {
-    const blob = side === "front" ? imageBlob : backImageBlob;
+  const share = async () => {
+    const blob = imageBlob;
     if (!blob) return;
-    const shareFilename = side === "front" ? filename : `farm-report-${todayDateStr}-stamp.png`;
-    const file = new File([blob], shareFilename, { type: "image/png" });
+    const file = new File([blob], filename, { type: "image/png" });
 
     try {
       const nav = navigator as Navigator & {
@@ -157,8 +142,8 @@ export function TodayReportCardWidget() {
       const canShareFiles = nav.canShare ? nav.canShare({ files: [file] }) : true;
       if (nav.share && canShareFiles) {
         await nav.share({
-          title: "오늘의 농장 리포트 카드",
-          text: "오늘의 농장 리포트 카드입니다.",
+          title: "농장 레포트",
+          text: "나의 오늘의 농장 레포트를 확인해 보세요.",
           files: [file],
         });
         return;
@@ -167,7 +152,7 @@ export function TodayReportCardWidget() {
       // 공유 실패 시 저장으로 폴백
     }
 
-    download(side);
+    download();
   };
 
   const previewAspect = "aspect-[437/560]";
@@ -177,15 +162,15 @@ export function TodayReportCardWidget() {
       <CardContent className="p-4 h-full flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div className="space-y-0.5">
-            <div className="text-sm font-semibold text-gray-900">오늘의 농장 리포트 카드</div>
+            <div className="text-sm font-semibold text-gray-900">농장 레포트</div>
             <div className="text-xs text-gray-500">
-              {reportGenerating ? "카드를 생성하는 중..." : `${format(new Date(todayDateStr), "yyyy.MM.dd")} 한 장 요약`}
+              {reportGenerating ? "카드를 생성하는 중..." : "나의 오늘의 농장 레포트를 확인해 보세요"}
             </div>
           </div>
           <Button
             type="button"
             size="sm"
-            className="rounded-xl bg-[#4CAF50] text-white hover:bg-[#43A047]"
+            className="rounded-xl bg-[#7CA363] text-white hover:bg-[#6F9258]"
             onClick={() => setDialogOpen(true)}
           >
             보기
@@ -213,11 +198,7 @@ export function TodayReportCardWidget() {
             if (next) setReportNeedsUpdate(true);
           }}
           imageUrl={imageUrl}
-          backImageUrl={backImageUrl}
-          reportGenerating={reportGenerating}
-          backImageGenerating={backGenerating}
           imageBlobAvailable={!!imageBlob}
-          backImageBlobAvailable={!!backImageBlob}
           onDownload={download}
           onShare={share}
         />

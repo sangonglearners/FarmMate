@@ -8,6 +8,9 @@ export type TodayReportCardMetrics = {
   primaryCropLabel: string; // 상추반
   primaryTaskType: "물주기" | "웃거름주기" | "혼합";
   primaryTaskLabel: string; // 물주기 / 웃거름주기 / 물주기·웃거름
+  topCropLabels: string[];
+  topTaskLabels: string[];
+  weeklyDoneFlags: boolean[];
 };
 
 const CANVAS_W = 437;
@@ -67,205 +70,131 @@ export async function generateTodayFarmReportCardPngBlob(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D 컨텍스트를 사용할 수 없습니다.");
 
-  // 1) 배경/레이아웃(시안의 항목만 참고, 사진 템플릿은 사용하지 않음)
+  // 1) 배경/레이아웃
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  ctx.fillStyle = "#F6FBF7";
+  ctx.fillStyle = "#F5F8F3";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // 은은한 배경 장식(라운드 도형)
-  ctx.save();
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = "#DFF3E4";
-  ctx.beginPath();
-  ctx.arc(120, 110, 85, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#CFEAD9";
-  ctx.beginPath();
-  ctx.arc(330, 80, 60, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // 카드 영역
-  const cardX = 24;
-  const cardY = 60;
-  const cardW = 389;
-  const cardH = 480;
-  roundRect(ctx, cardX, cardY, cardW, cardH, 26);
+  const cardX = 16;
+  const cardY = 18;
+  const cardW = 405;
+  const cardH = 524;
+  roundRect(ctx, cardX, cardY, cardW, cardH, 24);
   ctx.fillStyle = "#FFFFFF";
   ctx.fill();
-
-  // 카드 테두리
-  ctx.strokeStyle = "rgba(229,231,235,0.95)";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(124,163,99,0.26)";
+  ctx.lineWidth = 1.5;
   roundRect(ctx, cardX, cardY, cardW, cardH, 26);
   ctx.stroke();
 
-  // 2) 텍스트 오버레이
-  const padX = 38;
-
-  // 오늘의 날짜
-  fillTextWithShadow(ctx, "오늘의 날짜", padX, 92, {
-    font: "700 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#6B7280",
-  });
-  fillTextWithShadow(ctx, metrics.dateLabel, padX, 132, {
-    font: "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#111827",
-  });
-
-  // 농장 챙김 멘트(50% 기준)
-  fillTextWithShadow(ctx, metrics.todayMessage, CANVAS_W / 2, 182, {
-    font: "800 20px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#0B0F17",
+  // 2) 헤더
+  fillTextWithShadow(ctx, "농장 레포트", CANVAS_W / 2, 58, {
+    font: "800 30px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillStyle: "#5D7D48",
     align: "center",
   });
 
-  // 총 계획 / 완료
-  const statY = 240;
-  const statH = 88;
-  const statW = 176;
-  const statGap = 18;
-  const statX = 28;
-
-  const stats = [
-    { label: "총 계획", value: `${metrics.plannedCount}개`, color: "#0F3B2E" },
-    { label: "총 완료", value: `${metrics.completedCount}건`, color: "#4CAF50" },
-  ];
-
-  stats.forEach((s, idx) => {
-    const x = statX + idx * (statW + statGap);
-    ctx.fillStyle = "rgba(255,255,255,0.82)";
-    ctx.strokeStyle = "rgba(229,231,235,0.0)";
-    roundRect(ctx, x, statY, statW, statH, 18);
-    ctx.fill();
-    ctx.stroke();
-
-    fillTextWithShadow(ctx, s.label, x + statW / 2, statY + 28, {
-      font: "700 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-      fillStyle: "#6B7280",
-      align: "center",
-    });
-    fillTextWithShadow(ctx, s.value, x + statW / 2, statY + 62, {
-      font: "800 22px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-      fillStyle: s.color,
-      align: "center",
-    });
+  // 오늘 날짜 + 달성
+  fillTextWithShadow(ctx, "오늘의 날짜", 36, 170, {
+    font: "700 24px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillStyle: "#111827",
   });
-
-  // 주요 작물 / 작업
-  const sectionY = 348;
-  fillTextWithShadow(ctx, "주요 작물 / 작업", padX, sectionY, {
-    font: "800 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#0F3B2E",
-  });
-
-  fillTextWithShadow(ctx, metrics.primaryCropLabel, padX, sectionY + 32, {
-    font: "800 22px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+  fillTextWithShadow(ctx, metrics.dateLabel, 36, 206, {
+    font: "500 20px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     fillStyle: "#111827",
   });
 
-  fillTextWithShadow(ctx, metrics.primaryTaskLabel, padX, sectionY + 62, {
-    font: "700 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#4B5563",
+  const progressText = `${metrics.completedCount}/${metrics.plannedCount}개 | ${metrics.completionPercent}%`;
+  fillTextWithShadow(ctx, progressText, 256, 186, {
+    font: "700 24px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillStyle: "#111827",
   });
-
-  // 이미지(썸네일) 영역: 외부 이미지 대신 카드 일러스트를 직접 그립니다.
-  // 이미지 우측에 여백이 생기도록 카드 오른쪽 끝보다 안쪽에 둡니다.
-  const thumbX = 214;
-  const thumbY = sectionY - 6;
-  const thumbW = 160;
-  const thumbH = 150;
-  roundRect(ctx, thumbX, thumbY, thumbW, thumbH, 20);
-  ctx.fillStyle = "#E8F5E9";
+  roundRect(ctx, 250, 200, 144, 8, 4);
+  ctx.fillStyle = "#D9D9D9";
+  ctx.fill();
+  roundRect(ctx, 250, 200, (144 * Math.max(0, Math.min(100, metrics.completionPercent))) / 100, 8, 4);
+  ctx.fillStyle = "#7CA363";
   ctx.fill();
 
-  // 썸네일 테두리
-  ctx.strokeStyle = "rgba(76,175,80,0.25)";
-  ctx.lineWidth = 2;
-  roundRect(ctx, thumbX, thumbY, thumbW, thumbH, 20);
-  ctx.stroke();
-
-  // 아이콘(주요 작물)
-  const iconCx = thumbX + thumbW / 2;
-  const iconCy = thumbY + 70;
-
-  const cropBaseName = metrics.primaryCropLabel.endsWith("반")
-    ? metrics.primaryCropLabel.slice(0, -1)
-    : metrics.primaryCropLabel;
-
-  const drawLeaf = () => {
-    ctx.fillStyle = "#4CAF50";
-    ctx.beginPath();
-    ctx.moveTo(iconCx, iconCy - 38);
-    ctx.bezierCurveTo(iconCx + 34, iconCy - 38, iconCx + 34, iconCy, iconCx, iconCy + 42);
-    ctx.bezierCurveTo(iconCx - 34, iconCy, iconCx - 34, iconCy - 38, iconCx, iconCy - 38);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "rgba(76,175,80,0.35)";
-    ctx.beginPath();
-    ctx.arc(iconCx - 8, iconCy - 10, 14, 0, Math.PI * 2);
-    ctx.fill();
-  };
-
-  const drawCarrot = () => {
-    ctx.fillStyle = "#F59E0B";
-    ctx.beginPath();
-    ctx.moveTo(iconCx, iconCy - 42);
-    ctx.bezierCurveTo(iconCx + 36, iconCy - 20, iconCx + 36, iconCy + 10, iconCx, iconCy + 40);
-    ctx.bezierCurveTo(iconCx - 36, iconCy + 10, iconCx - 36, iconCy - 20, iconCx, iconCy - 42);
-    ctx.closePath();
-    ctx.fill();
-    // 손잡이/뿌리
-    ctx.fillStyle = "#D97706";
-    ctx.beginPath();
-    ctx.moveTo(iconCx - 10, iconCy + 6);
-    ctx.bezierCurveTo(iconCx + 16, iconCy + 6, iconCx + 16, iconCy + 28, iconCx - 10, iconCy + 28);
-    ctx.closePath();
-    ctx.fill();
-    // 잎
-    ctx.fillStyle = "#22C55E";
-    ctx.beginPath();
-    ctx.moveTo(iconCx - 16, iconCy - 46);
-    ctx.bezierCurveTo(iconCx - 6, iconCy - 58, iconCx + 6, iconCy - 58, iconCx + 16, iconCy - 46);
-    ctx.bezierCurveTo(iconCx + 4, iconCy - 40, iconCx - 4, iconCy - 40, iconCx - 16, iconCy - 46);
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  const drawTomato = () => {
-    ctx.fillStyle = "#EF4444";
-    ctx.beginPath();
-    ctx.arc(iconCx, iconCy - 5, 34, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(239,68,68,0.35)";
-    ctx.beginPath();
-    ctx.arc(iconCx - 10, iconCy - 12, 12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#22C55E";
-    ctx.beginPath();
-    ctx.moveTo(iconCx - 14, iconCy - 40);
-    ctx.bezierCurveTo(iconCx - 6, iconCy - 50, iconCx + 6, iconCy - 50, iconCx + 14, iconCy - 40);
-    ctx.bezierCurveTo(iconCx + 4, iconCy - 38, iconCx - 4, iconCy - 38, iconCx - 14, iconCy - 40);
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  if (cropBaseName.includes("당근")) {
-    drawCarrot();
-  } else if (cropBaseName.includes("토마토")) {
-    drawTomato();
-  } else if (cropBaseName.includes("상추") || cropBaseName.includes("배추") || cropBaseName.includes("치커리")) {
-    drawLeaf();
-  } else {
-    // 기본(일반 작물) 아이콘
-    drawLeaf();
-  }
-
-  // 연속 기록
-  fillTextWithShadow(ctx, `연속 기록 ${metrics.streakDays}일`, padX, 520, {
-    font: "800 22px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#0F3B2E",
+  // 주요 작물 / 주요 작업
+  fillTextWithShadow(ctx, "주요 작물", 36, 292, {
+    font: "700 24px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillStyle: "#111827",
   });
+  fillTextWithShadow(ctx, "주요 작업", 150, 292, {
+    font: "700 24px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillStyle: "#111827",
+  });
+  metrics.topCropLabels.slice(0, 3).forEach((crop, idx) => {
+    fillTextWithShadow(ctx, `• ${crop}`, 36, 326 + idx * 30, {
+      font: "500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+      fillStyle: "#111827",
+    });
+  });
+  metrics.topTaskLabels.slice(0, 3).forEach((task, idx) => {
+    fillTextWithShadow(ctx, `• ${task}`, 150, 326 + idx * 30, {
+      font: "500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+      fillStyle: "#111827",
+    });
+  });
+
+  // 우측 스탬프 영역: 기존 이미지 스탬프 유지
+  const stampSrc =
+    metrics.completionPercent >= 70
+      ? "/today-report-stamp-good.png"
+      : metrics.completionPercent >= 30
+        ? "/today-report-stamp-mid.png"
+        : "/today-report-stamp-bad.png";
+  const stampImage = await loadPngImage(stampSrc);
+  const stampW = 142;
+  const stampH = (stampW * stampImage.height) / stampImage.width;
+  const stampX = 264;
+  const stampY = 244;
+  const stampCx = stampX + stampW / 2;
+  const stampCy = stampY + stampH / 2;
+  ctx.save();
+  // 스탬프 사각 흰 배경을 줄이기 위해 타원 영역만 노출
+  ctx.beginPath();
+  ctx.ellipse(stampCx, stampCy, stampW * 0.44, stampH * 0.48, 0, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.globalAlpha = 0.95;
+  ctx.drawImage(stampImage, stampX, stampY, stampW, stampH);
+  ctx.restore();
+
+  // 연속 기록(주간 표시)
+  fillTextWithShadow(ctx, `연속 기록 🔥 ${metrics.streakDays}일`, 36, 420, {
+    font: "800 22px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillStyle: "#111827",
+  });
+  const weekLabels = ["일", "월", "화", "수", "목", "금", "토"];
+  for (let i = 0; i < 7; i++) {
+    const cx = 78 + i * 50;
+    const cy = 474;
+    fillTextWithShadow(ctx, weekLabels[i], cx, 446, {
+      font: "500 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+      fillStyle: "#111827",
+      align: "center",
+    });
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fillStyle = metrics.weeklyDoneFlags[i] ? "#7CA363" : "#ECECEC";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = metrics.weeklyDoneFlags[i] ? "#6F9258" : "#B7B7B7";
+    ctx.stroke();
+    if (metrics.weeklyDoneFlags[i]) {
+      fillTextWithShadow(ctx, "✓", cx, cy + 7, {
+        font: "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+        fillStyle: "#FFFFFF",
+        align: "center",
+      });
+    }
+    fillTextWithShadow(ctx, String(i + 1), cx, 508, {
+      font: "500 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+      fillStyle: "#111827",
+      align: "center",
+    });
+  }
 
   const blob: Blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -326,9 +255,9 @@ export async function generateTodayFarmReportCardPngBlobBack(
 
   // 도장 선택(투명하게 오버레이)
   const stampSrc =
-    metrics.completionPercent >= 75
+    metrics.completionPercent >= 70
       ? "/today-report-stamp-good.png"
-      : metrics.completionPercent >= 35
+      : metrics.completionPercent >= 30
         ? "/today-report-stamp-mid.png"
         : "/today-report-stamp-bad.png";
 
