@@ -122,7 +122,7 @@ export const LoginPage: React.FC = () => {
             onClick={handleGoogleLogin}
             disabled={loading}
             aria-label="Google 계정으로 로그인"
-            className="absolute left-1/2 -translate-x-1/2 top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white px-[6.7%] py-[1.22%] flex items-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
+            className="absolute left-1/2 -translate-x-1/2 top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
           >
             {loading ? (
               <>
