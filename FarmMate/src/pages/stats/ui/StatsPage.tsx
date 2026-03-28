@@ -258,18 +258,19 @@ export default function StatsPage() {
     viewUnit,
   ]);
 
-  // insights가 바뀌면 이전 AI 결과 초기화
+  // 날짜 범위 + 지표 모드 조합으로 고유 캐시 키 생성
+  const aiInsightCacheKey = useMemo(
+    () => `farmmate:ai-insight:${metricMode}:${normalizedStart}:${normalizedEnd}`,
+    [metricMode, normalizedStart, normalizedEnd]
+  );
+
+  // 캐시 키가 바뀌면 localStorage에서 해당 키의 캐시를 읽어옴
+  // (없으면 null로 초기화해 "AI 인사이트 받기" 버튼 노출)
   useEffect(() => {
-    setAiInsight(null);
+    const cached = localStorage.getItem(aiInsightCacheKey);
+    setAiInsight(cached ?? null);
     setAiInsightError(null);
-  }, [
-    insights.totalValue,
-    insights.avgValue,
-    insights.topShare,
-    metricMode,
-    normalizedStart,
-    normalizedEnd,
-  ]);
+  }, [aiInsightCacheKey]);
 
   const fetchAiInsight = useCallback(async () => {
     // 데이터가 충분하지 않으면 호출 안 함
@@ -282,13 +283,18 @@ export default function StatsPage() {
         body: { insights },
       });
       if (error) throw error;
-      setAiInsight(data?.insight || null);
+      const text: string = data?.insight || "";
+      setAiInsight(text || null);
+      // 성공 시 localStorage에 저장 (빈 문자열은 저장하지 않음)
+      if (text) {
+        localStorage.setItem(aiInsightCacheKey, text);
+      }
     } catch {
       setAiInsightError("AI 인사이트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setAiInsightLoading(false);
     }
-  }, [insights]);
+  }, [insights, aiInsightCacheKey]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{
@@ -521,11 +527,29 @@ export default function StatsPage() {
                       장부에 거래를 등록하면 AI가 맞춤 인사이트를 제공해 드려요.
                     </p>
                   ) : aiInsightLoading ? (
-                    /* 로딩 중 스켈레톤 */
-                    <div className="space-y-1.5 py-0.5">
-                      <div className="h-3 bg-gray-200 rounded-full animate-pulse w-full" />
-                      <div className="h-3 bg-gray-200 rounded-full animate-pulse w-5/6" />
-                      <div className="h-3 bg-gray-200 rounded-full animate-pulse w-3/5" />
+                    /* 로딩 중 스피너 */
+                    <div className="flex items-center gap-2 py-1">
+                      <svg
+                        className="h-4 w-4 animate-spin text-[#4CAF50] shrink-0"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      <span className="text-sm text-gray-500">AI가 농장 데이터를 분석하고 있어요…</span>
                     </div>
                   ) : aiInsightError ? (
                     /* 오류 */
