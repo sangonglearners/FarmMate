@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   format,
@@ -17,6 +17,7 @@ import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
+import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Popover,
@@ -61,6 +62,11 @@ export default function StatsPage() {
   const [aggregateMode, setAggregateMode] = useState<AggregateMode>("detail");
   const [metricPopoverOpen, setMetricPopoverOpen] = useState(false);
   const [aggregatePopoverOpen, setAggregatePopoverOpen] = useState(false);
+
+  // AI 인사이트 상태
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [aiInsightLoading, setAiInsightLoading] = useState(false);
+  const [aiInsightError, setAiInsightError] = useState<string | null>(null);
 
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
   const { data: farms = [] } = useFarms();
@@ -251,6 +257,38 @@ export default function StatsPage() {
     normalizedEnd,
     viewUnit,
   ]);
+
+  // insights가 바뀌면 이전 AI 결과 초기화
+  useEffect(() => {
+    setAiInsight(null);
+    setAiInsightError(null);
+  }, [
+    insights.totalValue,
+    insights.avgValue,
+    insights.topShare,
+    metricMode,
+    normalizedStart,
+    normalizedEnd,
+  ]);
+
+  const fetchAiInsight = useCallback(async () => {
+    // 데이터가 충분하지 않으면 호출 안 함
+    if (!insights.hasRevenue && !insights.hasCropShare) return;
+
+    setAiInsightLoading(true);
+    setAiInsightError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: { insights },
+      });
+      if (error) throw error;
+      setAiInsight(data?.insight || null);
+    } catch {
+      setAiInsightError("AI 인사이트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setAiInsightLoading(false);
+    }
+  }, [insights]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{
@@ -470,6 +508,47 @@ export default function StatsPage() {
                     <p className="text-sm text-gray-700">
                       이번 달 작물별 {insights.metricLabel} 비중을 계산할 수 있는 데이터가 없어요.
                     </p>
+                  )}
+                </div>
+              </div>
+              {/* 3. AI 자연어 인사이트 */}
+              <div className="flex items-start gap-2 pt-1 border-t border-gray-100">
+                <span className="mt-0.5 text-base">✨</span>
+                <div className="flex-1 space-y-2">
+                  {/* 데이터 없을 때 */}
+                  {!insights.hasRevenue && !insights.hasCropShare ? (
+                    <p className="text-sm text-gray-400">
+                      장부에 거래를 등록하면 AI가 맞춤 인사이트를 제공해 드려요.
+                    </p>
+                  ) : aiInsightLoading ? (
+                    /* 로딩 중 스켈레톤 */
+                    <div className="space-y-1.5 py-0.5">
+                      <div className="h-3 bg-gray-200 rounded-full animate-pulse w-full" />
+                      <div className="h-3 bg-gray-200 rounded-full animate-pulse w-5/6" />
+                      <div className="h-3 bg-gray-200 rounded-full animate-pulse w-3/5" />
+                    </div>
+                  ) : aiInsightError ? (
+                    /* 오류 */
+                    <p className="text-xs text-red-500">{aiInsightError}</p>
+                  ) : aiInsight ? (
+                    /* AI 결과 */
+                    <p className="text-sm text-gray-700 leading-relaxed">{aiInsight}</p>
+                  ) : (
+                    /* 아직 요청 전 */
+                    <p className="text-xs text-gray-400">
+                      버튼을 눌러 AI 요약을 받아보세요.
+                    </p>
+                  )}
+
+                  {/* 버튼: 데이터 있을 때만 표시 */}
+                  {(insights.hasRevenue || insights.hasCropShare) && !aiInsightLoading && (
+                    <button
+                      type="button"
+                      onClick={fetchAiInsight}
+                      className="text-xs font-medium text-[#4CAF50] hover:text-[#388E3C] hover:underline transition-colors"
+                    >
+                      {aiInsight ? "다시 생성하기" : "AI 인사이트 받기"}
+                    </button>
                   )}
                 </div>
               </div>
