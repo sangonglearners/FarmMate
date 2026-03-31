@@ -22,7 +22,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { BATCH_TASK_SCHEDULES, TASK_TYPES } from "@/shared/constants/crops";
 import type { Crop, InsertTask } from "../shared/types/schema";
-import { registrationData } from "@/shared/data/registration";
+import { serverRegistrationRepository } from "@/shared/api/server-registration.repository";
+import type { CropSearchResult } from "@/shared/api/server-registration.repository";
 
 interface WorkCalculatorDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ interface WorkCalculatorDialogProps {
   selectedTasks?: string[];
   selectedFarm?: any;
   selectedRowNumber?: number;
+  registrationCrop?: CropSearchResult | null;
 }
 
 interface TaskSchedule {
@@ -55,25 +57,14 @@ export default function WorkCalculatorDialog({
   onSave,
   selectedTasks: propSelectedTasks,
   selectedFarm,
-  selectedRowNumber
+  selectedRowNumber,
+  registrationCrop,
 }: WorkCalculatorDialogProps) {
   const { toast } = useToast();
   
-  // registration 데이터에서 작물의 총 재배기간(파종~수확) 가져오기
+  // 선택된 registration 작물의 총 재배기간 사용
   const getDefaultDuration = () => {
-    const cropName = customCropName || cropSearchTerm || selectedCrop?.name || "";
-    
-    if (cropName) {
-      const registrationCrop = registrationData.find(
-        regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
-      );
-      
-      if (registrationCrop && registrationCrop.총재배기간) {
-        return registrationCrop.총재배기간;
-      }
-    }
-    
-    return 70; // 기본값
+    return registrationCrop?.총재배기간 ?? 70;
   };
   
   const [totalDuration, setTotalDuration] = useState(getDefaultDuration());
@@ -101,13 +92,7 @@ export default function WorkCalculatorDialog({
     const schedules: TaskSchedule[] = [];
     let currentDate = new Date(baseDate);
     
-    // registration 데이터에서 작물의 총 재배기간 가져오기
-    const cropName = customCropName || cropSearchTerm || selectedCrop?.name || "";
-    const registrationCrop = registrationData.find(
-      regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
-    );
-    
-    // 총 재배기간이 있으면 이를 기반으로 작업 기간 계산
+    // 선택된 registration 작물의 총 재배기간 사용
     const cropTotalDuration = registrationCrop?.총재배기간 || totalDuration;
     
     // 선택된 작업에 따라 작업 기간 계산 (새로운 로직)
@@ -345,9 +330,6 @@ export default function WorkCalculatorDialog({
               <p className="text-sm font-medium text-blue-900">
                 선택된 작물: {(() => {
                   const cropName = customCropName || cropSearchTerm || selectedCrop?.name || "";
-                  const registrationCrop = registrationData.find(
-                    regCrop => regCrop.품목 === cropName || regCrop.품목.includes(cropName) || cropName.includes(regCrop.품목)
-                  );
                   
                   if (registrationCrop) {
                     return `${registrationCrop.대분류} > ${registrationCrop.품목} (${registrationCrop.품종}) - 총 재배기간: ${registrationCrop.총재배기간}일`;
