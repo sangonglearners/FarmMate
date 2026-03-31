@@ -1,4 +1,3 @@
-import type { RegistrationData } from '@/shared/data/registration'
 import { supabase } from '@/shared/api/supabase'
 
 export interface CropSearchResult {
@@ -10,6 +9,19 @@ export interface CropSearchResult {
   총재배기간?: number;
   육묘기간?: number;
   생육기간?: number;
+}
+
+function mapRowToResult(r: Record<string, unknown>): CropSearchResult {
+  return {
+    id: String(r['작물번호']),
+    대분류: (r['대분류'] as string) ?? '',
+    품목: (r['품목'] as string) ?? '',
+    품종: (r['품종'] as string) ?? '',
+    파종육묘구분: (r['파종육묘구분'] as string) ?? undefined,
+    총재배기간: (r['총재배기간'] as number) ?? undefined,
+    육묘기간: (r['육묘기간'] as number) ?? undefined,
+    생육기간: (r['생육기간'] as number) ?? undefined,
+  };
 }
 
 export class ServerRegistrationRepository {
@@ -27,53 +39,20 @@ export class ServerRegistrationRepository {
     }
 
     try {
-      console.log('📡 Supabase RPC vegelab_search_registration 호출');
-      const { data, error } = await supabase.rpc('vegelab_search_registration', { query: searchTerm });
-      
+      const { data, error } = await supabase
+        .from('registration')
+        .select('*')
+        .or(`품목.ilike.%${searchTerm}%,품종.ilike.%${searchTerm}%,대분류.ilike.%${searchTerm}%`)
+        .order('품목')
+        .limit(100);
+
       if (error) {
-        console.error('❌ Supabase RPC 오류:', error);
-        // RPC 함수가 없으면 직접 쿼리로 fallback
-        console.log('📡 RPC 실패, 직접 쿼리로 fallback');
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('registration')
-          .select('*')
-          .or(`품목.ilike.%${searchTerm}%,품종.ilike.%${searchTerm}%,대분류.ilike.%${searchTerm}%`)
-          .order('품목')
-          .limit(50);
-          
-        if (fallbackError) {
-          console.error('❌ Fallback 쿼리도 실패:', fallbackError);
-          return [];
-        }
-        
-        const rows = Array.isArray(fallbackData) ? fallbackData : [];
-        const mapped: CropSearchResult[] = rows.map((r: any) => ({
-          id: String(r.작물번호),
-          대분류: r["대분류"] ?? '',
-          품목: r["품목"] ?? '',
-          품종: r["품종"] ?? '',
-          파종육묘구분: r["파종 / 육묘 구분"] ?? undefined,
-          총재배기간: r["총 재배기간 (파종 ~ 수확) (단위:일)"] ?? undefined,
-          육묘기간: r["육묘기간 (파종 ~ 정식) (단위:일)"] ?? undefined,
-          생육기간: r["생육 기간 (밭을 사용하는 기간) (단위:일)"] ?? undefined,
-        }));
-        console.log('✅ Fallback 쿼리 결과:', mapped.length);
-        return mapped;
+        console.error('❌ Supabase 작물 검색 오류:', error);
+        return [];
       }
-      
+
       const rows = Array.isArray(data) ? data : [];
-      const mapped: CropSearchResult[] = rows.map((r: any) => ({
-        id: String(r.작물번호),
-        대분류: r["대분류"] ?? '',
-        품목: r["품목"] ?? '',
-        품종: r["품종"] ?? '',
-        파종육묘구분: r["파종육묘구분"] ?? undefined,
-        총재배기간: r["총재배기간"] ?? undefined,
-        육묘기간: r["육묘기간"] ?? undefined,
-        생육기간: r["생육기간"] ?? undefined,
-      }));
-      console.log('✅ Supabase RPC 결과:', mapped.length);
-      return mapped;
+      return rows.map(mapRowToResult);
     } catch (error) {
       console.error('❌ 서버 작물 검색 실패:', error);
       return [];
@@ -98,16 +77,7 @@ export class ServerRegistrationRepository {
         return null;
       }
       if (!data) return null;
-      return {
-        id: String(data.작물번호),
-        대분류: data["대분류"] ?? '',
-        품목: data["품목"] ?? '',
-        품종: data["품종"] ?? '',
-        파종육묘구분: data["파종 / 육묘 구분"] ?? undefined,
-        총재배기간: data["총 재배기간 (파종 ~ 수확) (단위:일)"] ?? undefined,
-        육묘기간: data["육묘기간 (파종 ~ 정식) (단위:일)"] ?? undefined,
-        생육기간: data["생육 기간 (밭을 사용하는 기간) (단위:일)"] ?? undefined,
-      };
+      return mapRowToResult(data as Record<string, unknown>);
     } catch (error) {
       console.error('작물 정보 조회 실패:', error);
       return null;
@@ -131,16 +101,7 @@ export class ServerRegistrationRepository {
         return [];
       }
       const rows = Array.isArray(data) ? data : [];
-      return rows.map((r: any) => ({
-        id: String(r.작물번호),
-        대분류: r["대분류"] ?? '',
-        품목: r["품목"] ?? '',
-        품종: r["품종"] ?? '',
-        파종육묘구분: r["파종 / 육묘 구분"] ?? undefined,
-        총재배기간: r["총 재배기간 (파종 ~ 수확) (단위:일)"] ?? undefined,
-        육묘기간: r["육묘기간 (파종 ~ 정식) (단위:일)"] ?? undefined,
-        생육기간: r["생육 기간 (밭을 사용하는 기간) (단위:일)"] ?? undefined,
-      }));
+      return rows.map(r => mapRowToResult(r as Record<string, unknown>));
     } catch (error) {
       console.error('대분류별 작물 조회 실패:', error);
       return [];
@@ -174,10 +135,9 @@ export class ServerRegistrationRepository {
   }
 
   /**
-   * 연결 테스트 - 모든 데이터 조회
+   * 연결 테스트
    */
-  async testConnection(): Promise<RegistrationData[]> {
-    console.log('🧪 서버 연결 테스트 시작');
+  async testConnection(): Promise<CropSearchResult[]> {
     try {
       const { data, error } = await supabase
         .from('registration')
@@ -187,7 +147,7 @@ export class ServerRegistrationRepository {
         console.error('❌ Supabase testConnection 오류:', error);
         return [];
       }
-      return (data ?? []) as unknown as RegistrationData[];
+      return (data ?? []).map(r => mapRowToResult(r as Record<string, unknown>));
     } catch (error) {
       console.error('❌ 서버 연결 테스트 실패:', error);
       return [];
@@ -197,12 +157,12 @@ export class ServerRegistrationRepository {
   /**
    * 전체 데이터 조회 (관리용)
    */
-  async getAllData(): Promise<RegistrationData[]> {
+  async getAllData(): Promise<CropSearchResult[]> {
     const { data } = await supabase
       .from('registration')
       .select('*')
-      .limit(1000);
-    return (data ?? []) as unknown as RegistrationData[];
+      .limit(2000);
+    return (data ?? []).map(r => mapRowToResult(r as Record<string, unknown>));
   }
 }
 
