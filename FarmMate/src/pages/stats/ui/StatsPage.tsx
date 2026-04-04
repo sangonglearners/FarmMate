@@ -19,6 +19,7 @@ import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAiCredits, useReferralCode } from "../hooks/useAiCredits";
 import {
   Popover,
   PopoverContent,
@@ -67,6 +68,18 @@ export default function StatsPage() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [aiInsightLoading, setAiInsightLoading] = useState(false);
   const [aiInsightError, setAiInsightError] = useState<string | null>(null);
+  const [copyTooltip, setCopyTooltip] = useState(false);
+
+  // 크레딧 & 추천 링크 훅
+  const {
+    isAdmin,
+    remainingCredits,
+    totalCredits,
+    bonusCredits,
+    canUseAI,
+    consumeCredit,
+  } = useAiCredits();
+  const { referralLink, copyReferralLink } = useReferralCode();
 
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
   const { data: farms = [] } = useFarms();
@@ -273,19 +286,23 @@ export default function StatsPage() {
   }, [aiInsightCacheKey]);
 
   const fetchAiInsight = useCallback(async () => {
-    // 데이터가 충분하지 않으면 호출 안 함
     if (!insights.hasRevenue && !insights.hasCropShare) return;
+    if (!canUseAI) return;
 
     setAiInsightLoading(true);
     setAiInsightError(null);
     try {
+      // 크레딧 먼저 소비 (실패해도 API는 막음)
+      if (!isAdmin) {
+        await consumeCredit();
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-insights", {
         body: { insights },
       });
       if (error) throw error;
       const text: string = data?.insight || "";
       setAiInsight(text || null);
-      // 성공 시 localStorage에 저장 (빈 문자열은 저장하지 않음)
       if (text) {
         localStorage.setItem(aiInsightCacheKey, text);
       }
@@ -294,7 +311,7 @@ export default function StatsPage() {
     } finally {
       setAiInsightLoading(false);
     }
-  }, [insights, aiInsightCacheKey]);
+  }, [insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{
@@ -437,6 +454,30 @@ export default function StatsPage() {
             <h2 className="text-sm font-semibold text-gray-900">
               이번 달 인사이트
             </h2>
+            {/* 초대 링크 복사 버튼 */}
+            {referralLink && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await copyReferralLink();
+                  if (ok) {
+                    setCopyTooltip(true);
+                    setTimeout(() => setCopyTooltip(false), 2000);
+                  }
+                }}
+                className="relative flex items-center gap-1 text-xs text-[#4CAF50] font-medium hover:text-[#388E3C] transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47A3 3 0 1015 12a2.966 2.966 0 00-.117-.808l-4.94-2.47c.025-.235.025-.474 0-.709l4.94-2.47A3 3 0 0015 8z" />
+                </svg>
+                초대 링크 복사
+                {copyTooltip && (
+                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-0.5 whitespace-nowrap">
+                    복사됨!
+                  </span>
+                )}
+              </button>
+            )}
           </div>
           <Card className="rounded-xl border border-gray-100 shadow-sm">
             <CardContent className="p-4 space-y-3">
@@ -527,7 +568,6 @@ export default function StatsPage() {
                       장부에 거래를 등록하면 AI가 맞춤 인사이트를 제공해 드려요.
                     </p>
                   ) : aiInsightLoading ? (
-                    /* 로딩 중 스피너 */
                     <div className="flex items-center gap-2 py-1">
                       <svg
                         className="h-4 w-4 animate-spin text-[#4CAF50] shrink-0"
@@ -535,44 +575,55 @@ export default function StatsPage() {
                         fill="none"
                         viewBox="0 0 24 24"
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                       <span className="text-sm text-gray-500">AI가 농장 데이터를 분석하고 있어요…</span>
                     </div>
                   ) : aiInsightError ? (
-                    /* 오류 */
                     <p className="text-xs text-red-500">{aiInsightError}</p>
                   ) : aiInsight ? (
-                    /* AI 결과 */
                     <p className="text-sm text-gray-700 leading-relaxed">{aiInsight}</p>
                   ) : (
-                    /* 아직 요청 전 */
-                    <p className="text-xs text-gray-400">
-                      버튼을 눌러 AI 요약을 받아보세요.
-                    </p>
+                    <p className="text-xs text-gray-400">버튼을 눌러 AI 요약을 받아보세요.</p>
                   )}
 
-                  {/* 버튼: 데이터 있을 때만 표시 */}
+                  {/* 데이터 있을 때 & 로딩 아닐 때: 버튼 + 크레딧 한 줄 */}
                   {(insights.hasRevenue || insights.hasCropShare) && !aiInsightLoading && (
-                    <button
-                      type="button"
-                      onClick={fetchAiInsight}
-                      className="text-xs font-medium text-[#4CAF50] hover:text-[#388E3C] hover:underline transition-colors"
-                    >
-                      {aiInsight ? "다시 생성하기" : "AI 인사이트 받기"}
-                    </button>
+                    canUseAI ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={fetchAiInsight}
+                          className="text-xs font-semibold text-[#4CAF50] hover:text-[#388E3C] hover:underline transition-colors"
+                        >
+                          {aiInsight ? "다시 생성하기" : "AI 인사이트 받기"}
+                        </button>
+                        {!isAdmin && (
+                          <span className="text-xs text-gray-400">
+                            · 이번 달{" "}
+                            <span className={remainingCredits <= 1 ? "text-orange-500 font-medium" : "text-gray-500"}>
+                              {remainingCredits}회
+                            </span>{" "}
+                            남음
+                            {bonusCredits > 0 && (
+                              <span className="text-blue-400"> (+{bonusCredits} 보너스)</span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        이번 달 크레딧을 모두 사용했어요.{" "}
+                        {referralLink && (
+                          <>
+                            친구를 초대하면{" "}
+                            <span className="text-[#4CAF50] font-medium">+2 크레딧</span>
+                            을 받을 수 있어요.
+                          </>
+                        )}
+                      </p>
+                    )
                   )}
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './components/LoginPage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -81,9 +82,25 @@ function AppRouter() {
   return <MainApp />;
 }
 
+function ReferralCapture() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ref = params.get('ref')
+    if (ref) {
+      localStorage.setItem('farmmate:pending_ref', ref)
+      // URL에서 ref 파라미터 제거 (히스토리 오염 방지)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('ref')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+  return null
+}
+
 function App() {
   return (
     <AuthProvider>
+      <ReferralCapture />
       <AppRouter />
     </AuthProvider>
   );
