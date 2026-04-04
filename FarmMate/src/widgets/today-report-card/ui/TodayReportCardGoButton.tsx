@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -37,11 +37,14 @@ function useTodayDateStr() {
 interface TodayReportCardGoButtonProps {
   buttonLabel?: string;
   buttonClassName?: string;
+  /** 지정 시 `buttonLabel` 대신 트리거 버튼 내용으로 렌더합니다. */
+  children?: ReactNode;
 }
 
 export function TodayReportCardGoButton({
   buttonLabel = "오늘의 농장 리포트 보러가기",
   buttonClassName,
+  children,
 }: TodayReportCardGoButtonProps = {}) {
   const { user } = useAuth();
   const todayDateStr = useTodayDateStr();
@@ -216,7 +219,7 @@ export function TodayReportCardGoButton({
           setReportNeedsUpdate(true);
         }}
       >
-        {buttonLabel}
+        {children ?? buttonLabel}
       </Button>
 
       <TodayReportCardDialog
