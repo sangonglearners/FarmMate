@@ -43,6 +43,7 @@ import type { InsertTask, Task, Farm, Crop } from "../shared/types/schema";
 import { apiRequest } from "@/shared/api";
 import { z } from "zod";
 import { registrationData } from "../shared/data/registration";
+import { useCrops } from "@/features/crop-management";
 
 const formSchema = insertTaskSchema.extend({
   environment: z.string().min(1, "재배환경을 선택해주세요"),
@@ -76,7 +77,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
     queryKey: ["/api/farms"],
   });
 
-  // crops API는 더 이상 사용하지 않음 - registration 데이터만 사용
+  const { data: myCrops = [] } = useCrops();
 
   const { data: tasks } = useQuery<Task[]>({
     queryKey: ["tasks"],
@@ -162,9 +163,6 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
     });
   };
 
-  // 대표 작물 목록 (자주 사용되는 작물들)
-  const popularCrops = ['배추', '무', '당근', '상추', '시금치', '고추', '토마토', '오이', '호박', '브로콜리'];
-  
   // registration 데이터에서 작물 검색
   const getRegistrationCrops = (searchTerm: string) => {
     if (!searchTerm.trim()) return [];
@@ -505,40 +503,46 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
             <div className="space-y-2">
               <Label className="text-sm text-gray-600">내 작물 선택</Label>
               <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
-                {/* 핵심 작물 */}
-                <div className="border-b pb-2 mb-2">
-                  <div className="text-xs text-gray-500 font-medium mb-2 px-2">⭐ 핵심 작물</div>
-                  {registrationData.filter(crop => 
-                    ['스냅피', '이름없음', '비트'].some(name => crop.품목.includes(name))
-                  ).map(crop => (
-                    <button
-                      key={crop.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCrop(crop.품목);
-                        // registration 작물이므로 바로 농작업 자동 선택
-                        if (registrationMode === 'batch') {
-                          if (crop.파종육묘구분 === '파종') {
-                            setSelectedWorks(['파종', '수확']);
-                          } else if (crop.파종육묘구분 === '육묘') {
-                            setSelectedWorks(['파종', '육묘', '수확']);
-                          }
-                        }
-                      }}
-                      className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          {crop.품목} ({crop.품종})
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {crop.대분류}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                
+                {/* 핵심 작물: 농장&작물 관리에서 등록한 작물만 (없으면 섹션 미표시) */}
+                {myCrops.length > 0 && (
+                  <div className="border-b pb-2 mb-2">
+                    <div className="text-xs text-gray-500 font-medium mb-2 px-2">⭐ 핵심 작물</div>
+                    {myCrops.map((crop) => {
+                      const reg = registrationData.find(
+                        (r) => r.품목 === crop.name && r.품종 === crop.variety
+                      );
+                      return (
+                        <button
+                          key={crop.id}
+                          type="button"
+                          onClick={() => {
+                            form.setValue("cropId", crop.id);
+                            setSelectedCrop(crop.name);
+                            if (registrationMode === "batch" && reg) {
+                              if (reg.파종육묘구분 === "파종") {
+                                setSelectedWorks(["파종", "수확"]);
+                              } else if (reg.파종육묘구분 === "육묘") {
+                                setSelectedWorks(["파종", "육묘", "수확"]);
+                              }
+                            }
+                          }}
+                          className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">⭐ {crop.name}</span>
+                              {crop.variety ? (
+                                <span className="text-sm text-gray-500 ml-2">({crop.variety})</span>
+                              ) : null}
+                            </div>
+                            <div className="text-xs text-gray-500">{crop.category}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* 전체 작물 */}
                 <div>
                   <div className="text-xs text-gray-500 font-medium mb-2 px-2">전체 작물</div>

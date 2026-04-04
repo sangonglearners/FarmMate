@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreVertical, Edit, Trash2, MapPin, Sprout, ChevronLeft } from "lucide-react";
@@ -17,6 +17,10 @@ export default function FarmCropManagementPage() {
 
   const { data: allFarms } = useFarms();
   const { data: crops } = useCrops();
+  const cropsLinkedToFarm = useMemo(
+    () => (crops ?? []).filter((c) => c.farmId),
+    [crops]
+  );
 
   const deleteFarm = useDeleteFarm();
   const deleteCrop = useDeleteCrop();
@@ -127,9 +131,9 @@ export default function FarmCropManagementPage() {
             수정
           </Button>
         </div>
-        {crops && crops.length > 0 ? (
+        {cropsLinkedToFarm.length > 0 ? (
           <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-            {crops.map((c) => (
+            {cropsLinkedToFarm.map((c) => (
               <Card key={c.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
