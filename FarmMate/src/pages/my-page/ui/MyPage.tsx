@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Settings, Camera, Sprout, BookOpen } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-import { clearCurrentUserTaskData } from '../../../shared/api/clearAllData';
+import { clearCurrentUserTaskData, withdrawCurrentUserAccount, clearAllFrontendData } from '../../../shared/api/clearAllData';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { sendPageView } from "../../../shared/ga";
 
@@ -23,6 +23,7 @@ export default function MyPage() {
   const [tempUserName, setTempUserName] = useState<string>('사용자');
   const [isSaving, setIsSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { signOut, user } = useAuth();
@@ -125,6 +126,33 @@ export default function MyPage() {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (isWithdrawing) return;
+    setIsWithdrawing(true);
+    try {
+      await withdrawCurrentUserAccount();
+      try {
+        await signOut();
+      } catch (signOutErr) {
+        console.error('탈퇴 후 세션 종료 중 오류(로컬 정리는 계속):', signOutErr);
+      }
+      clearAllFrontendData();
+      queryClient.clear();
+      setShowWithdraw(false);
+      alert('회원 탈퇴 처리가 완료되었습니다. 이용해 주셔서 감사합니다.');
+      window.location.assign('/');
+    } catch (error) {
+      console.error('회원 탈퇴 실패:', error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : '회원 탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+      );
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
   // 데이터 삭제 처리
   const handleClearData = async () => {
     try {
@@ -154,9 +182,15 @@ export default function MyPage() {
               <Settings className="w-5 h-5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end" className="w-44 z-[100]">
             <DropdownMenuItem onClick={() => setShowLogout(true)}>로그아웃</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowWithdraw(true)}>회원탈퇴</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                window.setTimeout(() => setShowWithdraw(true), 0);
+              }}
+            >
+              회원탈퇴
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -228,31 +262,62 @@ export default function MyPage() {
       </div>
 
       <Dialog open={showLogout} onOpenChange={setShowLogout}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader className="text-center sm:text-center">
             <DialogTitle>로그아웃</DialogTitle>
           </DialogHeader>
-          <div className="text-sm text-gray-600">
-            정말로 로그아웃 하시겠습니까?
-            <br />
-            <span className="text-xs text-gray-500">다시 로그인하려면 로그인 화면에서 인증이 필요합니다.</span>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLogout(false)}>취소</Button>
-            <Button onClick={handleLogout} className="bg-red-600 hover:bg-red-700">로그아웃</Button>
+          <p className="text-center text-sm text-gray-600">로그아웃 하시겠습니까?</p>
+          <DialogFooter className="flex flex-row gap-2 pt-2 sm:justify-between sm:space-x-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 border-gray-300 bg-gray-100 text-gray-900 hover:bg-gray-200"
+              onClick={() => setShowLogout(false)}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              onClick={handleLogout}
+              className="flex-1 bg-amber-400 font-medium text-gray-900 hover:bg-amber-500"
+            >
+              확인
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showWithdraw} onOpenChange={setShowWithdraw}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>회원탈퇴</DialogTitle>
+      <Dialog open={showWithdraw} onOpenChange={(open) => !isWithdrawing && setShowWithdraw(open)}>
+        <DialogContent
+          className="z-[100] sm:max-w-sm"
+          onPointerDownOutside={(e) => isWithdrawing && e.preventDefault()}
+        >
+          <DialogHeader className="space-y-3 text-center sm:text-center">
+            <DialogTitle className="text-base font-bold text-gray-900">
+              정말 탈퇴하시겠습니까?
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm font-normal leading-relaxed text-gray-900">
+              탈퇴하시면 등록하신 작업 정보가 모두 삭제되며 복구되지 않습니다.
+            </DialogDescription>
           </DialogHeader>
-          <div className="text-sm text-gray-600">회원탈퇴 하시겠습니까?</div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowWithdraw(false)}>취소</Button>
-            <Button onClick={() => setShowWithdraw(false)}>확인</Button>
+          <DialogFooter className="flex flex-row gap-2 pt-2 sm:justify-between sm:space-x-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isWithdrawing}
+              onClick={handleWithdraw}
+              className="flex-1 border-gray-200 bg-gray-50 font-normal text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+            >
+              {isWithdrawing ? '처리 중...' : '탈퇴하기'}
+            </Button>
+            <Button
+              type="button"
+              disabled={isWithdrawing}
+              onClick={() => setShowWithdraw(false)}
+              className="flex-1 bg-orange-500 font-medium text-white hover:bg-orange-600"
+            >
+              취소
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
