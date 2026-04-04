@@ -104,6 +104,11 @@ export function TodayReportCardGoButton({
     enabled: !!user && dialogOpen,
   });
 
+  const reportDataLoading =
+    tasksLoading || taskCompletionsTodayLoading || taskCompletionsRangeLoading;
+  const showReportGeneratingNotice =
+    dialogOpen && (reportDataLoading || reportGenerating || !imageUrl);
+
   const todayReportMetrics = useMemo((): TodayReportCardMetrics => {
     return computeTodayReportCardMetrics({
       allTasks: permissionFilteredTasks,
@@ -136,6 +141,9 @@ export function TodayReportCardGoButton({
         return URL.createObjectURL(reportBlob);
       });
 
+      setReportNeedsUpdate(false);
+    } catch (e) {
+      console.error("[TodayReportCardGoButton] generatePreview", e);
       setReportNeedsUpdate(false);
     } finally {
       setReportGenerating(false);
@@ -219,6 +227,7 @@ export function TodayReportCardGoButton({
         }}
         imageUrl={imageUrl}
         imageBlobAvailable={!!imageBlob}
+        showGeneratingNotice={showReportGeneratingNotice}
         onDownload={downloadReportCard}
         onShare={shareReportCard}
       />
