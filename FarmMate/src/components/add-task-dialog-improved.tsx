@@ -1724,7 +1724,6 @@ export default function AddTaskDialog({
                         <div className="text-xs text-gray-500 font-medium px-2">
                           전체 작물
                           {isAllCropsLoading && <span className="ml-2">불러오는 중...</span>}
-                          {!isAllCropsLoading && allCrops.length > 0 && <span className="ml-1">({allCrops.length}개)</span>}
                         </div>
                         {allCrops.map((regCrop) => (
                           <button

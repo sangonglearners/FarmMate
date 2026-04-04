@@ -1,6 +1,35 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, signInWithGoogle, signOut, onAuthStateChange } from '@lib/supabaseClient'
+import { AiCreditsRepository } from '@/shared/api/ai-credits.repository'
+
+const PENDING_REF_KEY = 'farmmate:pending_ref'
+
+async function processReferralIfNeeded(userId: string) {
+  const pendingRef = localStorage.getItem(PENDING_REF_KEY)
+  if (!pendingRef) return
+
+  try {
+    const repo = new AiCreditsRepository()
+    const applied = await repo.applyReferralCode(pendingRef, userId)
+    if (applied) {
+      console.log('✅ 추천인 코드 적용 완료:', pendingRef)
+    }
+  } catch (err) {
+    console.warn('추천 코드 처리 중 오류:', err)
+  } finally {
+    localStorage.removeItem(PENDING_REF_KEY)
+  }
+}
+
+async function isNewUser(userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle()
+  return data === null
+}
 
 interface AuthContextType {
   user: User | null
@@ -51,11 +80,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth()
 
     // 인증 상태 변경 구독
-    const { data: { subscription } } = onAuthStateChange((event: string, session: any) => {
+    const { data: { subscription } } = onAuthStateChange(async (event: string, session: any) => {
       console.log('인증 상태 변경:', event, session)
       setSession(session ?? null)
       setUser(session?.user ?? null)
       setLoading(false)
+
+      // 구글 로그인 완료 시 신규 유저 여부 확인 후 추천인 코드 처리
+      if (event === 'SIGNED_IN' && session?.user?.id) {
+        const userId = session.user.id
+        const pendingRef = localStorage.getItem(PENDING_REF_KEY)
+        if (pendingRef) {
+          const newUser = await isNewUser(userId)
+          if (newUser) {
+            await processReferralIfNeeded(userId)
+          } else {
+            // 기존 유저는 ref 무시
+            localStorage.removeItem(PENDING_REF_KEY)
+          }
+        }
+      }
     })
 
     return () => {
