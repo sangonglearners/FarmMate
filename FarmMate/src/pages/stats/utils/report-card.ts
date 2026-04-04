@@ -40,6 +40,9 @@ export type TodayReportCardMetrics = {
 const CANVAS_W = 437;
 const CANVAS_H = 632;
 
+/** 카드·메트릭에서 쓰는 주요 농작업 라벨 상한 */
+export const REPORT_TOP_FARM_WORK_MAX = 3;
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -120,35 +123,101 @@ function ellipsizeLine(text: string, maxChars: number): string {
   return `${t.slice(0, Math.max(1, maxChars - 1))}…`;
 }
 
-/** 오늘 멘트 최대 2줄, 가운데 정렬 */
-function drawTodayMessageBlock(
+/** 연녹 헤더 박스 안 날짜+멘트 수직·수평 가운데 (measureText 기준) */
+function measureHeaderStackMetrics(
   ctx: CanvasRenderingContext2D,
+  dateLabel: string,
+  dateFontPx: number,
   message: string,
-  cx: number,
-  yTop: number
-): number {
+  gapDateMent: number,
+  mentFontSize: number,
+  mentLineGap: number
+): {
+  totalHeight: number;
+  stackTopOffset: number;
+  dateBaselineFromTop: number;
+  mentLine1BaselineFromTop: number;
+  mentLine2BaselineFromTop: number | null;
+} {
   const maxChars = 22;
   const line1 = ellipsizeLine(message, maxChars);
   let line2: string | null = null;
   if (message.trim().length > maxChars) {
     line2 = ellipsizeLine(message.trim().slice(maxChars), maxChars);
   }
-  const font =
-    "500 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+
+  const fontDate = `800 ${dateFontPx}px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif`;
+  const fontMent = `500 ${mentFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+
+  ctx.font = fontDate;
+  const dm = ctx.measureText(dateLabel);
+  const dAsc = dm.actualBoundingBoxAscent ?? dateFontPx * 0.72;
+  const dDesc = dm.actualBoundingBoxDescent ?? dateFontPx * 0.22;
+
+  ctx.font = fontMent;
+  const m1 = ctx.measureText(line1);
+  const m1Asc = m1.actualBoundingBoxAscent ?? mentFontSize * 0.72;
+  const m1Desc = m1.actualBoundingBoxDescent ?? mentFontSize * 0.22;
+
+  let m2Desc = 0;
+  if (line2) {
+    const m2 = ctx.measureText(line2);
+    m2Desc = m2.actualBoundingBoxDescent ?? mentFontSize * 0.22;
+  }
+
+  /** 날짜·멘트 baseline 간격은 기존과 동일(날짜 baseline → 멘트 1줄 baseline) */
+  const dateBaselineFromTop = dAsc;
+  const mentLine1BaselineFromTop = dAsc + gapDateMent;
+  const mentLine2BaselineFromTop = line2 ? mentLine1BaselineFromTop + mentLineGap : null;
+
+  const stackTop = Math.min(0, mentLine1BaselineFromTop - m1Asc);
+  const mentBottom =
+    line2 !== null
+      ? (mentLine2BaselineFromTop as number) + m2Desc
+      : mentLine1BaselineFromTop + m1Desc;
+  const stackBottom = Math.max(dAsc + dDesc, mentBottom);
+  const totalHeight = stackBottom - stackTop;
+
+  return {
+    totalHeight,
+    stackTopOffset: stackTop,
+    dateBaselineFromTop,
+    mentLine1BaselineFromTop,
+    mentLine2BaselineFromTop,
+  };
+}
+
+/** 오늘 멘트 최대 2줄, 가운데 정렬 */
+function drawTodayMessageBlock(
+  ctx: CanvasRenderingContext2D,
+  message: string,
+  cx: number,
+  yTop: number,
+  opts?: { fontSize?: number; lineGap?: number }
+): number {
+  const fontSize = opts?.fontSize ?? 13;
+  const lineGap = opts?.lineGap ?? 17;
+  const maxChars = 22;
+  const line1 = ellipsizeLine(message, maxChars);
+  let line2: string | null = null;
+  if (message.trim().length > maxChars) {
+    line2 = ellipsizeLine(message.trim().slice(maxChars), maxChars);
+  }
+  const font = `500 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
   fillTextWithShadow(ctx, line1, cx, yTop, {
     font,
     fillStyle: "#3D4A3E",
     align: "center",
   });
   if (line2) {
-    fillTextWithShadow(ctx, line2, cx, yTop + 17, {
+    fillTextWithShadow(ctx, line2, cx, yTop + lineGap, {
       font,
       fillStyle: "#3D4A3E",
       align: "center",
     });
-    return yTop + 17 + 20;
+    return yTop + lineGap + Math.round(fontSize * 1.35);
   }
-  return yTop + 20;
+  return yTop + Math.round(fontSize * 1.35);
 }
 
 function recordBadgeChipStyle(variant: RecordBadgeVariant): {
@@ -174,30 +243,99 @@ function recordBadgeChipStyle(variant: RecordBadgeVariant): {
   }
 }
 
-function mascotAuraFill(metrics: TodayReportCardMetrics): string {
-  const first = metrics.recordBadges?.[0];
-  if (first) {
-    switch (first.variant) {
-      case "dawn":
-        return "rgba(227, 235, 255, 0.94)";
-      case "night":
-        return "rgba(237, 232, 247, 0.94)";
-      case "memo":
-        return "rgba(220, 245, 234, 0.88)";
-      case "check":
-        return "rgba(255, 231, 217, 0.92)";
-      case "streak":
-        return "rgba(254, 243, 199, 0.92)";
-      case "planner":
-        return "rgba(232, 237, 242, 0.94)";
-      default:
-        break;
-    }
+/** 멘트 블록 첫 배지 pill — variant별 면·테두리 (버튼 느낌) */
+function badgePillFaceStops(variant: RecordBadgeVariant): { hi: string; mid: string; lo: string } {
+  switch (variant) {
+    case "dawn":
+      return { hi: "#F8FAFF", mid: "#EEF3FF", lo: "#D4DFF5" };
+    case "night":
+      return { hi: "#FAF8FF", mid: "#F2EDFA", lo: "#DCD4ED" };
+    case "memo":
+      return { hi: "#F6FDF9", mid: "#E8F7EF", lo: "#C8EAD9" };
+    case "check":
+      return { hi: "#FFFAF6", mid: "#FFF0E5", lo: "#F5D5C2" };
+    case "streak":
+      return { hi: "#FFFCF2", mid: "#FEF6DC", lo: "#F0E0B0" };
+    case "planner":
+      return { hi: "#F8FAFC", mid: "#ECEFF4", lo: "#D5DCE4" };
+    default:
+      return { hi: "#FBFDF8", mid: "#F3F5F0", lo: "#E4EBDC" };
   }
-  const p = metrics.completionPercent;
-  if (p >= 70) return "rgba(220, 243, 208, 0.9)";
-  if (p >= 30) return "rgba(236, 245, 228, 0.92)";
-  return "rgba(241, 245, 249, 0.96)";
+}
+
+function badgePillShadowTint(variant: RecordBadgeVariant): string {
+  switch (variant) {
+    case "dawn":
+      return "rgba(35, 55, 120, 0.12)";
+    case "night":
+      return "rgba(60, 40, 110, 0.12)";
+    case "memo":
+      return "rgba(15, 80, 50, 0.11)";
+    case "check":
+      return "rgba(120, 45, 15, 0.11)";
+    case "streak":
+      return "rgba(110, 70, 10, 0.11)";
+    case "planner":
+      return "rgba(45, 55, 65, 0.11)";
+    default:
+      return "rgba(45, 75, 40, 0.1)";
+  }
+}
+
+function badgePillOuterStrokeColor(variant: RecordBadgeVariant): string {
+  switch (variant) {
+    case "dawn":
+      return "rgba(47, 79, 168, 0.4)";
+    case "night":
+      return "rgba(94, 53, 177, 0.4)";
+    case "memo":
+      return "rgba(19, 108, 69, 0.4)";
+    case "check":
+      return "rgba(194, 65, 12, 0.4)";
+    case "streak":
+      return "rgba(180, 83, 9, 0.42)";
+    case "planner":
+      return "rgba(55, 71, 79, 0.38)";
+    default:
+      return "rgba(90, 122, 71, 0.42)";
+  }
+}
+
+function drawEmphasizedBadgePill(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  pillY: number,
+  label: string,
+  variant: RecordBadgeVariant,
+  compact: boolean
+): void {
+  const chipStyle = recordBadgeChipStyle(variant);
+  const stops = badgePillFaceStops(variant);
+  const pillH = compact ? 30 : 34;
+  const badgePx = compact ? 14 : 15;
+  const fontPill = `800 ${badgePx}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+  ctx.font = fontPill;
+  const tw = Math.ceil(ctx.measureText(label).width);
+  const pillPadX = compact ? 15 : 20;
+  const pillW = Math.max(tw + pillPadX * 2, compact ? 100 : 108);
+  const pillR = Math.min(Math.floor(pillH / 2), 20);
+  const pillX = cx - pillW / 2;
+
+  fillRoundRect(ctx, pillX + 0.5, pillY + 1.5, pillW, pillH, pillR, badgePillShadowTint(variant));
+  const faceGrad = ctx.createLinearGradient(pillX, pillY, pillX, pillY + pillH);
+  faceGrad.addColorStop(0, stops.hi);
+  faceGrad.addColorStop(0.45, stops.mid);
+  faceGrad.addColorStop(1, stops.lo);
+  fillRoundRect(ctx, pillX, pillY, pillW, pillH, pillR, faceGrad);
+  strokeRoundRect(ctx, pillX, pillY, pillW, pillH, pillR, badgePillOuterStrokeColor(variant), 1.25);
+  strokeRoundRect(ctx, pillX + 0.5, pillY + 0.5, pillW - 1, pillH - 1, Math.max(4, pillR - 1), "rgba(255,255,255,0.62)", 0.75);
+
+  const baselineY = pillY + pillH * 0.72;
+  fillTextWithShadow(ctx, label, cx, baselineY, {
+    font: fontPill,
+    fillStyle: chipStyle.fg,
+    align: "center",
+  });
 }
 
 function mascotMoodCaption(metrics: TodayReportCardMetrics): string {
@@ -228,14 +366,18 @@ function mascotMoodCaption(metrics: TodayReportCardMetrics): string {
   return "내일은 한 걸음 더 함께해요";
 }
 
+type EmphasizedBadgeLayoutOpts = { compact?: boolean };
+
 /** 배지 연동 멘트 블록(강조) + 첫 배지 라벨 */
 function drawEmphasizedBadgeMentBlock(
   ctx: CanvasRenderingContext2D,
   metrics: TodayReportCardMetrics,
   innerL: number,
   innerW: number,
-  yTop: number
+  yTop: number,
+  layout?: EmphasizedBadgeLayoutOpts
 ): number {
+  const compact = layout?.compact ?? false;
   const cx = innerL + innerW / 2;
   const ment = mascotMoodCaption(metrics);
   const maxChars = 20;
@@ -245,39 +387,38 @@ function drawEmphasizedBadgeMentBlock(
     line2 = ellipsizeLine(ment.trim().slice(maxChars), maxChars);
   }
   const first = metrics.recordBadges?.[0];
-  const padY = 14;
-  const line1Baseline = padY + 14;
-  const secondLineExtra = line2 ? 19 : 0;
-  const afterMentGap = first ? 10 : 8;
-  const badgeBaselineExtra = first ? 14 : 0;
+  const padY = compact ? 7 : 14;
+  const line1Baseline = padY + (compact ? 11 : 14);
+  const secondLineExtra = line2 ? (compact ? 15 : 19) : 0;
+  const afterMentGap = first ? (compact ? 7 : 12) : compact ? 5 : 8;
+  const emphasisPillH = compact ? 30 : 34;
+  const badgeBaselineExtra = first ? emphasisPillH + (compact ? 4 : 6) : 0;
   const blockH = line1Baseline + secondLineExtra + afterMentGap + badgeBaselineExtra + padY;
+  const cornerR = compact ? 12 : 16;
+  const tail = compact ? 6 : 10;
 
-  fillRoundRect(ctx, innerL, yTop, innerW, blockH, 16, "rgba(243, 245, 224, 0.72)");
+  fillRoundRect(ctx, innerL, yTop, innerW, blockH, cornerR, "rgba(243, 245, 224, 0.72)");
 
-  const fontMent =
-    "800 15px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif";
+  const mentPx = compact ? 13 : 15;
+  const fontMent = `800 ${mentPx}px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif`;
+  const mentLineGap = compact ? 15 : 19;
   fillTextWithShadow(ctx, line1, cx, yTop + line1Baseline, {
     font: fontMent,
     fillStyle: FLOG_MAIN_DEEP,
     align: "center",
   });
   if (line2) {
-    fillTextWithShadow(ctx, line2, cx, yTop + line1Baseline + 19, {
+    fillTextWithShadow(ctx, line2, cx, yTop + line1Baseline + mentLineGap, {
       font: fontMent,
       fillStyle: FLOG_MAIN_DEEP,
       align: "center",
     });
   }
   if (first) {
-    const { fg } = recordBadgeChipStyle(first.variant);
-    const badgeY = yTop + line1Baseline + secondLineExtra + afterMentGap + 10;
-    fillTextWithShadow(ctx, first.label, cx, badgeY, {
-      font: "800 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-      fillStyle: fg,
-      align: "center",
-    });
+    const badgeRowTop = yTop + line1Baseline + secondLineExtra + afterMentGap;
+    drawEmphasizedBadgePill(ctx, cx, badgeRowTop, first.label, first.variant, compact);
   }
-  return yTop + blockH + 10;
+  return yTop + blockH + tail;
 }
 
 function drawRecordTagsCentered(
@@ -285,45 +426,57 @@ function drawRecordTagsCentered(
   metrics: TodayReportCardMetrics,
   innerL: number,
   innerR: number,
-  startY: number
+  startY: number,
+  layout?: { compact?: boolean }
 ): number {
+  const compact = layout?.compact ?? false;
   const cx = (innerL + innerR) / 2;
   const innerW = innerR - innerL;
   const badges = (metrics.recordBadges ?? []).slice(0, 3);
-  const chipH = 26;
-  const chipR = 13;
-  const chipGap = 7;
-  const fontChip =
-    "800 10.5px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  const chipY = startY + 4;
+  /** 첫 배지는 멘트 블록에 이미 표시되므로 칩 줄에서 제외 (중복 방지) */
+  const chipsBadges = badges.slice(1);
+  const chipH = compact ? 26 : 32;
+  const chipR = compact ? 13 : 16;
+  const chipGap = compact ? 6 : 8;
+  const chipFontPx = compact ? 10.5 : 12;
+  const fontChip = `800 ${chipFontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+  const chipY = startY + (compact ? 3 : 4);
+  const chipTextDy = compact ? 17 : 21;
+  const chipTail = compact ? 6 : 10;
+  const padX = compact ? 22 : 28;
   if (badges.length === 0) {
     const panelTop = startY - 2;
-    const panelH = 48;
+    const panelH = compact ? 40 : 48;
     fillRoundRect(ctx, innerL, panelTop, innerW, panelH, 14, "rgba(243, 245, 224, 0.55)");
-    fillTextWithShadow(ctx, "기록이 쌓일수록 나만의 태그가 열려요", cx, startY + 22, {
-      font: "500 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillTextWithShadow(ctx, "기록이 쌓일수록 나만의 태그가 열려요", cx, startY + (compact ? 18 : 22), {
+      font: compact
+        ? "500 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif"
+        : "500 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
       fillStyle: "#7A8B7C",
       align: "center",
     });
-    return panelTop + panelH + 6;
+    return panelTop + panelH + (compact ? 4 : 6);
+  }
+  if (chipsBadges.length === 0) {
+    return startY + (compact ? 3 : 4);
   }
   ctx.font = fontChip;
-  const widths = badges.map((b) => Math.ceil(ctx.measureText(b.label).width) + 20);
-  const totalW = widths.reduce((a, b) => a + b, 0) + (badges.length - 1) * chipGap;
+  const widths = chipsBadges.map((b) => Math.ceil(ctx.measureText(b.label).width) + padX);
+  const totalW = widths.reduce((a, b) => a + b, 0) + (chipsBadges.length - 1) * chipGap;
   let x = cx - totalW / 2;
-  badges.forEach((b, i) => {
+  chipsBadges.forEach((b, i) => {
     const w = widths[i];
     const { bg, fg, stroke } = recordBadgeChipStyle(b.variant);
     fillRoundRect(ctx, x, chipY, w, chipH, chipR, bg);
     strokeRoundRect(ctx, x, chipY, w, chipH, chipR, stroke, 0.75);
-    fillTextWithShadow(ctx, b.label, x + w / 2, chipY + 16, {
+    fillTextWithShadow(ctx, b.label, x + w / 2, chipY + chipTextDy, {
       font: fontChip,
       fillStyle: fg,
       align: "center",
     });
     x += w + chipGap;
   });
-  return chipY + chipH + 10;
+  return chipY + chipH + chipTail;
 }
 
 export async function generateTodayFarmReportCardPngBlob(
@@ -342,7 +495,7 @@ export async function generateTodayFarmReportCardPngBlob(
   const cardX = 14;
   const cardY = 14;
   const cardW = 409;
-  const cardH = 604;
+  const cardH = 556;
   const cardR = 22;
   const pad = 24;
   const innerL = cardX + pad;
@@ -354,27 +507,50 @@ export async function generateTodayFarmReportCardPngBlob(
   fillRoundRect(ctx, cardX, cardY, cardW, cardH, cardR, "#FFFFFF");
   strokeRoundRect(ctx, cardX, cardY, cardW, cardH, cardR, "rgba(124, 163, 99, 0.2)", 1);
 
-  const headerBandTop = cardY + 26;
-  const headerBandH = 128;
+  /** 날짜·멘트 연녹 박스: 고정 75px, 세로 가운데 정렬 */
+  const headerBandTop = cardY + 20;
+  const headerBandH = 75;
+  const todayMentTwoLines = metrics.todayMessage.trim().length > 22;
+  const dateFontPx = todayMentTwoLines ? 17 : 19;
+  const gapDateMent = todayMentTwoLines ? 16 : 19;
+  const mentFontSize = todayMentTwoLines ? 11 : 12;
+  const mentLineGap = todayMentTwoLines ? 12 : 14;
+  const headerStack = measureHeaderStackMetrics(
+    ctx,
+    metrics.dateLabel,
+    dateFontPx,
+    metrics.todayMessage,
+    gapDateMent,
+    mentFontSize,
+    mentLineGap
+  );
+  const headerBandContentTop =
+    headerBandTop + (headerBandH - headerStack.totalHeight) / 2;
   fillRoundRect(ctx, innerL, headerBandTop, innerW, headerBandH, 14, "rgba(243, 245, 224, 0.5)");
   strokeRoundRect(ctx, innerL, headerBandTop, innerW, headerBandH, 14, "rgba(124, 163, 99, 0.12)", 1);
 
-  let y = headerBandTop + 20;
-  fillTextWithShadow(ctx, "농장 레포트", cx, y, {
-    font: "800 24px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif",
+  const dateBaselineY =
+    headerBandContentTop +
+    headerStack.dateBaselineFromTop -
+    headerStack.stackTopOffset;
+  fillTextWithShadow(ctx, metrics.dateLabel, cx, dateBaselineY, {
+    font: `800 ${dateFontPx}px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif`,
     fillStyle: "#1A1F1A",
     align: "center",
   });
-  y += 28;
-  fillTextWithShadow(ctx, metrics.dateLabel, cx, y, {
-    font: "600 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    fillStyle: "#5A6B5C",
-    align: "center",
+  const mentBaselineY =
+    headerBandContentTop +
+    headerStack.mentLine1BaselineFromTop -
+    headerStack.stackTopOffset;
+  drawTodayMessageBlock(ctx, metrics.todayMessage, cx, mentBaselineY, {
+    fontSize: mentFontSize,
+    lineGap: mentLineGap,
   });
-  y += 22;
-  y = drawTodayMessageBlock(ctx, metrics.todayMessage, cx, y);
 
-  y = headerBandTop + headerBandH + 16;
+  /** 진행률: 헤더와 문구·바 묶음 (글 크기·아래 여백 조정) */
+  const progressFontPx = 14;
+  const progressGapAfterHeader = 22;
+  let y = headerBandTop + headerBandH + progressGapAfterHeader;
 
   const pct = Math.max(0, Math.min(100, metrics.completionPercent));
   const progressLabel =
@@ -382,10 +558,10 @@ export async function generateTodayFarmReportCardPngBlob(
       ? "오늘 예정된 할 일이 없어요"
       : `오늘 ${metrics.completedCount}/${metrics.plannedCount} 완료 · ${metrics.completionPercent}%`;
   fillTextWithShadow(ctx, progressLabel, innerL, y, {
-    font: "600 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    font: `600 ${progressFontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`,
     fillStyle: "#3D4A3E",
   });
-  y += 18;
+  y += Math.round(progressFontPx * 1.02);
   const barW = innerR - innerL;
   const barH = 8;
   const barRi = 4;
@@ -397,50 +573,50 @@ export async function generateTodayFarmReportCardPngBlob(
     g.addColorStop(1, FLOG_MAIN_DEEP);
     fillRoundRect(ctx, innerL, y, fillW, barH, barRi, g);
   }
-  y += barH + 12;
+  const progressBarToMascotGap = 28;
+  y += barH + progressBarToMascotGap;
 
   const mascotPanelTop = y;
-  const auraR = 86;
-  const mascotPanelH = auraR * 2 + 22;
+  const mascotPanelH = 162;
   fillRoundRect(ctx, innerL, mascotPanelTop, innerW, mascotPanelH, 16, "rgba(248, 250, 246, 0.95)");
   strokeRoundRect(ctx, innerL, mascotPanelTop, innerW, mascotPanelH, 16, "rgba(124, 163, 99, 0.1)", 1);
 
-  const auraCy = mascotPanelTop + 12 + auraR;
-  ctx.beginPath();
-  ctx.arc(cx, auraCy, auraR, 0, Math.PI * 2);
-  ctx.fillStyle = mascotAuraFill(metrics);
-  ctx.fill();
-
+  const mascotCy = mascotPanelTop + mascotPanelH / 2;
+  const mascotFrogDownPx = 10;
   const mascot = await loadMascotImage(metrics);
-  const frogW = 208;
+  const frogW = 162;
   const frogH = (frogW * mascot.height) / mascot.width;
   const frogX = cx - frogW / 2;
-  const frogY = auraCy - frogH / 2;
+  const frogY = mascotCy - frogH / 2 + mascotFrogDownPx;
   ctx.drawImage(mascot, frogX, frogY, frogW, frogH);
 
   y = mascotPanelTop + mascotPanelH + 8;
   y = drawEmphasizedBadgeMentBlock(ctx, metrics, innerL, innerW, y);
   y = drawRecordTagsCentered(ctx, metrics, innerL, innerR, y);
+  y += 24;
 
-  fillTextWithShadow(ctx, "주요 농작업 활동", innerL, y, {
-    font: "800 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+  fillTextWithShadow(ctx, "주요 농작업", innerL, y, {
+    font: "800 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     fillStyle: "#8A9A8C",
   });
-  y += 16;
-  const rowGap = 5;
+  y += 13;
+  const rowGap = 4;
+  const rowLead = 12;
+  const rowTail = 4;
   if (metrics.plannedCount === 0) {
-    fillTextWithShadow(ctx, "· 첫 기록을 시작해보세요", innerL + 2, y + 12, {
-      font: "600 12.5px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    fillTextWithShadow(ctx, "· 첫 기록을 시작해보세요", innerL + 2, y + rowLead, {
+      font: "600 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
       fillStyle: "#4A5A4C",
     });
+    y += rowLead + rowGap + rowTail;
   } else {
-    metrics.topFarmWorkLabels.slice(0, 3).forEach((line) => {
-      const safe = ellipsizeLine(line, 34);
-      fillTextWithShadow(ctx, `· ${safe}`, innerL + 2, y + 12, {
-        font: "600 12.5px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    metrics.topFarmWorkLabels.slice(0, REPORT_TOP_FARM_WORK_MAX).forEach((line) => {
+      const safe = ellipsizeLine(line, 32);
+      fillTextWithShadow(ctx, `· ${safe}`, innerL + 2, y + rowLead, {
+        font: "600 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
         fillStyle: "#2A332B",
       });
-      y += 12 + rowGap + 4;
+      y += rowLead + rowGap + rowTail;
     });
   }
 

@@ -75,7 +75,7 @@ export function TodayReportCardDialog({
               오늘의 농장 레포트
             </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed text-muted-foreground">
-              저장해서 자랑하고 싶은 하루 요약 카드예요.
+              오늘의 농장 기록을 한 장으로 담았어요.
             </DialogDescription>
           </DialogHeader>
         </div>

@@ -178,7 +178,7 @@ export function TodayReportCardWidget() {
             <p className="text-xs leading-relaxed text-muted-foreground">
               {reportGenerating
                 ? "오늘 카드를 그리는 중이에요…"
-                : "저장해서 자랑하고 싶은 하루 요약 카드예요."}
+                : "오늘의 농장 기록을 한 장으로 담았어요."}
             </p>
           </div>
           <Button

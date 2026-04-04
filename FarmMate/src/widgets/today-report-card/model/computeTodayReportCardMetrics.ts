@@ -1,7 +1,11 @@
 import type { Task } from "@shared/schema";
 import { format, subDays } from "date-fns";
 
-import type { RecordBadge, TodayReportCardMetrics } from "../../../pages/stats/utils/report-card";
+import {
+  REPORT_TOP_FARM_WORK_MAX,
+  type RecordBadge,
+  type TodayReportCardMetrics,
+} from "../../../pages/stats/utils/report-card";
 import { isDateInTaskRange } from "@/shared/utils/task-filter";
 
 import { buildRecordBadges } from "./recordBadges";
@@ -62,7 +66,7 @@ function toCropLabel(cropName: string): string {
 function topLabelsFromCountMap(countMap: Map<string, number>, fallback: string): string[] {
   const entries = Array.from(countMap.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
+    .slice(0, REPORT_TOP_FARM_WORK_MAX)
     .map(([label]) => label)
     .filter(Boolean);
   return entries.length > 0 ? entries : [fallback];
@@ -100,7 +104,7 @@ export function computeTodayReportCardMetrics({
     plannedCount === 0
       ? "첫 기록을 시작해보세요"
       : completionPercent >= 50
-        ? "오늘도 농장을 챙겼어요!)"
+        ? "오늘도 농장을 챙겼어요!"
         : "오늘은 농장을 잘 못 챙겼어요";
 
   const cropCountMap = new Map<string, number>();
@@ -213,7 +217,8 @@ export function computeTodayReportCardMetrics({
     primaryCropLabel,
     primaryTaskType,
     primaryTaskLabel,
-    topFarmWorkLabels: plannedCount === 0 ? [] : topFarmWorkLabels,
+    topFarmWorkLabels:
+      plannedCount === 0 ? [] : topFarmWorkLabels.slice(0, REPORT_TOP_FARM_WORK_MAX),
     weeklyDoneFlags,
     recordBadges,
   };
