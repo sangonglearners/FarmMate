@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { ViewUnit } from "../../utils/stats-data";
 
@@ -40,13 +40,17 @@ const VIEW_UNITS: { value: ViewUnit; label: string }[] = [
   { value: "yearly", label: "연" },
 ];
 
+/** 차트 시리즈: valueK=천원(축·플롯), valueWon=원(툴팁 표기). DB·통계는 원 단위. */
+type TrendChartRow = RevenueDataPoint & { valueK: number; valueWon: number };
+
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
-    const d = payload[0].payload;
+    const d = payload[0].payload as TrendChartRow;
+    const won = typeof d.valueWon === "number" ? d.valueWon : d.valueK * 1000;
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-xl shadow-lg">
         <p className="text-sm font-medium text-gray-900">{d.period}</p>
-        <p className="text-lg font-bold text-gray-900">₩{Math.round(d.value).toLocaleString()}</p>
+        <p className="text-lg font-bold text-gray-900">₩{Math.round(won).toLocaleString()}</p>
       </div>
     );
   }
@@ -139,34 +143,6 @@ function getNiceStep(rawStep: number) {
   return 10 * magnitude;
 }
 
-function getPercentile(sortedValues: number[], percentile: number) {
-  if (!sortedValues.length) return 0;
-  const index = (sortedValues.length - 1) * percentile;
-  const low = Math.floor(index);
-  const high = Math.ceil(index);
-  if (low === high) return sortedValues[low] ?? 0;
-  const weight = index - low;
-  const lowValue = sortedValues[low] ?? 0;
-  const highValue = sortedValues[high] ?? 0;
-  return lowValue * (1 - weight) + highValue * weight;
-}
-
-function getAdaptiveYAxisScale(values: number[]) {
-  const positives = values.filter((v) => v > 0).sort((a, b) => a - b);
-  if (!positives.length) return "linear" as const;
-
-  const maxValue = positives[positives.length - 1] ?? 0;
-  const medianValue = getPercentile(positives, 0.5);
-  const p75Value = getPercentile(positives, 0.75);
-
-  const ratioToMedian = maxValue / Math.max(medianValue, 1);
-  const ratioToP75 = maxValue / Math.max(p75Value, 1);
-
-  // 이상치가 큰 분포에서는 sqrt 축으로 작은 값 영역 가시성을 높인다.
-  if (ratioToMedian >= 4 || ratioToP75 >= 3) return "sqrt" as const;
-  return "linear" as const;
-}
-
 function buildYAxisConfig(values: number[]) {
   const maxValue = Math.max(...values, 0);
   if (maxValue <= 0) {
@@ -202,10 +178,10 @@ function buildYAxisConfig(values: number[]) {
   const ticks = Array.from({ length: Math.floor(finalMax / finalStep) + 1 }, (_, i) => Number((i * finalStep).toFixed(8)));
   if (ticks[0] !== 0) ticks.unshift(0);
 
-  // 20,000 이하 구간에 실제 데이터가 있으면 저구간 축도 명시적으로 보강한다.
-  const hasLowBandData = values.some((v) => v > 0 && v < 20000);
+  // values는 천원. 약 2만 원(20천원) 미만 데이터가 있으면 저구간 눈금 보강.
+  const hasLowBandData = values.some((v) => v > 0 && v < 20);
   if (hasLowBandData) {
-    const lowBandTicks = [0, 5000, 10000, 15000, 20000].filter((v) => v <= finalMax);
+    const lowBandTicks = [0, 5, 10, 15, 20].filter((v) => v <= finalMax);
     const merged = Array.from(new Set([...ticks, ...lowBandTicks])).sort((a, b) => a - b);
     return { domain: [0, finalMax] as [number, number], ticks: merged };
   }
@@ -242,7 +218,9 @@ function calculateChartInnerWidth({
   );
   const bandWidth = viewportPlotInnerWidth / visibleCount;
   const plotInnerWidth = bandWidth * safeTotalCount;
-  const chartInnerWidth = plotInnerWidth + marginLeft + marginRight + axisPaddingLeft + axisPaddingRight;
+  const chartInnerWidth = Math.round(
+    plotInnerWidth + marginLeft + marginRight + axisPaddingLeft + axisPaddingRight
+  );
 
   return { chartInnerWidth, visibleCount, bandWidth };
 }
@@ -259,21 +237,29 @@ export function TrendChart({
   const isMobile = useIsMobile();
   const units = viewUnitOptions ?? VIEW_UNITS;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const plotViewportRef = useRef<HTMLDivElement>(null);
   const [plotViewportWidth, setPlotViewportWidth] = useState(0);
+  const [plotViewportHeight, setPlotViewportHeight] = useState(0);
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(false);
-  const [scrollbarHeight, setScrollbarHeight] = useState(0);
 
   const targetVisibleCount = useMemo(() => getTargetVisibleCount(viewUnit), [viewUnit]);
 
-  const yAxisConfig = useMemo(() => buildYAxisConfig(data.map((d) => d.value)), [data]);
-  const yAxisScale = useMemo(() => getAdaptiveYAxisScale(data.map((d) => d.value)), [data]);
+  const chartData: TrendChartRow[] = useMemo(
+    () =>
+      data.map((d) => {
+        const valueWon = d.value;
+        const valueK = valueWon / 1000;
+        return { ...d, valueK, valueWon };
+      }),
+    [data]
+  );
+
+  const yAxisConfig = useMemo(() => buildYAxisConfig(chartData.map((d) => d.valueK)), [chartData]);
 
   const chartWidthMeta = useMemo(
     () =>
       calculateChartInnerWidth({
-        totalCount: data.length,
+        totalCount: chartData.length,
         targetVisibleCount,
         plotViewportWidth,
         marginLeft: CHART_MARGIN_LEFT,
@@ -281,7 +267,7 @@ export function TrendChart({
         axisPaddingLeft: X_AXIS_PADDING_LEFT,
         axisPaddingRight: X_AXIS_PADDING_RIGHT,
       }),
-    [data.length, plotViewportWidth, targetVisibleCount]
+    [chartData.length, plotViewportWidth, targetVisibleCount]
   );
   const chartInnerWidth = chartWidthMeta.chartInnerWidth;
   const chartMargin = useMemo(
@@ -290,13 +276,21 @@ export function TrendChart({
   );
   const xAxisHeight = isMobile ? 34 : 28;
 
-  useEffect(() => {
-    if (!plotViewportRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const nextWidth = entries[0]?.contentRect.width ?? 0;
-      setPlotViewportWidth(nextWidth);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const syncFromScrollport = () => {
+      // 스크롤 뷰포트 기준: 가로 스크롤바가 생기면 clientHeight만 줄어듦. 너비 계산은 clientWidth와 동일 스킴으로 맞춤
+      setPlotViewportWidth(el.clientWidth);
+      setPlotViewportHeight(el.clientHeight);
+    };
+
+    syncFromScrollport();
+    const observer = new ResizeObserver(() => {
+      syncFromScrollport();
     });
-    observer.observe(plotViewportRef.current);
+    observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
@@ -306,7 +300,6 @@ export function TrendChart({
     const maxLeft = el.scrollWidth - el.clientWidth;
     setShowLeftFade(el.scrollLeft > 2);
     setShowRightFade(maxLeft - el.scrollLeft > 2);
-    setScrollbarHeight(el.offsetHeight - el.clientHeight);
   };
 
   useEffect(() => {
@@ -314,11 +307,11 @@ export function TrendChart({
     if (!el) return;
     el.scrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
     updateFadeVisibility();
-  }, [viewUnit, chartInnerWidth, data.length]);
+  }, [viewUnit, chartInnerWidth, chartData.length]);
 
   useEffect(() => {
     updateFadeVisibility();
-  }, [plotViewportWidth]);
+  }, [plotViewportWidth, plotViewportHeight]);
 
   const content = (
     <>
@@ -350,76 +343,91 @@ export function TrendChart({
         <p className="text-xs text-gray-500 mt-1">단위: 천원</p>
       </div>
       <div className="h-64 relative -ml-4 w-[calc(100%+1rem)]">
-        <div className="h-full w-full flex overflow-hidden rounded-lg border border-gray-100 bg-white">
+        <div className="h-full w-full flex min-h-0 overflow-hidden rounded-lg border border-gray-100 bg-white">
           <div
-            className="shrink-0 border-r border-gray-100 bg-white"
+            className="shrink-0 border-r border-gray-100 bg-white min-h-0 self-stretch flex flex-col"
             style={{ width: `${Y_AXIS_WIDTH}px` }}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={chartMargin}>
-                <XAxis
-                  dataKey="period"
-                  height={xAxisHeight}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={false}
-                />
-                <YAxis
-                  stroke="#6b7280"
-                  width={Y_AXIS_WIDTH}
-                  axisLine={false}
-                  tickLine={false}
-                  scale={yAxisScale}
-                  style={{ fontSize: "12px" }}
-                  domain={yAxisConfig.domain}
-                  ticks={yAxisConfig.ticks}
-                  tickFormatter={(v) => (Math.abs(Number(v)) < 1e-6 ? "0원" : `${Math.round(Number(v) / 1000).toLocaleString()}`)}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="min-h-0 flex-1 w-full" style={{ height: plotViewportHeight || undefined }}>
+              <ResponsiveContainer width="100%" height={plotViewportHeight > 0 ? plotViewportHeight : "100%"}>
+                <LineChart data={chartData} margin={chartMargin}>
+                  <XAxis
+                    dataKey="period"
+                    height={xAxisHeight}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={false}
+                  />
+                  <YAxis
+                    stroke="#6b7280"
+                    width={Y_AXIS_WIDTH}
+                    axisLine={false}
+                    tickLine={false}
+                    scale="linear"
+                    style={{ fontSize: "12px" }}
+                    domain={yAxisConfig.domain}
+                    ticks={yAxisConfig.ticks}
+                    tickFormatter={(v) =>
+                      Math.abs(Number(v)) < 1e-9 ? "0" : `${Math.round(Number(v)).toLocaleString()}`
+                    }
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="relative flex-1 overflow-hidden" ref={plotViewportRef}>
+          <div className="relative flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
             <div
               ref={scrollRef}
-              className="h-full overflow-x-auto overflow-y-hidden"
+              className="min-h-0 flex-1 w-full min-w-0 overflow-x-auto overflow-y-hidden"
               onScroll={updateFadeVisibility}
             >
-              <div style={{ width: chartInnerWidth || "100%", height: "100%" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data} margin={chartMargin}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="period"
-                      stroke="#6b7280"
-                      height={xAxisHeight}
-                      style={{ fontSize: isMobile ? 14 : 12 }}
-                      interval={0}
-                      tickMargin={8}
-                      padding={{ left: X_AXIS_PADDING_LEFT, right: X_AXIS_PADDING_RIGHT }}
-                      allowDuplicatedCategory={false}
-                      minTickGap={8}
-                      tick={
-                        viewUnit === "monthly"
-                          ? <CustomMonthTick />
-                          : viewUnit === "quarterly"
-                            ? <CustomQuarterTick isMobile={isMobile} />
-                            : viewUnit === "yearly"
-                              ? <CustomYearTick isMobile={isMobile} />
-                              : undefined
-                      }
-                    />
-                    <YAxis hide scale={yAxisScale} domain={yAxisConfig.domain} ticks={yAxisConfig.ticks} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke={DEEP_GREEN}
-                      strokeWidth={2}
-                      dot={{ fill: DEEP_GREEN, r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div
+                className="box-border"
+                style={{
+                  width: chartInnerWidth > 0 ? chartInnerWidth : "100%",
+                  height: plotViewportHeight > 0 ? plotViewportHeight : "100%",
+                  minHeight: plotViewportHeight > 0 ? plotViewportHeight : undefined,
+                }}
+              >
+                {chartInnerWidth > 0 && plotViewportHeight > 0 ? (
+                  <ResponsiveContainer width={chartInnerWidth} height={plotViewportHeight}>
+                    <LineChart data={chartData} margin={chartMargin}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="period"
+                        stroke="#6b7280"
+                        height={xAxisHeight}
+                        style={{ fontSize: isMobile ? 14 : 12 }}
+                        interval={0}
+                        tickMargin={8}
+                        padding={{ left: X_AXIS_PADDING_LEFT, right: X_AXIS_PADDING_RIGHT }}
+                        allowDuplicatedCategory={false}
+                        minTickGap={8}
+                        tick={
+                          viewUnit === "monthly"
+                            ? <CustomMonthTick />
+                            : viewUnit === "quarterly"
+                              ? <CustomQuarterTick isMobile={isMobile} />
+                              : viewUnit === "yearly"
+                                ? <CustomYearTick isMobile={isMobile} />
+                                : undefined
+                        }
+                      />
+                      <YAxis hide scale="linear" domain={yAxisConfig.domain} ticks={yAxisConfig.ticks} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="valueK"
+                        stroke={DEEP_GREEN}
+                        strokeWidth={2}
+                        dot={{ fill: DEEP_GREEN, r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full w-full" aria-hidden />
+                )}
               </div>
             </div>
             {showLeftFade && (
