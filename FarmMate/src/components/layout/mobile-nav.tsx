@@ -35,17 +35,17 @@ export default function MobileNav() {
           <Calendar className="w-5 h-5" />
           <span className="text-xs mt-1">캘린더</span>
         </Link>
-        <Link href="/stats" className={`flex flex-col items-center py-3 px-1 ${
-          isActive("/stats") ? "text-primary bg-primary/10" : "text-gray-600"
-        }`}>
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-xs mt-1">통계</span>
-        </Link>
         <Link href="/ledger-management" className={`flex flex-col items-center py-3 px-1 ${
           isActive("/ledger-management") ? "text-primary bg-primary/10" : "text-gray-600"
         }`}>
           <Wallet className="w-5 h-5" />
           <span className="text-xs mt-1">장부</span>
+        </Link>
+        <Link href="/stats" className={`flex flex-col items-center py-3 px-1 ${
+          isActive("/stats") ? "text-primary bg-primary/10" : "text-gray-600"
+        }`}>
+          <BarChart3 className="w-5 h-5" />
+          <span className="text-xs mt-1">통계</span>
         </Link>
       </div>
     </nav>
