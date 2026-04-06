@@ -18,7 +18,12 @@ import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
-import { getAnyWeatherCache } from "@/shared/api/weather";
+import {
+  getAnyWeatherCache,
+  getWeatherDataByCoordinates,
+  getCurrentLocation,
+  type WeatherData,
+} from "@/shared/api/weather";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAiCredits, useReferralCode } from "../hooks/useAiCredits";
@@ -71,6 +76,19 @@ export default function StatsPage() {
   const [aiInsightLoading, setAiInsightLoading] = useState(false);
   const [aiInsightError, setAiInsightError] = useState<string | null>(null);
   const [copyTooltip, setCopyTooltip] = useState(false);
+
+  // 날씨 데이터: 캐시 우선, 없으면 백그라운드 fetch
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(() => getAnyWeatherCache());
+  useEffect(() => {
+    if (weatherData) return;
+    getCurrentLocation()
+      .then(async (location) => {
+        const loc = location ?? { lat: 37.5665, lon: 126.978, name: "서울" };
+        const data = await getWeatherDataByCoordinates(loc.lat, loc.lon, loc.name);
+        if (data) setWeatherData(data);
+      })
+      .catch(() => {});
+  }, []);
 
   // 크레딧 & 추천 링크 훅
   const {
@@ -250,17 +268,16 @@ export default function StatsPage() {
         ? (topCrops.reduce((sum, c) => sum + c.value, 0) / cropTotal) * 100
         : 0;
 
-    // 날씨 캐시 데이터 (localStorage에서 즉시 읽기)
-    const weatherCache = getAnyWeatherCache();
-    const weather = weatherCache
+    // 날씨 데이터 (state에서 읽기: 캐시 → 백그라운드 fetch 결과 반영)
+    const weather = weatherData
       ? {
-          temperature: weatherCache.temperature,
-          minTemperature: weatherCache.minTemperature,
-          humidity: weatherCache.humidity,
-          windSpeed: weatherCache.windSpeed,
-          precipitationType: weatherCache.precipitationType,
-          skyCondition: weatherCache.skyCondition,
-          location: weatherCache.location,
+          temperature: weatherData.temperature,
+          minTemperature: weatherData.minTemperature,
+          humidity: weatherData.humidity,
+          windSpeed: weatherData.windSpeed,
+          precipitationType: weatherData.precipitationType,
+          skyCondition: weatherData.skyCondition,
+          location: weatherData.location,
         }
       : null;
 
@@ -318,6 +335,7 @@ export default function StatsPage() {
     normalizedStart,
     normalizedEnd,
     viewUnit,
+    weatherData,
   ]);
 
   // 날짜 범위 + 지표 모드 + 오늘 날짜 조합으로 고유 캐시 키 생성 (날씨·작업 반영을 위해 하루 단위 갱신)
@@ -462,18 +480,22 @@ export default function StatsPage() {
       ? text.split("\n").map((s) => s.trim()).filter(Boolean)
       : text.split(/(?<=[.!?]) /).map((s) => s.trim()).filter(Boolean);
 
-    const cropNameList = Array.from(new Set(crops.map((c) => c.name).filter(Boolean))).sort(
-      (a, b) => b.length - a.length
-    );
+    // AI에게 전달된 topCrops 이름 + 전체 crops 이름을 합쳐 볼드 대상으로 사용
+    // (topCrops는 task.title 기반 이름도 포함하므로 crops 배열만으론 누락될 수 있음)
+    const allCropNames = insights.topCrops
+      .map((c) => c.name)
+      .concat(crops.map((c) => c.name))
+      .filter((n) => !!n && n !== "기타");
+    const nameSet = new Set<string>(allCropNames);
+    const cropNameList = Array.from(nameSet).sort((a, b) => b.length - a.length);
 
     const boldify = (line: string): React.ReactNode => {
       if (cropNameList.length === 0) return line;
       const escaped = cropNameList.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
       const pattern = new RegExp(`(${escaped.join("|")})`, "g");
       const parts = line.split(pattern);
-      const cropSet = new Set(cropNameList);
       return parts.map((part, i) =>
-        cropSet.has(part) ? (
+        nameSet.has(part) ? (
           <strong key={i} className="font-semibold text-gray-900">
             {part}
           </strong>
