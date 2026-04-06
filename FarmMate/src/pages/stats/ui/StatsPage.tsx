@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   format,
@@ -10,6 +10,7 @@ import {
   startOfYear,
   endOfYear,
   parseISO,
+  addDays,
 } from "date-fns";
 import { useTasks } from "@/features/task-management";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
@@ -17,6 +18,12 @@ import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
+import {
+  getAnyWeatherCache,
+  getWeatherDataByCoordinates,
+  getCurrentLocation,
+  type WeatherData,
+} from "@/shared/api/weather";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAiCredits, useReferralCode } from "../hooks/useAiCredits";
@@ -69,6 +76,19 @@ export default function StatsPage() {
   const [aiInsightLoading, setAiInsightLoading] = useState(false);
   const [aiInsightError, setAiInsightError] = useState<string | null>(null);
   const [copyTooltip, setCopyTooltip] = useState(false);
+
+  // 날씨 데이터: 캐시 우선, 없으면 백그라운드 fetch
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(() => getAnyWeatherCache());
+  useEffect(() => {
+    if (weatherData) return;
+    getCurrentLocation()
+      .then(async (location) => {
+        const loc = location ?? { lat: 37.5665, lon: 126.978, name: "서울" };
+        const data = await getWeatherDataByCoordinates(loc.lat, loc.lon, loc.name);
+        if (data) setWeatherData(data);
+      })
+      .catch(() => {});
+  }, []);
 
   // 크레딧 & 추천 링크 훅
   const {
@@ -248,6 +268,69 @@ export default function StatsPage() {
         ? (topCrops.reduce((sum, c) => sum + c.value, 0) / cropTotal) * 100
         : 0;
 
+    // 날씨 데이터 (state에서 읽기: 캐시 → 백그라운드 fetch 결과 반영)
+    const weather = weatherData
+      ? {
+          temperature: weatherData.temperature,
+          minTemperature: weatherData.minTemperature,
+          humidity: weatherData.humidity,
+          windSpeed: weatherData.windSpeed,
+          precipitationType: weatherData.precipitationType,
+          skyCondition: weatherData.skyCondition,
+          location: weatherData.location,
+        }
+      : null;
+
+    // 오늘·이번 주 기준 날짜
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    const weekLaterStr = format(addDays(now, 7), "yyyy-MM-dd");
+
+    // 내 농장 / 친구 농장 ID 분류
+    const ownFarmIds = new Set(farms.filter((f) => f.userId === user?.id).map((f) => f.id));
+    const hasFriendFarms = farms.some((f) => f.userId !== user?.id);
+
+    // 이번 달 매출: 내 농장 / 친구 농장 분리
+    const ownMonthValue = ledgersWithValue.reduce((sum, l) => {
+      if (!l.taskId) return sum;
+      const task = allTasks.find((x) => x.id === l.taskId);
+      if (!task) return sum;
+      if (task.farmId && !ownFarmIds.has(task.farmId)) return sum;
+      const d = getTaskEndStr(task);
+      if (d < monthStartStr || d > monthEndStr) return sum;
+      return sum + l.value;
+    }, 0);
+    const friendMonthValue = totalValue - ownMonthValue;
+
+    // 내 농장 작업 현황
+    const ownTasksAll = allTasks.filter((t) => !t.farmId || ownFarmIds.has(t.farmId));
+    const ownCompletedThisMonth = ownTasksAll.filter((t) => {
+      if (t.completed !== 1) return false;
+      const d = (t as any).completedAt
+        ? format(new Date((t as any).completedAt), "yyyy-MM-dd")
+        : null;
+      return d && d >= monthStartStr && d <= monthEndStr;
+    }).length;
+    const ownDelayedCount = ownTasksAll.filter((t) => {
+      if (t.completed === 1) return false;
+      return getTaskEndStr(t) < todayStr;
+    }).length;
+    const ownUpcomingThisWeek = ownTasksAll.filter((t) => {
+      if (t.completed === 1) return false;
+      return t.scheduledDate >= todayStr && t.scheduledDate <= weekLaterStr;
+    }).length;
+
+    // 친구 농장 작업 현황
+    const friendTasksAll = allTasks.filter((t) => t.farmId && !ownFarmIds.has(t.farmId));
+    const friendDelayedCount = friendTasksAll.filter((t) => {
+      if (t.completed === 1) return false;
+      return getTaskEndStr(t) < todayStr;
+    }).length;
+    const friendUpcomingThisWeek = friendTasksAll.filter((t) => {
+      if (t.completed === 1) return false;
+      return t.scheduledDate >= todayStr && t.scheduledDate <= weekLaterStr;
+    }).length;
+
     return {
       metricLabel,
       totalValue,
@@ -258,6 +341,21 @@ export default function StatsPage() {
       hasCropShare: monthlyCropRevenue.length > 0 && cropTotal > 0,
       topCrops,
       topShare,
+      weather,
+      revenueByFarm: {
+        ownValue: ownMonthValue,
+        friendValue: hasFriendFarms ? friendMonthValue : null,
+      },
+      taskStats: {
+        own: {
+          completedThisMonth: ownCompletedThisMonth,
+          delayedCount: ownDelayedCount,
+          upcomingThisWeek: ownUpcomingThisWeek,
+        },
+        friend: hasFriendFarms
+          ? { delayedCount: friendDelayedCount, upcomingThisWeek: friendUpcomingThisWeek }
+          : null,
+      },
     };
   }, [
     metricMode,
@@ -269,11 +367,14 @@ export default function StatsPage() {
     normalizedStart,
     normalizedEnd,
     viewUnit,
+    weatherData,
+    farms,
+    user,
   ]);
 
-  // 날짜 범위 + 지표 모드 조합으로 고유 캐시 키 생성
+  // 날짜 범위 + 지표 모드 + 오늘 날짜 조합으로 고유 캐시 키 생성 (날씨·작업 반영을 위해 하루 단위 갱신)
   const aiInsightCacheKey = useMemo(
-    () => `farmmate:ai-insight:${metricMode}:${normalizedStart}:${normalizedEnd}`,
+    () => `farmmate:ai-insight:${metricMode}:${normalizedStart}:${normalizedEnd}:${format(new Date(), "yyyy-MM-dd")}`,
     [metricMode, normalizedStart, normalizedEnd]
   );
 
@@ -406,6 +507,48 @@ export default function StatsPage() {
     data.sort((a, b) => b.value - a.value);
     return { data, totalRows, usedRows };
   }, [tasks, farms, crops]);
+
+  // AI 인사이트 텍스트를 문장별로 나누고 작물명을 볼드 처리하여 렌더링
+  const renderInsight = (text: string) => {
+    const lines = text.includes("\n")
+      ? text.split("\n").map((s) => s.trim()).filter(Boolean)
+      : text.split(/(?<=[.!?]) /).map((s) => s.trim()).filter(Boolean);
+
+    // AI에게 전달된 topCrops 이름 + 전체 crops 이름을 합쳐 볼드 대상으로 사용
+    // (topCrops는 task.title 기반 이름도 포함하므로 crops 배열만으론 누락될 수 있음)
+    const allCropNames = insights.topCrops
+      .map((c) => c.name)
+      .concat(crops.map((c) => c.name))
+      .filter((n) => !!n && n !== "기타");
+    const nameSet = new Set<string>(allCropNames);
+    const cropNameList = Array.from(nameSet).sort((a, b) => b.length - a.length);
+
+    const boldify = (line: string): React.ReactNode => {
+      if (cropNameList.length === 0) return line;
+      const escaped = cropNameList.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const pattern = new RegExp(`(${escaped.join("|")})`, "g");
+      const parts = line.split(pattern);
+      return parts.map((part, i) =>
+        nameSet.has(part) ? (
+          <strong key={i} className="font-semibold text-gray-900">
+            {part}
+          </strong>
+        ) : (
+          part
+        )
+      );
+    };
+
+    return (
+      <div className="space-y-1.5">
+        {lines.map((line, i) => (
+          <p key={i} className="text-sm text-gray-700 leading-relaxed">
+            {boldify(line)}
+          </p>
+        ))}
+      </div>
+    );
+  };
 
   if (tasksLoading || ledgersLoading) {
     return (
@@ -583,7 +726,7 @@ export default function StatsPage() {
                   ) : aiInsightError ? (
                     <p className="text-xs text-red-500">{aiInsightError}</p>
                   ) : aiInsight ? (
-                    <p className="text-sm text-gray-700 leading-relaxed">{aiInsight}</p>
+                    renderInsight(aiInsight)
                   ) : (
                     <p className="text-xs text-gray-400">버튼을 눌러 AI 요약을 받아보세요.</p>
                   )}
