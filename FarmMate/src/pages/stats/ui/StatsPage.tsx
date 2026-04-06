@@ -286,24 +286,47 @@ export default function StatsPage() {
     const todayStr = format(now, "yyyy-MM-dd");
     const weekLaterStr = format(addDays(now, 7), "yyyy-MM-dd");
 
-    // 이번 달 완료 작업 수
-    const completedThisMonth = allTasks.filter((t) => {
+    // 내 농장 / 친구 농장 ID 분류
+    const ownFarmIds = new Set(farms.filter((f) => f.userId === user?.id).map((f) => f.id));
+    const hasFriendFarms = farms.some((f) => f.userId !== user?.id);
+
+    // 이번 달 매출: 내 농장 / 친구 농장 분리
+    const ownMonthValue = ledgersWithValue.reduce((sum, l) => {
+      if (!l.taskId) return sum;
+      const task = allTasks.find((x) => x.id === l.taskId);
+      if (!task) return sum;
+      if (task.farmId && !ownFarmIds.has(task.farmId)) return sum;
+      const d = getTaskEndStr(task);
+      if (d < monthStartStr || d > monthEndStr) return sum;
+      return sum + l.value;
+    }, 0);
+    const friendMonthValue = totalValue - ownMonthValue;
+
+    // 내 농장 작업 현황
+    const ownTasksAll = allTasks.filter((t) => !t.farmId || ownFarmIds.has(t.farmId));
+    const ownCompletedThisMonth = ownTasksAll.filter((t) => {
       if (t.completed !== 1) return false;
-      const completedDate = (t as any).completedAt
+      const d = (t as any).completedAt
         ? format(new Date((t as any).completedAt), "yyyy-MM-dd")
         : null;
-      return completedDate && completedDate >= monthStartStr && completedDate <= monthEndStr;
+      return d && d >= monthStartStr && d <= monthEndStr;
     }).length;
-
-    // 지연 작업 수 (예정 종료일이 지났는데 미완료)
-    const delayedCount = allTasks.filter((t) => {
+    const ownDelayedCount = ownTasksAll.filter((t) => {
       if (t.completed === 1) return false;
-      const d = getTaskEndStr(t);
-      return d < todayStr;
+      return getTaskEndStr(t) < todayStr;
+    }).length;
+    const ownUpcomingThisWeek = ownTasksAll.filter((t) => {
+      if (t.completed === 1) return false;
+      return t.scheduledDate >= todayStr && t.scheduledDate <= weekLaterStr;
     }).length;
 
-    // 이번 주 예정 작업 수 (미완료)
-    const upcomingThisWeek = allTasks.filter((t) => {
+    // 친구 농장 작업 현황
+    const friendTasksAll = allTasks.filter((t) => t.farmId && !ownFarmIds.has(t.farmId));
+    const friendDelayedCount = friendTasksAll.filter((t) => {
+      if (t.completed === 1) return false;
+      return getTaskEndStr(t) < todayStr;
+    }).length;
+    const friendUpcomingThisWeek = friendTasksAll.filter((t) => {
       if (t.completed === 1) return false;
       return t.scheduledDate >= todayStr && t.scheduledDate <= weekLaterStr;
     }).length;
@@ -319,10 +342,19 @@ export default function StatsPage() {
       topCrops,
       topShare,
       weather,
+      revenueByFarm: {
+        ownValue: ownMonthValue,
+        friendValue: hasFriendFarms ? friendMonthValue : null,
+      },
       taskStats: {
-        completedThisMonth,
-        delayedCount,
-        upcomingThisWeek,
+        own: {
+          completedThisMonth: ownCompletedThisMonth,
+          delayedCount: ownDelayedCount,
+          upcomingThisWeek: ownUpcomingThisWeek,
+        },
+        friend: hasFriendFarms
+          ? { delayedCount: friendDelayedCount, upcomingThisWeek: friendUpcomingThisWeek }
+          : null,
       },
     };
   }, [
@@ -336,6 +368,8 @@ export default function StatsPage() {
     normalizedEnd,
     viewUnit,
     weatherData,
+    farms,
+    user,
   ]);
 
   // 날짜 범위 + 지표 모드 + 오늘 날짜 조합으로 고유 캐시 키 생성 (날씨·작업 반영을 위해 하루 단위 갱신)

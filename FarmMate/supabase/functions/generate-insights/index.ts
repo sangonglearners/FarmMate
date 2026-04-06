@@ -55,18 +55,36 @@ serve(async (req) => {
       weatherLine = `- 오늘 날씨(${weather.location}): 현재 ${weather.temperature}°C, ${minTempText}습도 ${weather.humidity}%, 풍속 ${weather.windSpeed}m/s, 하늘 ${skyText}, 강수 ${precipText}`;
     }
 
-    // 작업 현황 컨텍스트 구성
+    // 매출 농장별 분리
+    const rev = insights.revenueByFarm ?? null;
+    let revenueLine = `- 이번 달 총 ${insights.metricLabel}: ₩${Math.round(insights.totalValue).toLocaleString()}원`;
+    if (rev) {
+      revenueLine += ` (내 농장 ₩${Math.round(rev.ownValue).toLocaleString()}원`;
+      if (rev.friendValue !== null && rev.friendValue !== undefined) {
+        revenueLine += `, 친구 농장 ₩${Math.round(rev.friendValue).toLocaleString()}원`;
+      }
+      revenueLine += ")";
+    }
+
+    // 작업 현황 농장별 분리
     const taskStats = insights.taskStats ?? null;
     let taskLine = "";
-    if (taskStats) {
-      taskLine = `- 작업 현황: 이번 달 완료 ${taskStats.completedThisMonth}건, 지연(미완료) ${taskStats.delayedCount}건, 이번 주 예정 ${taskStats.upcomingThisWeek}건`;
+    if (taskStats?.own) {
+      const o = taskStats.own;
+      taskLine = `- 내 농장 작업: 이번 달 완료 ${o.completedThisMonth}건, 지연 ${o.delayedCount}건, 이번 주 예정 ${o.upcomingThisWeek}건`;
+      if (taskStats.friend) {
+        const f = taskStats.friend;
+        taskLine += `\n- 친구 농장 작업: 지연 ${f.delayedCount}건, 이번 주 예정 ${f.upcomingThisWeek}건`;
+      }
     }
 
     const prompt = `
 농업 경영 데이터를 바탕으로 농부에게 실용적인 인사이트를 한국어로 3~4문장으로 제공해줘.
-친근하고 따뜻한 말투를 사용하고, 매출·날씨·작업 현황을 종합해서 오늘 농장에 도움이 되는 구체적인 조언을 해줘.
-날씨 이상(강풍·강수·저온·고습 등)이나 지연 작업이 있다면 먼저 언급해줘.
-- 이번 달 총 ${insights.metricLabel}: ₩${Math.round(insights.totalValue).toLocaleString()}원
+친근하고 따뜻한 말투를 사용해줘. 아래 순서로 구성해줘:
+① 날씨를 한 문장으로 간략히 언급 (이상기후나 주의사항이 없으면 날씨 언급은 생략해도 됨)
+② 매출·작물 성과 분석을 핵심 내용으로 (가장 비중 높게 다뤄줘)
+③ 작업 현황은 마지막에 간결하게 한 문장으로만 덧붙이기
+${revenueLine}
 - ${insights.periodLabel} ${insights.unitLabel} 평균: ₩${Math.round(insights.avgValue).toLocaleString()}원
 ${cropLine}
 ${weatherLine}
