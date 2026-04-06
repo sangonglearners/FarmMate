@@ -10,6 +10,7 @@ import {
   startOfYear,
   endOfYear,
   parseISO,
+  addDays,
 } from "date-fns";
 import { useTasks } from "@/features/task-management";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
@@ -17,6 +18,7 @@ import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
+import { getAnyWeatherCache } from "@/shared/api/weather";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAiCredits, useReferralCode } from "../hooks/useAiCredits";
@@ -248,6 +250,47 @@ export default function StatsPage() {
         ? (topCrops.reduce((sum, c) => sum + c.value, 0) / cropTotal) * 100
         : 0;
 
+    // 날씨 캐시 데이터 (localStorage에서 즉시 읽기)
+    const weatherCache = getAnyWeatherCache();
+    const weather = weatherCache
+      ? {
+          temperature: weatherCache.temperature,
+          minTemperature: weatherCache.minTemperature,
+          humidity: weatherCache.humidity,
+          windSpeed: weatherCache.windSpeed,
+          precipitationType: weatherCache.precipitationType,
+          skyCondition: weatherCache.skyCondition,
+          location: weatherCache.location,
+        }
+      : null;
+
+    // 오늘·이번 주 기준 날짜
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    const weekLaterStr = format(addDays(now, 7), "yyyy-MM-dd");
+
+    // 이번 달 완료 작업 수
+    const completedThisMonth = allTasks.filter((t) => {
+      if (t.completed !== 1) return false;
+      const completedDate = (t as any).completedAt
+        ? format(new Date((t as any).completedAt), "yyyy-MM-dd")
+        : null;
+      return completedDate && completedDate >= monthStartStr && completedDate <= monthEndStr;
+    }).length;
+
+    // 지연 작업 수 (예정 종료일이 지났는데 미완료)
+    const delayedCount = allTasks.filter((t) => {
+      if (t.completed === 1) return false;
+      const d = getTaskEndStr(t);
+      return d < todayStr;
+    }).length;
+
+    // 이번 주 예정 작업 수 (미완료)
+    const upcomingThisWeek = allTasks.filter((t) => {
+      if (t.completed === 1) return false;
+      return t.scheduledDate >= todayStr && t.scheduledDate <= weekLaterStr;
+    }).length;
+
     return {
       metricLabel,
       totalValue,
@@ -258,6 +301,12 @@ export default function StatsPage() {
       hasCropShare: monthlyCropRevenue.length > 0 && cropTotal > 0,
       topCrops,
       topShare,
+      weather,
+      taskStats: {
+        completedThisMonth,
+        delayedCount,
+        upcomingThisWeek,
+      },
     };
   }, [
     metricMode,
@@ -271,9 +320,9 @@ export default function StatsPage() {
     viewUnit,
   ]);
 
-  // 날짜 범위 + 지표 모드 조합으로 고유 캐시 키 생성
+  // 날짜 범위 + 지표 모드 + 오늘 날짜 조합으로 고유 캐시 키 생성 (날씨·작업 반영을 위해 하루 단위 갱신)
   const aiInsightCacheKey = useMemo(
-    () => `farmmate:ai-insight:${metricMode}:${normalizedStart}:${normalizedEnd}`,
+    () => `farmmate:ai-insight:${metricMode}:${normalizedStart}:${normalizedEnd}:${format(new Date(), "yyyy-MM-dd")}`,
     [metricMode, normalizedStart, normalizedEnd]
   );
 
