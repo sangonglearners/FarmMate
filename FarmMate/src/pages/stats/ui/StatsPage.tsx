@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   format,
@@ -456,6 +456,44 @@ export default function StatsPage() {
     return { data, totalRows, usedRows };
   }, [tasks, farms, crops]);
 
+  // AI 인사이트 텍스트를 문장별로 나누고 작물명을 볼드 처리하여 렌더링
+  const renderInsight = (text: string) => {
+    const lines = text.includes("\n")
+      ? text.split("\n").map((s) => s.trim()).filter(Boolean)
+      : text.split(/(?<=[.!?]) /).map((s) => s.trim()).filter(Boolean);
+
+    const cropNameList = Array.from(new Set(crops.map((c) => c.name).filter(Boolean))).sort(
+      (a, b) => b.length - a.length
+    );
+
+    const boldify = (line: string): React.ReactNode => {
+      if (cropNameList.length === 0) return line;
+      const escaped = cropNameList.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const pattern = new RegExp(`(${escaped.join("|")})`, "g");
+      const parts = line.split(pattern);
+      const cropSet = new Set(cropNameList);
+      return parts.map((part, i) =>
+        cropSet.has(part) ? (
+          <strong key={i} className="font-semibold text-gray-900">
+            {part}
+          </strong>
+        ) : (
+          part
+        )
+      );
+    };
+
+    return (
+      <div className="space-y-1.5">
+        {lines.map((line, i) => (
+          <p key={i} className="text-sm text-gray-700 leading-relaxed">
+            {boldify(line)}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
   if (tasksLoading || ledgersLoading) {
     return (
       <div className="min-h-screen">
@@ -632,7 +670,7 @@ export default function StatsPage() {
                   ) : aiInsightError ? (
                     <p className="text-xs text-red-500">{aiInsightError}</p>
                   ) : aiInsight ? (
-                    <p className="text-sm text-gray-700 leading-relaxed">{aiInsight}</p>
+                    renderInsight(aiInsight)
                   ) : (
                     <p className="text-xs text-gray-400">버튼을 눌러 AI 요약을 받아보세요.</p>
                   )}
