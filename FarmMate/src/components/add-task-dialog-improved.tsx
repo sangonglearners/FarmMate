@@ -1689,7 +1689,7 @@ export default function AddTaskDialog({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2">
                       <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
-                        {myCrops.length > 0 ? (
+                        {myCrops.length > 0 && (
                           <>
                             <div className="text-xs text-gray-500 font-medium px-2">내 작물</div>
                             {myCrops.map((crop) => (
