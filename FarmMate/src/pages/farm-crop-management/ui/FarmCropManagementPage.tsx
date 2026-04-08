@@ -190,7 +190,7 @@ export default function FarmCropManagementPage() {
           setIsAddFarmDialogOpen(open);
           if (!open) {
             setEditingFarm(null);
-            queryClient.invalidateQueries({ queryKey: ["/api/farms"] });
+            queryClient.invalidateQueries({ queryKey: ["farms"] });
           }
         }}
         farm={editingFarm}
@@ -201,7 +201,7 @@ export default function FarmCropManagementPage() {
           setIsAddCropDialogOpen(open);
           if (!open) {
             setEditingCrop(null);
-            queryClient.invalidateQueries({ queryKey: ["/api/crops"] });
+            queryClient.invalidateQueries({ queryKey: ["crops"] });
           }
         }}
         crop={editingCrop}

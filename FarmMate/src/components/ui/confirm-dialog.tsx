@@ -34,7 +34,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-[320px] rounded-2xl p-0 overflow-hidden">
+      <AlertDialogContent className="max-w-[400px] rounded-2xl p-0 overflow-hidden">
         {/* 상단 아이콘 영역 */}
         <div className="flex flex-col items-center gap-3 px-6 pt-7 pb-4">
           <div
@@ -48,7 +48,7 @@ export function ConfirmDialog({
             <TriangleAlert className="w-6 h-6" />
           </div>
           <AlertDialogHeader className="items-center text-center space-y-1 w-full">
-            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+            <AlertDialogTitle className="text-base font-semibold text-gray-900 break-keep text-center w-full">
               {title}
             </AlertDialogTitle>
             {description && (
