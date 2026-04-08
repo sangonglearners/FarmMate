@@ -44,9 +44,9 @@ export default function FarmsPage() {
   const sharedFarms = farms.filter(farm => farm.userId !== user?.id);
   
   const { data: crops } = useCrops();
-  /** 농장에 연결된 작물만 목록에 표시 (미연결 작물은 숨김) */
+  /** 내 작물 전체 표시 (농장 연결 여부 무관) */
   const cropsLinkedToFarm = useMemo(
-    () => (crops ?? []).filter((c) => c.farmId),
+    () => crops ?? [],
     [crops]
   );
   const deleteFarm = useDeleteFarm();
