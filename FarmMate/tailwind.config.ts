@@ -5,6 +5,17 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx,html}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          "Pretendard",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Apple SD Gothic Neo",
+          "Noto Sans KR",
+          "sans-serif",
+        ],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

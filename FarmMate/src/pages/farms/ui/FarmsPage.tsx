@@ -44,6 +44,11 @@ export default function FarmsPage() {
   const sharedFarms = farms.filter(farm => farm.userId !== user?.id);
   
   const { data: crops } = useCrops();
+  /** 농장에 연결된 작물만 목록에 표시 (미연결 작물은 숨김) */
+  const cropsLinkedToFarm = useMemo(
+    () => (crops ?? []).filter((c) => c.farmId),
+    [crops]
+  );
   const deleteFarm = useDeleteFarm();
   
   const isLoading = farmsLoading;
@@ -275,9 +280,9 @@ export default function FarmsPage() {
           </Button>
         </div>
 
-        {crops && crops.length > 0 ? (
+        {cropsLinkedToFarm.length > 0 ? (
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-            {crops.map((crop) => (
+            {cropsLinkedToFarm.map((crop) => (
               <Card key={crop.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">

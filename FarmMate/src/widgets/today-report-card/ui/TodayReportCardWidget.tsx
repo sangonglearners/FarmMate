@@ -7,6 +7,7 @@ import { useCrops } from "@/features/crop-management";
 import { listTaskCompletionsByDate, listTaskCompletionsByDateRange } from "@/shared/api/task-completion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FileImage, Sparkles } from "lucide-react";
 import { computeTodayReportCardMetrics } from "../model/computeTodayReportCardMetrics";
 import {
   generateTodayFarmReportCardPngBlob,
@@ -58,7 +59,6 @@ export function TodayReportCardWidget() {
     enabled: !!user,
   });
 
-  // 모델: 오늘의 카드 메트릭
   const todayReportMetrics = useMemo((): TodayReportCardMetrics => {
     return computeTodayReportCardMetrics({
       allTasks,
@@ -75,6 +75,11 @@ export function TodayReportCardWidget() {
   const [reportGenerating, setReportGenerating] = useState(false);
   const [reportNeedsUpdate, setReportNeedsUpdate] = useState(true);
 
+  const reportDataLoading =
+    tasksLoading || taskCompletionsTodayLoading || taskCompletionsRangeLoading;
+  const showReportGeneratingNotice =
+    dialogOpen && (reportDataLoading || reportGenerating || !imageUrl);
+
   const generatePreview = async () => {
     if (reportGenerating) return;
     if (tasksLoading || taskCompletionsTodayLoading || taskCompletionsRangeLoading) return;
@@ -89,19 +94,20 @@ export function TodayReportCardWidget() {
       });
 
       setReportNeedsUpdate(false);
+    } catch (e) {
+      console.error("[TodayReportCardWidget] generatePreview", e);
+      setReportNeedsUpdate(false);
     } finally {
       setReportGenerating(false);
     }
   };
 
-  // "기록 완료" 이벤트 → 홈에서도 갱신
   useEffect(() => {
     const onUpdated = () => setReportNeedsUpdate(true);
     window.addEventListener("farmmate:today-report-card-updated", onUpdated);
     return () => window.removeEventListener("farmmate:today-report-card-updated", onUpdated);
   }, []);
 
-  // 초기 1회 + 필요 시 갱신
   useEffect(() => {
     if (!reportNeedsUpdate) return;
     void generatePreview();
@@ -155,22 +161,30 @@ export function TodayReportCardWidget() {
     download();
   };
 
-  const previewAspect = "aspect-[437/560]";
+  const previewAspect = "aspect-[437/632]";
 
   return (
-    <Card className="h-full">
-      <CardContent className="p-4 h-full flex flex-col">
-        <div className="flex items-center justify-between mb-3">
-          <div className="space-y-0.5">
-            <div className="text-sm font-semibold text-gray-900">농장 레포트</div>
-            <div className="text-xs text-gray-500">
-              {reportGenerating ? "카드를 생성하는 중..." : "나의 오늘의 농장 레포트를 확인해 보세요"}
+    <Card className="h-full overflow-hidden border-primary/15 shadow-md shadow-primary/10">
+      <CardContent className="flex h-full flex-col gap-3.5 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F3F5E0]/90">
+            <FileImage className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold tracking-tight text-foreground">농장 레포트</span>
+              <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2} aria-hidden />
             </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {reportGenerating
+                ? "오늘 카드를 그리는 중이에요…"
+                : "오늘의 농장 기록을 한 장으로 담았어요."}
+            </p>
           </div>
           <Button
             type="button"
             size="sm"
-            className="rounded-xl bg-[#7CA363] text-white hover:bg-[#6F9258]"
+            className="shrink-0 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/15 hover:bg-primary/90"
             onClick={() => setDialogOpen(true)}
           >
             보기
@@ -179,14 +193,22 @@ export function TodayReportCardWidget() {
 
         <button
           type="button"
-          className={`w-full ${previewAspect} rounded-xl border border-gray-100 bg-gray-50 overflow-hidden`}
+          className={`group relative w-full ${previewAspect} overflow-hidden rounded-2xl bg-[#F3F5E0]/35 transition-[box-shadow,transform] duration-200 hover:bg-white hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] active:scale-[0.99]`}
           onClick={() => setDialogOpen(true)}
           aria-label="오늘의 농장 리포트 카드 보기"
         >
           {imageUrl ? (
-            <img src={imageUrl} alt="오늘의 농장 리포트 카드" className="w-full h-full object-contain" />
+            <img
+              src={imageUrl}
+              alt="오늘의 농장 리포트 카드"
+              className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+            />
           ) : (
-            <div className="w-full h-full animate-pulse bg-gray-100" />
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-gray-100/80 to-gray-50 animate-pulse">
+              <div className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-400 ring-1 ring-gray-200/60">
+                미리보기 준비 중
+              </div>
+            </div>
           )}
         </button>
 
@@ -194,11 +216,11 @@ export function TodayReportCardWidget() {
           open={dialogOpen}
           onOpenChange={(next) => {
             setDialogOpen(next);
-            // 열릴 때 최신 이미지가 없으면 먼저 생성
             if (next) setReportNeedsUpdate(true);
           }}
           imageUrl={imageUrl}
           imageBlobAvailable={!!imageBlob}
+          showGeneratingNotice={showReportGeneratingNotice}
           onDownload={download}
           onShare={share}
         />
@@ -206,4 +228,3 @@ export function TodayReportCardWidget() {
     </Card>
   );
 }
-

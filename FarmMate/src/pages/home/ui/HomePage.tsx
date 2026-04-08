@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar as CalendarIcon, ChevronRight, Plus, Clock, ChevronLeft } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  ChevronRight,
+  Plus,
+  Clock,
+  ChevronLeft,
+  User,
+} from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { CalendarGrid } from "../../../widgets/calendar-grid";
@@ -432,18 +439,30 @@ export default function HomePage() {
             </div>
             <div className="space-y-2">
               <WeatherWidget compact className="h-11 w-full rounded-md border border-gray-300 bg-white" />
-              <div className="grid grid-cols-2 gap-2">
-                <TodayReportCardGoButton
-                  buttonLabel="농장 레포트 >"
-                  buttonClassName="h-12 w-full justify-center rounded-xl border border-primary bg-primary text-white text-base font-semibold hover:bg-primary/90"
-                />
+              <div className="flex min-h-[4.25rem] gap-2 items-stretch">
+                <div className="min-w-0 flex-1 flex">
+                  <TodayReportCardGoButton buttonClassName="flex h-full min-h-[4.25rem] w-full min-w-0 justify-start gap-0 whitespace-normal rounded-xl border-0 bg-white/60 px-3 py-3 text-left font-normal shadow-[0_6px_20px_-4px_rgba(0,0,0,0.12)] hover:bg-white/85 hover:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.16)] [&_svg]:h-5 [&_svg]:w-5">
+                    <span className="flex w-full min-w-0 items-center gap-2">
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="block text-[15px] font-bold leading-snug tracking-tight text-primary sm:text-base">
+                          농장 레포트
+                        </span>
+                        <span className="mt-0.5 block text-xs font-medium leading-snug text-primary/80 sm:text-sm">
+                          오늘 카드 보기
+                        </span>
+                      </span>
+                      <ChevronRight className="h-5 w-5 shrink-0 self-center text-primary/90" aria-hidden />
+                    </span>
+                  </TodayReportCardGoButton>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full justify-center rounded-xl border-2 border-primary bg-[#F3F5E0] text-primary text-base font-semibold hover:bg-[#E9EECF]"
+                  className="flex h-full min-h-[4.25rem] w-[3.25rem] shrink-0 flex-col items-center justify-center rounded-xl border border-gray-300 bg-transparent p-0 text-gray-600 shadow-[0_4px_14px_-3px_rgba(0,0,0,0.1)] hover:bg-transparent hover:text-primary hover:shadow-[0_6px_18px_-4px_rgba(0,0,0,0.14)]"
+                  aria-label="마이페이지"
                   onClick={() => setLocation("/my-page")}
                 >
-                  MY Page &gt;
+                  <User className="h-5 w-5" strokeWidth={2} aria-hidden />
                 </Button>
               </div>
             </div>

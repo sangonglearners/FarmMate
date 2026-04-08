@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { CalendarIcon, Check, Search, Calculator, ChevronDown, Plus, Minus } from "lucide-react";
@@ -70,7 +70,7 @@ import { useSharedCalendars } from "@/features/calendar-share";
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
 import WorkCalculatorDialog from "@/components/work-calculator-dialog";
-import { useRegistrationSearch, useRegistrationAll } from "@/shared/hooks";
+import { useRegistrationSearch } from "@/shared/hooks";
 import type { CropSearchResult } from "@/shared/api/server-registration.repository";
 
 const formSchema = insertTaskSchema.extend({
@@ -145,7 +145,7 @@ export default function AddTaskDialog({
   const [cropSearchTerm, setCropSearchTerm] = useState("");
   const [selectedRegistrationCrop, setSelectedRegistrationCrop] = useState<CropSearchResult | null>(null);
   const [customCropName, setCustomCropName] = useState("");
-  const [showKeyCrops, setShowKeyCrops] = useState(true); // 기본적으로 작물 리스트 펼쳐진 상태
+  const [showKeyCrops, setShowKeyCrops] = useState(false);
   const [showWorkCalculator, setShowWorkCalculator] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmEntity | null>(null);
@@ -167,7 +167,6 @@ export default function AddTaskDialog({
     isCropSelectedFromList ? "" : cropSearchTerm
   );
   // 전체 작물 목록 (검색어 없을 때 브라우즈용, 30분 캐시)
-  const { allCrops, isLoading: isAllCropsLoading } = useRegistrationAll();
 
   // 이미지 URL 파싱/정리 유틸
   const extractImageUrls = (text: string): string[] =>
@@ -677,8 +676,11 @@ export default function AddTaskDialog({
     setShowNoResultsConfirm(false);
   }, [cropSearchTerm]);
 
-  // 내 작물 (농장에 등록된 작물)
-  const myCrops = crops || [];
+  // 내 작물: 농장에 연결된 작물만 (미연결 작물은 목록에 넣지 않음)
+  const myCrops = useMemo(
+    () => (crops ?? []).filter((c) => c.farmId),
+    [crops]
+  );
 
   const handleWorkToggle = (work: string) => {
     setSelectedWorks((prev) => {
@@ -1687,10 +1689,9 @@ export default function AddTaskDialog({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2">
                       <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
-                        {/* 핵심 작물 (내 농장 작물) */}
-                        {myCrops.length > 0 && (
+                        {myCrops.length > 0 ? (
                           <>
-                            <div className="text-xs text-gray-500 font-medium px-2">핵심 작물</div>
+                            <div className="text-xs text-gray-500 font-medium px-2">내 작물</div>
                             {myCrops.map((crop) => (
                               <button
                                 key={crop.id}
@@ -1704,8 +1705,6 @@ export default function AddTaskDialog({
                                 )}
                               </button>
                             ))}
-                            {/* 구분선 */}
-                            <div className="border-t my-1" />
                           </>
                         )}
                         {/* 전체 작물 */}

@@ -1,9 +1,2 @@
-import { createClient } from "@supabase/supabase-js";
-import { VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY } from '@/shared/constants/meta.env';
-
-const url = VITE_SUPABASE_URL;
-const anon = VITE_SUPABASE_ANON_KEY;
-
-export const supabase = createClient(url, anon, {
-  auth: { persistSession: true, autoRefreshToken: true },
-});
+/** 앱 전역에서 동일한 Supabase 클라이언트 인스턴스를 씁니다(세션·인증 일치). */
+export { supabase } from "@/lib/supabaseClient";
