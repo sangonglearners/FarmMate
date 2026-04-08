@@ -133,10 +133,11 @@ export default function FarmCropManagementPage() {
               <Card key={c.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">
-                        {c.category} {" > "} {c.name} {" > "} {c.variety}
-                      </h3>
+                    <div className="space-y-1">
+                      <h3 className="font-semibold text-gray-900">{c.name}</h3>
+                      <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                        {c.variety}
+                      </span>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
