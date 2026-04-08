@@ -677,9 +677,9 @@ export default function AddTaskDialog({
     setShowNoResultsConfirm(false);
   }, [cropSearchTerm]);
 
-  // 내 작물: 농장에 연결된 작물만 (미연결 작물은 목록에 넣지 않음)
+  // 내 작물: 농장 연결 여부 상관없이 전체 표시
   const myCrops = useMemo(
-    () => (crops ?? []).filter((c) => c.farmId),
+    () => crops ?? [],
     [crops]
   );
 
