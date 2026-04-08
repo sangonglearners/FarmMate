@@ -128,6 +128,29 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // 월간 뷰에서 화면 너비에 맞는 표시 일수 계산
+  useEffect(() => {
+    const updateVisibleDayCount = () => {
+      const container = scrollContainerRef.current;
+      if (!container) {
+        setMonthlyVisibleDayCount(isMobile ? 5 : 10);
+        return;
+      }
+
+      const stickyColumnWidth = isMobile ? 40 : 60;
+      const dayCellWidth = isMobile ? 60 : 120;
+      const baseDayCount = isMobile ? 5 : 10;
+      const availableWidth = container.clientWidth - stickyColumnWidth;
+      const fitCount = Math.floor(availableWidth / dayCellWidth);
+      setMonthlyVisibleDayCount(Math.max(baseDayCount, fitCount));
+    };
+
+    updateVisibleDayCount();
+    window.addEventListener('resize', updateVisibleDayCount);
+
+    return () => window.removeEventListener('resize', updateVisibleDayCount);
+  }, [isMobile]);
   
   // 선택된 농장의 권한 확인 (작업 등록 가능 여부 확인용)
   const { data: userRole } = useUserRoleForCalendar(selectedFarm?.id || "");
@@ -147,10 +170,15 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const [monthlyDate, setMonthlyDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [yearlyDate, setYearlyDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [monthlyOffset, setMonthlyOffset] = useState(() => {
-    // 오늘이 포함된 10일 구간으로 초기화
+    // 오늘이 포함된 구간으로 초기화
     const todayDate = today.getDate();
-    return Math.floor((todayDate - 1) / 5);
+    const initialPageSize =
+      typeof window !== "undefined" && window.innerWidth < 768 ? 5 : 10;
+    return Math.floor((todayDate - 1) / initialPageSize);
   });
+  const [monthlyVisibleDayCount, setMonthlyVisibleDayCount] = useState(() =>
+    isMobile ? 5 : 10
+  );
 
   // 현재 뷰 모드에 따른 날짜
   const currentDate = viewMode === "monthly" ? monthlyDate : yearlyDate;
@@ -742,15 +770,16 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     ? Array.from({ length: selectedFarm.rowCount }, (_, i) => i + 1)
     : Array.from({ length: 15 }, (_, i) => i + 1); // 기본값 15개
 
-  // 월간 뷰: 현재 표시할 날짜 계산 (모바일: 5일, 데스크톱: 10일)
+  // 월간 뷰: 현재 표시할 날짜 계산 (화면 너비에 맞춰 동적 표시)
   const getMonthlyDays = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    const startDay = 1 + monthlyOffset * 5;
+    const pageSize = Math.max(1, monthlyVisibleDayCount);
+    const startDay = 1 + monthlyOffset * pageSize;
     const days = [];
-    const dayCount = isMobile ? 5 : 10;
+    const dayCount = pageSize;
     
     // dayCount만큼 날짜를 채우기 위해 현재 달과 다음 달 날짜를 조합
     for (let i = 0; i < dayCount; i++) {
@@ -1284,6 +1313,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
 
   // 월간 뷰 네비게이션
   const handleMonthlyPrevious = () => {
+    const pageSize = Math.max(1, monthlyVisibleDayCount);
     if (monthlyOffset > 0) {
       setMonthlyOffset(monthlyOffset - 1);
     } else {
@@ -1291,11 +1321,12 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       const newDate = new Date(monthlyDate.getFullYear(), monthlyDate.getMonth() - 1, 1);
       setMonthlyDate(newDate);
       const daysInPrevMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
-      setMonthlyOffset(Math.floor((daysInPrevMonth - 1) / 5));
+      setMonthlyOffset(Math.floor((daysInPrevMonth - 1) / pageSize));
     }
   };
 
   const handleMonthlyNext = () => {
+    const pageSize = Math.max(1, monthlyVisibleDayCount);
     // 현재 표시되는 10일 구간에서 마지막 날짜 확인
     const currentPeriods = getMonthlyDays();
     const lastDay = currentPeriods[currentPeriods.length - 1];
@@ -1306,9 +1337,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       setMonthlyDate(newDate);
       setMonthlyOffset(0);
     } else {
-      // 현재 달 내에서 5일씩 이동
+      // 현재 달 내에서 화면에 보이는 일수만큼 이동
       const daysInMonth = new Date(monthlyDate.getFullYear(), monthlyDate.getMonth() + 1, 0).getDate();
-      const nextStartDay = 1 + (monthlyOffset + 1) * 5;
+      const nextStartDay = 1 + (monthlyOffset + 1) * pageSize;
       
       // 다음 구간이 현재 달을 넘어가는 경우 다음 달로 이동
       if (nextStartDay > daysInMonth) {
@@ -1457,7 +1488,8 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 // 월간 뷰로 전환 시 오늘 날짜로 리셋
                 const newMonthlyDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 setMonthlyDate(newMonthlyDate);
-                setMonthlyOffset(Math.floor((today.getDate() - 1) / 5));
+                const pageSize = Math.max(1, monthlyVisibleDayCount);
+                setMonthlyOffset(Math.floor((today.getDate() - 1) / pageSize));
               }}
             >
               월간
