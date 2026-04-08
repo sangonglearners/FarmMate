@@ -70,7 +70,7 @@ import { useSharedCalendars } from "@/features/calendar-share";
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
 import WorkCalculatorDialog from "@/components/work-calculator-dialog";
-import { useRegistrationSearch } from "@/shared/hooks";
+import { useRegistrationSearch, useRegistrationAll } from "@/shared/hooks";
 import type { CropSearchResult } from "@/shared/api/server-registration.repository";
 
 const formSchema = insertTaskSchema.extend({
@@ -166,6 +166,7 @@ export default function AddTaskDialog({
   const { results: cropSearchResults, isLoading: isSearching } = useRegistrationSearch(
     isCropSelectedFromList ? "" : cropSearchTerm
   );
+  const { allCrops, isLoading: isAllCropsLoading } = useRegistrationAll();
   // 전체 작물 목록 (검색어 없을 때 브라우즈용, 30분 캐시)
 
   // 이미지 URL 파싱/정리 유틸
