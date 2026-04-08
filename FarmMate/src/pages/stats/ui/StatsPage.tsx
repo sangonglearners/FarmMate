@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   format,
-  subYears,
+  subDays,
   startOfMonth,
   endOfMonth,
   startOfQuarter,
@@ -63,7 +63,7 @@ export default function StatsPage() {
 
   const [endDateStr, setEndDateStr] = useState(() => initialEndDateStr);
   const [startDateStr, setStartDateStr] = useState(() =>
-    format(subYears(parseISO(initialEndDateStr), 1), "yyyy-MM-dd")
+    format(subDays(parseISO(initialEndDateStr), 364), "yyyy-MM-dd")
   );
   const [viewUnit, setViewUnit] = useState<ViewUnit>("monthly");
   const [metricMode, setMetricMode] = useState<MetricMode>("revenue");
