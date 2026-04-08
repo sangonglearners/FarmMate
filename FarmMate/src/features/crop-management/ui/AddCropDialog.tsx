@@ -167,7 +167,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
       setSearchTerm("");
       setShowDirectRegister(false);
     }
-  }, [crop, form]);
+  }, [open, crop, form]);
 
   // 대표 작물 선택 시 자동 채우기 (신규 등록 상황에서만)
   useEffect(() => {

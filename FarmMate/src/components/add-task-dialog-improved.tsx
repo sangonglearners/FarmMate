@@ -70,7 +70,7 @@ import { useSharedCalendars } from "@/features/calendar-share";
 import { z } from "zod";
 import { Calendar } from "@/components/ui/calendar";
 import WorkCalculatorDialog from "@/components/work-calculator-dialog";
-import { useRegistrationSearch } from "@/shared/hooks";
+import { useRegistrationSearch, useRegistrationAll } from "@/shared/hooks";
 import type { CropSearchResult } from "@/shared/api/server-registration.repository";
 
 const formSchema = insertTaskSchema.extend({
@@ -166,6 +166,7 @@ export default function AddTaskDialog({
   const { results: cropSearchResults, isLoading: isSearching } = useRegistrationSearch(
     isCropSelectedFromList ? "" : cropSearchTerm
   );
+  const { allCrops, isLoading: isAllCropsLoading } = useRegistrationAll();
   // 전체 작물 목록 (검색어 없을 때 브라우즈용, 30분 캐시)
 
   // 이미지 URL 파싱/정리 유틸
@@ -676,9 +677,9 @@ export default function AddTaskDialog({
     setShowNoResultsConfirm(false);
   }, [cropSearchTerm]);
 
-  // 내 작물: 농장에 연결된 작물만 (미연결 작물은 목록에 넣지 않음)
+  // 내 작물: 농장 연결 여부 상관없이 전체 표시
   const myCrops = useMemo(
-    () => (crops ?? []).filter((c) => c.farmId),
+    () => crops ?? [],
     [crops]
   );
 
@@ -1689,7 +1690,7 @@ export default function AddTaskDialog({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2">
                       <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
-                        {myCrops.length > 0 ? (
+                        {myCrops.length > 0 && (
                           <>
                             <div className="text-xs text-gray-500 font-medium px-2">내 작물</div>
                             {myCrops.map((crop) => (
