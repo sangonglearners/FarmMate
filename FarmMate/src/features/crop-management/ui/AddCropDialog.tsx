@@ -297,12 +297,17 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                               }`}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1">
-                                  <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{c.majorCategory}</div>
-                                  <div className="font-medium text-sm">⭐ {c.name}</div>
-                                  <div className="text-[11px] text-gray-600">{c.varieties?.[0] ?? "품종 정보 없음"}</div>
+                                <div className="min-w-0 space-y-1.5">
+                                  <div className="font-semibold text-sm leading-snug truncate">⭐ {c.name}</div>
+                                  <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                    selectedCrop === c.id
+                                      ? "border-green-300 text-green-700 bg-green-50"
+                                      : "border-gray-200 text-gray-600 bg-gray-50"
+                                  }`}>
+                                    {c.varieties?.[0] ?? "품종 정보 없음"}
+                                  </div>
                                 </div>
-                                {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0" />}
+                                {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                               </div>
                             </button>
                           ))}
@@ -326,10 +331,15 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                               }`}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1">
-                                  <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{regCrop.대분류}</div>
-                                  <div className="font-medium text-sm">{regCrop.품목}</div>
-                                  <div className="text-[11px] text-gray-600">{regCrop.품종}</div>
+                                <div className="min-w-0 space-y-1.5">
+                                  <div className="font-semibold text-sm leading-snug truncate">{regCrop.품목}</div>
+                                  <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                    selectedRegistrationCrop?.id === regCrop.id
+                                      ? "border-green-300 text-green-700 bg-green-50"
+                                      : "border-gray-200 text-gray-600 bg-gray-50"
+                                  }`}>
+                                    {regCrop.품종}
+                                  </div>
                                 </div>
                                 {selectedRegistrationCrop?.id === regCrop.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                               </div>
@@ -363,12 +373,17 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{c.majorCategory}</div>
-                                <div className="font-medium text-sm">⭐ {c.name}</div>
-                                <div className="text-[11px] text-gray-600">{c.varieties?.[0] ?? "품종 정보 없음"}</div>
+                              <div className="min-w-0 space-y-1.5">
+                                <div className="font-semibold text-sm leading-snug truncate">⭐ {c.name}</div>
+                                <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                  selectedCrop === c.id
+                                    ? "border-green-300 text-green-700 bg-green-50"
+                                    : "border-gray-200 text-gray-600 bg-gray-50"
+                                }`}>
+                                  {c.varieties?.[0] ?? "품종 정보 없음"}
+                                </div>
                               </div>
-                              {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0" />}
+                              {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                             </div>
                           </button>
                         ))}
@@ -398,10 +413,15 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{regCrop.대분류}</div>
-                                <div className="font-medium text-sm">{regCrop.품목}</div>
-                                <div className="text-[11px] text-gray-600">{regCrop.품종}</div>
+                              <div className="min-w-0 space-y-1.5">
+                                <div className="font-semibold text-sm leading-snug truncate">{regCrop.품목}</div>
+                                <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                  selectedRegistrationCrop?.id === regCrop.id
+                                    ? "border-green-300 text-green-700 bg-green-50"
+                                    : "border-gray-200 text-gray-600 bg-gray-50"
+                                }`}>
+                                  {regCrop.품종}
+                                </div>
                               </div>
                               {selectedRegistrationCrop?.id === regCrop.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                             </div>
