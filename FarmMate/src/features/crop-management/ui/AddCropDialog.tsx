@@ -88,6 +88,7 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
   const { data: myCrops = [] } = useMyCrops();
 
   const [selectedCrop, setSelectedCrop] = useState<string>("");
+  const [selectedRegistrationCrop, setSelectedRegistrationCrop] = useState<CropSearchResult | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewCropModal, setShowNewCropModal] = useState(false);
   const [showDirectRegister, setShowDirectRegister] = useState(false);
@@ -140,14 +141,11 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
     [myCropOptions, selectedCrop]
   );
 
-  // Supabase registration 작물 선택 핸들러
+  // Supabase registration 작물 선택 핸들러 - 선택 상태만 변경 (저장은 저장하기 버튼에서)
   const handleRegistrationCropSelect = (regCrop: CropSearchResult) => {
-    form.setValue("name", regCrop.품목);
-    form.setValue("category", regCrop.대분류);
-    form.setValue("variety", regCrop.품종);
-    setSearchTerm(regCrop.품목);
-    setSelectedCrop("");
-    setShowDirectRegister(true);
+    setSelectedRegistrationCrop(prev => prev?.id === regCrop.id ? null : regCrop);
+    setSelectedCrop(""); // myCrop 선택 해제
+    setShowDirectRegister(false);
   };
 
   useEffect(() => {
@@ -160,10 +158,12 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
         farmId: crop.farmId || undefined,
       });
       setSelectedCrop(crop.id);
+      setSelectedRegistrationCrop(null);
       setShowDirectRegister(false);
     } else {
       form.reset({ category: "", name: "", variety: "", status: "growing", farmId: defaultFarmId || undefined });
       setSelectedCrop("");
+      setSelectedRegistrationCrop(null);
       setSearchTerm("");
       setShowDirectRegister(false);
     }
@@ -198,6 +198,28 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
           onOpenChange(false);
         },
       });
+    }
+  };
+
+  // 저장하기 버튼 핸들러 - 카탈로그 선택 vs 폼 입력 분기
+  const handleSave = () => {
+    if (selectedRegistrationCrop) {
+      createMutation.mutate(
+        {
+          name: selectedRegistrationCrop.품목,
+          category: selectedRegistrationCrop.대분류,
+          variety: selectedRegistrationCrop.품종,
+          status: "growing",
+          farmId: defaultFarmId || undefined,
+        },
+        {
+          onSuccess: () => {
+            onOpenChange(false);
+          },
+        }
+      );
+    } else {
+      form.handleSubmit(onSubmit)();
     }
   };
 
@@ -264,7 +286,10 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                             <button
                               key={c.id}
                               type="button"
-                              onClick={() => setSelectedCrop(selectedCrop === c.id ? "" : c.id)}
+                              onClick={() => {
+                                setSelectedCrop(selectedCrop === c.id ? "" : c.id);
+                                setSelectedRegistrationCrop(null);
+                              }}
                               className={`p-3 text-left border rounded-lg transition-colors ${
                                 selectedCrop === c.id
                                   ? "border-green-500 bg-green-50 text-green-700"
@@ -272,12 +297,17 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                               }`}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1">
-                                  <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{c.majorCategory}</div>
-                                  <div className="font-medium text-sm">⭐ {c.name}</div>
-                                  <div className="text-[11px] text-gray-600">{c.varieties?.[0] ?? "품종 정보 없음"}</div>
+                                <div className="min-w-0 space-y-1.5">
+                                  <div className="font-semibold text-sm leading-snug truncate">⭐ {c.name}</div>
+                                  <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                    selectedCrop === c.id
+                                      ? "border-green-300 text-green-700 bg-green-50"
+                                      : "border-gray-200 text-gray-600 bg-gray-50"
+                                  }`}>
+                                    {c.varieties?.[0] ?? "품종 정보 없음"}
+                                  </div>
                                 </div>
-                                {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0" />}
+                                {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                               </div>
                             </button>
                           ))}
@@ -294,12 +324,24 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                               key={regCrop.id}
                               type="button"
                               onClick={() => handleRegistrationCropSelect(regCrop)}
-                              className="p-3 text-left border rounded-lg border-gray-200 hover:border-gray-300 transition-colors"
+                              className={`p-3 text-left border rounded-lg transition-colors ${
+                                selectedRegistrationCrop?.id === regCrop.id
+                                  ? "border-green-500 bg-green-50 text-green-700"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
                             >
-                              <div className="space-y-1">
-                                <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{regCrop.대분류}</div>
-                                <div className="font-medium text-sm">{regCrop.품목}</div>
-                                <div className="text-[11px] text-gray-600">{regCrop.품종}</div>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 space-y-1.5">
+                                  <div className="font-semibold text-sm leading-snug truncate">{regCrop.품목}</div>
+                                  <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                    selectedRegistrationCrop?.id === regCrop.id
+                                      ? "border-green-300 text-green-700 bg-green-50"
+                                      : "border-gray-200 text-gray-600 bg-gray-50"
+                                  }`}>
+                                    {regCrop.품종}
+                                  </div>
+                                </div>
+                                {selectedRegistrationCrop?.id === regCrop.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                               </div>
                             </button>
                           ))}
@@ -320,7 +362,10 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                           <button
                             key={c.id}
                             type="button"
-                            onClick={() => setSelectedCrop(selectedCrop === c.id ? "" : c.id)}
+                            onClick={() => {
+                              setSelectedCrop(selectedCrop === c.id ? "" : c.id);
+                              setSelectedRegistrationCrop(null);
+                            }}
                             className={`p-3 text-left border rounded-lg transition-colors ${
                               selectedCrop === c.id
                                 ? "border-green-500 bg-green-50 text-green-700"
@@ -328,12 +373,17 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{c.majorCategory}</div>
-                                <div className="font-medium text-sm">⭐ {c.name}</div>
-                                <div className="text-[11px] text-gray-600">{c.varieties?.[0] ?? "품종 정보 없음"}</div>
+                              <div className="min-w-0 space-y-1.5">
+                                <div className="font-semibold text-sm leading-snug truncate">⭐ {c.name}</div>
+                                <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                  selectedCrop === c.id
+                                    ? "border-green-300 text-green-700 bg-green-50"
+                                    : "border-gray-200 text-gray-600 bg-gray-50"
+                                }`}>
+                                  {c.varieties?.[0] ?? "품종 정보 없음"}
+                                </div>
                               </div>
-                              {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0" />}
+                              {selectedCrop === c.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                             </div>
                           </button>
                         ))}
@@ -356,12 +406,24 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
                             key={regCrop.id}
                             type="button"
                             onClick={() => handleRegistrationCropSelect(regCrop)}
-                            className="p-3 text-left border rounded-lg border-gray-200 hover:border-gray-300 transition-colors"
+                            className={`p-3 text-left border rounded-lg transition-colors ${
+                              selectedRegistrationCrop?.id === regCrop.id
+                                ? "border-green-500 bg-green-50 text-green-700"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
                           >
-                            <div className="space-y-1">
-                              <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] text-gray-700">{regCrop.대분류}</div>
-                              <div className="font-medium text-sm">{regCrop.품목}</div>
-                              <div className="text-[11px] text-gray-600">{regCrop.품종}</div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 space-y-1.5">
+                                <div className="font-semibold text-sm leading-snug truncate">{regCrop.품목}</div>
+                                <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium max-w-full truncate ${
+                                  selectedRegistrationCrop?.id === regCrop.id
+                                    ? "border-green-300 text-green-700 bg-green-50"
+                                    : "border-gray-200 text-gray-600 bg-gray-50"
+                                }`}>
+                                  {regCrop.품종}
+                                </div>
+                              </div>
+                              {selectedRegistrationCrop?.id === regCrop.id && <Check className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />}
                             </div>
                           </button>
                         ))}
@@ -510,13 +572,14 @@ export default function AddCropDialog({ open, onOpenChange, crop, defaultFarmId,
             )}
             
             <Button
-              type="submit"
+              type="button"
               className="w-full"
               disabled={
-                createMutation.isPending || 
-                updateMutation.isPending || 
-                (!crop && !selectedCrop && !showDirectRegister)
+                createMutation.isPending ||
+                updateMutation.isPending ||
+                (!crop && !selectedCrop && !showDirectRegister && !selectedRegistrationCrop)
               }
+              onClick={handleSave}
             >
               {createMutation.isPending || updateMutation.isPending ? "저장 중..." : "저장하기"}
             </Button>

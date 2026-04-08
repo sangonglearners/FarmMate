@@ -287,16 +287,19 @@ export default function FarmsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Sprout className="w-5 h-5 text-green-600" />
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Sprout className="w-4 h-4 text-green-600" />
                       </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          {crop.category} {'>'} {crop.name} {'>'} {crop.variety}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {allFarms.find(f => f.id === crop.farmId)?.name || '농장 정보 없음'}
-                        </p>
+                      <div className="space-y-1">
+                        <h3 className="font-medium text-gray-900">{crop.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                            {crop.variety}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {allFarms.find(f => f.id === crop.farmId)?.name || '농장 정보 없음'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <DropdownMenu>

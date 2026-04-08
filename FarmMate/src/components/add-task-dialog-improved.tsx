@@ -1615,19 +1615,12 @@ export default function AddTaskDialog({
                           onClick={() => handleRegistrationCropSelect(searchCrop)}
                           className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                         >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">
-                                {isKey && "⭐ "}{searchCrop.품목}
-                              </span>
-                              <span className="text-sm text-gray-500 ml-2">
-                                ({searchCrop.품종})
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {searchCrop.대분류}
-                            </div>
-                          </div>
+                          <span className="font-medium">
+                            {isKey && "⭐ "}{searchCrop.품목}
+                          </span>
+                          <span className="text-sm text-gray-500 ml-2">
+                            ({searchCrop.품종})
+                          </span>
                         </button>
                       );
                     })}
@@ -1706,21 +1699,36 @@ export default function AddTaskDialog({
                                 onClick={() => handleCropSelect(crop.id)}
                                 className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                               >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <span className="font-medium">{crop.name}</span>
-                                    {crop.variety && (
-                                      <span className="text-sm text-gray-500 ml-2">({crop.variety})</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-gray-400">{crop.category}</div>
-                                </div>
+                                <span className="font-medium">⭐ {crop.name}</span>
+                                {crop.variety && (
+                                  <span className="text-sm text-gray-500 ml-2">({crop.variety})</span>
+                                )}
                               </button>
                             ))}
                           </>
-                        ) : (
-                          <p className="text-sm text-gray-500 text-center py-4 px-2">
-                            등록된 내 작물이 없습니다. 위 검색창에서 작물을 검색하거나, 농장&amp;작물에서 작물을 등록해 주세요.
+                        )}
+                        {/* 전체 작물 */}
+                        <div className="text-xs text-gray-500 font-medium px-2">
+                          전체 작물
+                          {isAllCropsLoading && <span className="ml-2">불러오는 중...</span>}
+                        </div>
+                        {allCrops.map((regCrop) => (
+                          <button
+                            key={regCrop.id}
+                            type="button"
+                            onClick={() => handleRegistrationCropSelect(regCrop)}
+                            className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                          >
+                            <span className="font-medium">
+                              {isKeyCrop(regCrop.품목, regCrop.품종) && "⭐ "}{regCrop.품목}
+                            </span>
+                            <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
+                          </button>
+                        ))}
+                        {!isAllCropsLoading && allCrops.length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            등록된 작물이 없습니다.<br />
+                            위 검색창에서 작물을 검색해주세요.
                           </p>
                         )}
                       </div>
