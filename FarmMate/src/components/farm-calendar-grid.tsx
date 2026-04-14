@@ -1654,7 +1654,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 2개까지 표시 */}
                     {(() => {
                       const maxVisibleLanes = 2;
-                      const fixedBoxHeight = 28; // 고정 높이 (px) - 줄임
+                      const fixedBoxHeight = 36; // 제목+날짜 2줄이 잘리지 않도록 높이 확보
                       const gapSizePx = 3; // 간격 - 줄임
                       const topPadding = 4; // 상단 여백
                               
@@ -1757,14 +1757,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       }
                       
                       // 제목 표시 로직
-                      let displayTitle;
-                      if (taskGroup.taskGroupId) {
-                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
-                      } else if (viewMode === "yearly") {
-                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
-                      } else {
-                        displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
-                      }
+                      const displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       
                       // 날짜 표시 로직 (달력 박스: MM.DD~MM.DD)
                       const dateRangeText = formatRangeMmDd(taskGroup.startDate, taskGroup.endDate);
@@ -1794,24 +1787,24 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }}
                         >
                           {viewMode === "yearly" ? (
-                           <div className="flex flex-col truncate w-full px-1 py-1">
-                              <div className={`truncate text-[10px] md:text-[11px] ${
+                           <div className="flex flex-col truncate w-full px-1 py-1 leading-tight">
+                              <div className={`truncate text-[10px] md:text-[11px] leading-tight ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
                               }`}>
                                 {displayTitle}
                               </div>
-                              <div className="text-[9px] md:text-[10px] opacity-75 truncate">
+                              <div className="text-[9px] md:text-[10px] opacity-75 truncate leading-tight">
                                 {typeof dateRangeText === 'string' ? dateRangeText : ''}
                               </div>
                             </div>
                           ) : (
-                            <div className="flex flex-col truncate w-full px-1 py-1">
-                              <div className={`truncate text-[10px] md:text-[11px] ${
+                            <div className="flex flex-col truncate w-full px-1 py-1 leading-tight">
+                              <div className={`truncate text-[10px] md:text-[11px] leading-tight ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
                               }`}>
                                 {displayTitle}
                               </div>
-                              <div className="text-[9px] md:text-[10px] opacity-75 truncate">
+                              <div className="text-[9px] md:text-[10px] opacity-75 truncate leading-tight">
                                 {typeof dateRangeText === 'string' ? dateRangeText : ''}
                               </div>
                             </div>
@@ -1967,12 +1960,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               <>
                                 {/* 연간 뷰: 단일 작업 표시 */}
                                 {displayTasks.map((task) => {
-                                  let cropName;
-                                  if (task.title && task.title.includes('_')) {
-                                    cropName = task.title?.split('_')[0] || '작물';
-                                  } else {
-                                    cropName = getCropName(task.cropId) || task.title || task.taskType;
-                                  }
+                                  const displayTitle = task.title || task.taskType || "작업";
                                   
                                   return (
                                     <div 
@@ -1984,9 +1972,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
                                       }}
-                                      title={cropName}
+                                      title={displayTitle}
                                     >
-                                      {cropName}
+                                      {displayTitle}
                                     </div>
                                   );
                                 })}
