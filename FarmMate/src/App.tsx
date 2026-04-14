@@ -25,11 +25,12 @@ import {
 import { appQueryClient } from './lib/appQueryClient';
 import { Toaster } from '@/components/ui/toaster';
 
+/** 탭(세션) 동안만 유지. 창·탭을 닫고 링크로 다시 들어오면 랜딩이 다시 뜸 (localStorage 미사용) */
 const GUEST_BROWSE_KEY = 'farmmate:browse_without_login';
 
 function readGuestBrowseFlag(): boolean {
   try {
-    return localStorage.getItem(GUEST_BROWSE_KEY) === '1';
+    return sessionStorage.getItem(GUEST_BROWSE_KEY) === '1';
   } catch {
     return false;
   }
@@ -94,7 +95,7 @@ function AppRouter() {
 
   const handleBrowseWithoutLogin = () => {
     try {
-      localStorage.setItem(GUEST_BROWSE_KEY, '1');
+      sessionStorage.setItem(GUEST_BROWSE_KEY, '1');
     } catch {
       /* ignore */
     }
