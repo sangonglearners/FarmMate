@@ -44,8 +44,160 @@ import { CropRevenueShareChart } from "./components/CropRevenueShareChart";
 import { CropMixChart } from "./components/CropMixChart";
 import { BlockHealthGrid } from "./components/BlockHealthGrid";
 import type { Task } from "@shared/schema";
+import type { Crop } from "@shared/schema";
+import type { FarmEntity } from "@/shared/api/farm.repository";
 
 type MetricMode = "revenue" | "netProfit" | "cost";
+type GuestLedger = {
+  taskId: string | null;
+  revenueAmount: number | null;
+  expenseItems: Array<{ cost: number }>;
+};
+
+const GUEST_USER_ID = "guest-user";
+const GUEST_FRIEND_ID = "guest-friend";
+
+const GUEST_SAMPLE_FARMS: FarmEntity[] = [
+  {
+    id: "guest-farm-1",
+    userId: GUEST_USER_ID,
+    name: "샘플 본농장",
+    environment: "시설",
+    rowCount: 8,
+    area: 240,
+    createdAt: new Date("2026-01-01T00:00:00.000Z").toISOString(),
+  },
+  {
+    id: "guest-farm-2",
+    userId: GUEST_FRIEND_ID,
+    name: "샘플 공유농장",
+    environment: "노지",
+    rowCount: 6,
+    area: 180,
+    createdAt: new Date("2026-01-02T00:00:00.000Z").toISOString(),
+  },
+];
+
+const GUEST_SAMPLE_CROPS: Crop[] = [
+  {
+    id: "guest-crop-1",
+    userId: GUEST_USER_ID,
+    farmId: "guest-farm-1",
+    category: "채소",
+    name: "토마토",
+    variety: "대추형",
+    status: "growing",
+    createdAt: new Date("2026-01-03T00:00:00.000Z"),
+  },
+  {
+    id: "guest-crop-2",
+    userId: GUEST_USER_ID,
+    farmId: "guest-farm-1",
+    category: "과채류",
+    name: "오이",
+    variety: "백다다기",
+    status: "growing",
+    createdAt: new Date("2026-01-04T00:00:00.000Z"),
+  },
+  {
+    id: "guest-crop-3",
+    userId: GUEST_FRIEND_ID,
+    farmId: "guest-farm-2",
+    category: "채소",
+    name: "상추",
+    variety: "청치마",
+    status: "growing",
+    createdAt: new Date("2026-01-05T00:00:00.000Z"),
+  },
+];
+
+const GUEST_SAMPLE_TASKS: Task[] = [
+  {
+    id: "guest-task-1",
+    userId: GUEST_USER_ID,
+    farmId: "guest-farm-1",
+    cropId: "guest-crop-1",
+    title: "토마토 첫 수확",
+    description: null,
+    taskType: "수확",
+    scheduledDate: "2026-03-10",
+    endDate: "2026-03-10",
+    rowNumber: 2,
+    taskGroupId: null,
+    completed: 1,
+    completedAt: new Date("2026-03-10T09:00:00.000Z"),
+    createdAt: new Date("2026-03-01T00:00:00.000Z"),
+  },
+  {
+    id: "guest-task-2",
+    userId: GUEST_USER_ID,
+    farmId: "guest-farm-1",
+    cropId: "guest-crop-2",
+    title: "오이 선별",
+    description: null,
+    taskType: "선별",
+    scheduledDate: "2026-03-16",
+    endDate: "2026-03-16",
+    rowNumber: 4,
+    taskGroupId: null,
+    completed: 0,
+    completedAt: null,
+    createdAt: new Date("2026-03-12T00:00:00.000Z"),
+  },
+  {
+    id: "guest-task-3",
+    userId: GUEST_FRIEND_ID,
+    farmId: "guest-farm-2",
+    cropId: "guest-crop-3",
+    title: "상추 출하 준비",
+    description: null,
+    taskType: "출하",
+    scheduledDate: "2026-03-20",
+    endDate: "2026-03-20",
+    rowNumber: 1,
+    taskGroupId: null,
+    completed: 0,
+    completedAt: null,
+    createdAt: new Date("2026-03-13T00:00:00.000Z"),
+  },
+  {
+    id: "guest-task-4",
+    userId: GUEST_USER_ID,
+    farmId: "guest-farm-1",
+    cropId: "guest-crop-1",
+    title: "토마토 2차 수확",
+    description: null,
+    taskType: "수확",
+    scheduledDate: "2026-04-05",
+    endDate: "2026-04-05",
+    rowNumber: 3,
+    taskGroupId: null,
+    completed: 1,
+    completedAt: new Date("2026-04-05T10:00:00.000Z"),
+    createdAt: new Date("2026-04-01T00:00:00.000Z"),
+  },
+];
+
+const GUEST_SAMPLE_LEDGERS: GuestLedger[] = [
+  {
+    taskId: "guest-task-1",
+    revenueAmount: 620000,
+    expenseItems: [
+      {
+        cost: 85000,
+      },
+    ],
+  },
+  {
+    taskId: "guest-task-4",
+    revenueAmount: 710000,
+    expenseItems: [
+      {
+        cost: 120000,
+      },
+    ],
+  },
+];
 
 export default function StatsPage() {
   const metricLabelMap: Record<MetricMode, string> = {
@@ -60,6 +212,8 @@ export default function StatsPage() {
 
   const { user } = useAuth();
   const { ensureAuth } = useRequireAuth();
+  const isGuestMode = !user;
+  const currentUserId = user?.id ?? GUEST_USER_ID;
   const today = new Date();
   const initialEndDateStr = format(today, "yyyy-MM-dd");
 
@@ -109,7 +263,12 @@ export default function StatsPage() {
   const { data: allLedgers = [], isLoading: ledgersLoading } = useQuery({
     queryKey: ["ledgers"],
     queryFn: () => listLedgers(),
+    enabled: !!user,
   });
+  const sourceTasks = isGuestMode ? GUEST_SAMPLE_TASKS : allTasks;
+  const sourceFarms = isGuestMode ? GUEST_SAMPLE_FARMS : farms;
+  const sourceCrops = isGuestMode ? GUEST_SAMPLE_CROPS : crops;
+  const sourceLedgers = isGuestMode ? GUEST_SAMPLE_LEDGERS : allLedgers;
 
   const { normalizedStart, normalizedEnd } = useMemo(() => {
     if (startDateStr <= endDateStr) {
@@ -169,44 +328,44 @@ export default function StatsPage() {
   }, [chartStart, chartEnd, viewUnit]);
 
   const tasks = useMemo(
-    () => filterTasksByDateRange(allTasks, normalizedStart, normalizedEnd),
-    [allTasks, normalizedStart, normalizedEnd]
+    () => filterTasksByDateRange(sourceTasks, normalizedStart, normalizedEnd),
+    [sourceTasks, normalizedStart, normalizedEnd]
   );
 
   const ledgersWithValue = useMemo(() => {
-    return allLedgers.map((l: { taskId?: string | null; revenueAmount?: number | null; expenseItems?: { cost: number }[] }) => {
+    return sourceLedgers.map((l: { taskId?: string | null; revenueAmount?: number | null; expenseItems?: { cost: number }[] }) => {
       const revenue = l.revenueAmount ?? 0;
       const cost = l.expenseItems?.reduce((s: number, e: { cost: number }) => s + e.cost, 0) ?? 0;
       const value =
         metricMode === "revenue" ? revenue : metricMode === "cost" ? cost : revenue - cost;
       return { taskId: l.taskId ?? null, value };
     });
-  }, [allLedgers, metricMode]);
+  }, [sourceLedgers, metricMode]);
 
   const revenueTrendData = useMemo(
     () =>
       generateRevenueTrendData(
         ledgersWithValue,
-        allTasks,
+        sourceTasks,
         chartStart,
         chartEnd,
         viewUnit,
         aggregateMode
       ),
-    [ledgersWithValue, allTasks, chartStart, chartEnd, viewUnit, aggregateMode]
+    [ledgersWithValue, sourceTasks, chartStart, chartEnd, viewUnit, aggregateMode]
   );
 
-  const cropNameById = (id: string) => crops.find((c) => c.id === id)?.name ?? "기타";
+  const cropNameById = (id: string) => sourceCrops.find((c) => c.id === id)?.name ?? "기타";
   const cropRevenueData = useMemo(
     () =>
       getCropRevenueShare(
         ledgersWithValue,
-        allTasks,
+        sourceTasks,
         normalizedStart,
         normalizedEnd,
         cropNameById
       ),
-    [ledgersWithValue, allTasks, normalizedStart, normalizedEnd, crops]
+    [ledgersWithValue, sourceTasks, normalizedStart, normalizedEnd, sourceCrops]
   );
 
   const insights = useMemo(() => {
@@ -221,7 +380,7 @@ export default function StatsPage() {
 
     const totalValue = ledgersWithValue.reduce((sum, l) => {
       if (!l.taskId) return sum;
-      const task = allTasks.find((x) => x.id === l.taskId);
+      const task = sourceTasks.find((x) => x.id === l.taskId);
       if (!task) return sum;
       const d = getTaskEndStr(task);
       if (d < monthStartStr || d > monthEndStr) return sum;
@@ -254,7 +413,7 @@ export default function StatsPage() {
     // 이번 달 기준 작물별 상위 매출
     const monthlyCropRevenue = getCropRevenueShare(
       ledgersWithValue,
-      allTasks,
+      sourceTasks,
       monthStartStr,
       monthEndStr,
       cropNameById
@@ -289,13 +448,13 @@ export default function StatsPage() {
     const weekLaterStr = format(addDays(now, 7), "yyyy-MM-dd");
 
     // 내 농장 / 친구 농장 ID 분류
-    const ownFarmIds = new Set(farms.filter((f) => f.userId === user?.id).map((f) => f.id));
-    const hasFriendFarms = farms.some((f) => f.userId !== user?.id);
+    const ownFarmIds = new Set(sourceFarms.filter((f) => f.userId === currentUserId).map((f) => f.id));
+    const hasFriendFarms = sourceFarms.some((f) => f.userId !== currentUserId);
 
     // 이번 달 매출: 내 농장 / 친구 농장 분리
     const ownMonthValue = ledgersWithValue.reduce((sum, l) => {
       if (!l.taskId) return sum;
-      const task = allTasks.find((x) => x.id === l.taskId);
+      const task = sourceTasks.find((x) => x.id === l.taskId);
       if (!task) return sum;
       if (task.farmId && !ownFarmIds.has(task.farmId)) return sum;
       const d = getTaskEndStr(task);
@@ -305,7 +464,7 @@ export default function StatsPage() {
     const friendMonthValue = totalValue - ownMonthValue;
 
     // 내 농장 작업 현황
-    const ownTasksAll = allTasks.filter((t) => !t.farmId || ownFarmIds.has(t.farmId));
+    const ownTasksAll = sourceTasks.filter((t) => !t.farmId || ownFarmIds.has(t.farmId));
     const ownCompletedThisMonth = ownTasksAll.filter((t) => {
       if (t.completed !== 1) return false;
       const d = (t as any).completedAt
@@ -323,7 +482,7 @@ export default function StatsPage() {
     }).length;
 
     // 친구 농장 작업 현황
-    const friendTasksAll = allTasks.filter((t) => t.farmId && !ownFarmIds.has(t.farmId));
+    const friendTasksAll = sourceTasks.filter((t) => t.farmId && !ownFarmIds.has(t.farmId));
     const friendDelayedCount = friendTasksAll.filter((t) => {
       if (t.completed === 1) return false;
       return getTaskEndStr(t) < todayStr;
@@ -365,13 +524,13 @@ export default function StatsPage() {
     revenueTrendData,
     cropRevenueData,
     ledgersWithValue,
-    allTasks,
+    sourceTasks,
     normalizedStart,
     normalizedEnd,
     viewUnit,
     weatherData,
-    farms,
-    user,
+    sourceFarms,
+    currentUserId,
   ]);
 
   // 날짜 범위 + 지표 모드 + 오늘 날짜 조합으로 고유 캐시 키 생성 (날씨·작업 반영을 위해 하루 단위 갱신)
@@ -427,15 +586,15 @@ export default function StatsPage() {
       pendingTasks?: number;
       isOwnFarm: boolean;
     }> = [];
-    const ownFarms = farms.filter((f) => f.userId === user?.id);
-    const friendFarms = farms.filter((f) => f.userId !== user?.id);
+    const ownFarms = sourceFarms.filter((f) => f.userId === currentUserId);
+    const friendFarms = sourceFarms.filter((f) => f.userId !== currentUserId);
     const sortedFarms = [...ownFarms, ...friendFarms];
     const farmOrderIndex = new Map(
       sortedFarms.map((farm, index) => [farm.id, index]),
     );
 
     sortedFarms.forEach((farm) => {
-      const isOwnFarm = farm.userId === user?.id;
+      const isOwnFarm = farm.userId === currentUserId;
       const farmTasks = tasks.filter((t) => t.farmId === farm.id);
       for (let rowNum = 1; rowNum <= (farm.rowCount || 0); rowNum++) {
         const rowTasks = farmTasks.filter((t) => t.rowNumber === rowNum);
@@ -473,11 +632,11 @@ export default function StatsPage() {
       if (aOrder !== bOrder) return aOrder - bOrder;
       return a.rowNumber - b.rowNumber;
     });
-  }, [farms, tasks, user?.id]);
+  }, [sourceFarms, tasks, currentUserId]);
 
   // 작물 구성도: 작물별 사용 이랑 수 (날짜 범위 내 작업 기준, 농장·이랑 조합 고유 개수)
   const cropMixData = useMemo(() => {
-    const totalRows = farms.reduce((s, f) => s + (f.rowCount || 0), 0);
+    const totalRows = sourceFarms.reduce((s, f) => s + (f.rowCount || 0), 0);
     const cropToRowKeys = new Map<string, Set<string>>();
     const allUsedKeys = new Set<string>();
 
@@ -497,7 +656,7 @@ export default function StatsPage() {
 
     cropToRowKeys.forEach((rowSet, cropKey) => {
       const value = rowSet.size;
-      const crop = crops.find((c) => c.id === cropKey);
+      const crop = sourceCrops.find((c) => c.id === cropKey);
       const name = cropKey === "__기타__" ? "기타" : (crop?.name ?? "기타");
       if (name === "기타") {
         rowSet.forEach((k) => etcRows.add(k));
@@ -514,7 +673,7 @@ export default function StatsPage() {
     }
     data.sort((a, b) => b.value - a.value);
     return { data, totalRows, usedRows };
-  }, [tasks, farms, crops]);
+  }, [tasks, sourceFarms, sourceCrops]);
 
   // AI 인사이트 텍스트를 문장별로 나누고 작물명을 볼드 처리하여 렌더링
   const renderInsight = (text: string) => {
@@ -526,7 +685,7 @@ export default function StatsPage() {
     // (topCrops는 task.title 기반 이름도 포함하므로 crops 배열만으론 누락될 수 있음)
     const allCropNames = insights.topCrops
       .map((c) => c.name)
-      .concat(crops.map((c) => c.name))
+      .concat(sourceCrops.map((c) => c.name))
       .filter((n) => !!n && n !== "기타");
     const nameSet = new Set<string>(allCropNames);
     const cropNameList = Array.from(nameSet).sort((a, b) => b.length - a.length);
