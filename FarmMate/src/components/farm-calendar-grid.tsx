@@ -191,6 +191,21 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
     }
   }, [myFarms, friendFarms, selectedFarm]);
 
+  // 통계에서 /calendar?farmId=... 로 진입한 경우 해당 농장을 우선 선택
+  useEffect(() => {
+    if (farmsLoading || farms.length === 0) return;
+    if (typeof window === "undefined") return;
+
+    const farmIdFromQuery = new URLSearchParams(window.location.search).get("farmId");
+    if (!farmIdFromQuery) return;
+
+    const targetFarm = farms.find((farm) => farm.id === farmIdFromQuery);
+    if (!targetFarm) return;
+    if (selectedFarm?.id === targetFarm.id) return;
+
+    setSelectedFarm(targetFarm);
+  }, [farmsLoading, farms, selectedFarm]);
+
   const buildCsvForSelectedFarm = () => {
     try {
       const farmIdToName = new Map(farms.map(f => [f.id, f.name] as const));
