@@ -163,8 +163,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
             <button
               type="button"
               onClick={onBrowseWithoutLogin}
-              className="absolute left-1/2 -translate-x-1/2 top-[89.2%] w-[78%] max-w-[320px] min-h-[36px] px-2 py-1.5 rounded-[11.2px] border border-[#7DA463]/50 bg-white/90 text-[#5a8a42] text-center font-medium z-40 shadow-sm hover:bg-[#f8faf3] focus:outline-none focus:ring-2 focus:ring-[#7DA463]/40 focus:ring-offset-1"
-              style={{ fontSize: 'clamp(11px, 1.85vh, 15px)', lineHeight: 1.35 }}
+              aria-label="로그인 없이 기능 둘러보기"
+              className="absolute left-1/2 top-[89.1%] z-40 flex h-[4.35%] w-[68.31%] -translate-x-1/2 items-center justify-center rounded-[11.2px] border border-[#7DA463]/50 bg-white/90 px-[1.5%] text-center font-medium text-[#5a8a42] shadow-sm hover:bg-[#f8faf3] focus:outline-none focus:ring-2 focus:ring-[#7DA463]/40 focus:ring-offset-1 md:h-[4.55%]"
+              style={{
+                fontSize: 'clamp(10px, 1.6vh, 15px)',
+                lineHeight: 1.25,
+              }}
             >
               로그인 없이 기능 둘러보기
             </button>

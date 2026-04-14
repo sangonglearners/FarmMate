@@ -131,7 +131,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem('test-user')
       localStorage.removeItem('fm_user_name')
       localStorage.removeItem('fm_user_avatar')
-      localStorage.removeItem('farmmate:browse_without_login')
+      sessionStorage.removeItem('farmmate:browse_without_login')
+      try {
+        localStorage.removeItem('farmmate:browse_without_login')
+      } catch {
+        /* ignore */
+      }
       await signOut()
     } catch (error) {
       console.error('로그아웃 실패:', error)
