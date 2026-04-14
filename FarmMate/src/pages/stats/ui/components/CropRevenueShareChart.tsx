@@ -10,15 +10,35 @@ const COLORS = [
   "#03A9F4", "#FFC107", "#607D8B", "#9E9E9E", "#4CAF50",
 ];
 
+/** 장부 합이 없을 때 원·목록에 채워 넣는 예시(원 단위) */
+const DEMO_CROP_REVENUE_SHARE: { name: string; value: number }[] = [
+  { name: "토마토", value: 320_000 },
+  { name: "상추", value: 180_000 },
+  { name: "오이", value: 95_000 },
+  { name: "가지", value: 72_000 },
+  { name: "기타", value: 48_000 },
+];
+
 interface CropRevenueShareChartProps {
   title?: string;
+  /** 빈 화면 안내용: 매출 · 비용 · 순수익 등 */
+  metricLabel?: string;
   data: { name: string; value: number }[];
   embedded?: boolean;
 }
 
-export function CropRevenueShareChart({ title = "작물별 매출 비중", data, embedded = false }: CropRevenueShareChartProps) {
-  const fullTotal = data.reduce((s, d) => s + d.value, 0);
-  const withPercentage = data.map((d) => ({
+export function CropRevenueShareChart({
+  title = "작물별 매출 비중",
+  metricLabel = "매출",
+  data,
+  embedded = false,
+}: CropRevenueShareChartProps) {
+  const rawTotal = data.reduce((s, d) => s + d.value, 0);
+  const isPlaceholder = data.length === 0 || rawTotal === 0;
+  const sourceData = isPlaceholder ? DEMO_CROP_REVENUE_SHARE : data;
+
+  const fullTotal = sourceData.reduce((s, d) => s + d.value, 0);
+  const withPercentage = sourceData.map((d) => ({
     ...d,
     percentage: fullTotal > 0 ? (d.value / fullTotal) * 100 : 0,
   }));
@@ -67,39 +87,22 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
     }
   };
 
-  if (chartData.length === 0 || total === 0) {
-    const emptyContent = (
-      <div className="py-8 text-center">
-        <p className="text-lg font-semibold text-gray-900">₩0</p>
-        <p className="text-sm text-gray-500 mt-1">조건에 해당하는 데이터가 없습니다</p>
-      </div>
-    );
-
-    if (embedded) {
-      return (
-        <div>
-          <h3 className="text-base font-semibold text-gray-900 mb-3">{title}</h3>
-          {emptyContent}
-        </div>
-      );
-    }
-
-    return (
-      <Card className="rounded-lg shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base font-semibold text-gray-900">{title}</CardTitle>
-      </CardHeader>
-        <CardContent>{emptyContent}</CardContent>
-      </Card>
-    );
-  }
-
   const chartBody = (
     <>
-      <h3 className="text-base font-semibold text-gray-900 mb-3">{title}</h3>
-      <div>
+      <div className="mb-3">
+        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
+        </p>
+      </div>
+      {isPlaceholder && (
+        <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
+          아래 원과 목록은 예시예요. 거래가 쌓이면 실제 비중이 표시돼요.
+        </p>
+      )}
+      <div className={isPlaceholder ? "mt-2 rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}>
         <div className="flex flex-row items-start gap-1">
-          {/* 왼쪽: 원그래프 (작물 구성과 동일 크기·배치) */}
+          {/* 왼쪽: 원그래프 */}
           <div
             ref={chartRef}
             className={`flex-shrink-0 relative ${isMobile ? "h-40 w-40 -ml-2" : "h-64 w-64 -ml-6"}`}
@@ -118,7 +121,7 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
                   ₩{chartData[activeIndex].value.toLocaleString()}
                 </p>
                 <p className={isMobile ? "text-xs text-gray-600" : "text-sm text-gray-600"}>
-                  비율: {chartData[activeIndex].percentage.toFixed(2)}%
+                  전체의 {chartData[activeIndex].percentage.toFixed(1)}%
                 </p>
               </div>
             )}
@@ -130,7 +133,7 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
                   cy="50%"
                   innerRadius={isMobile ? 40 : 60}
                   outerRadius={isMobile ? 65 : 100}
-                  paddingAngle={2}
+                  paddingAngle={2.5}
                   dataKey="value"
                   activeIndex={activeIndex}
                   activeShape={(props: React.ComponentProps<typeof Sector>) => (
@@ -141,7 +144,7 @@ export function CropRevenueShareChart({ title = "작물별 매출 비중", data,
                   onClick={handleSliceClick}
                 >
                   {chartData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="#ffffff" strokeWidth={2} />
                   ))}
                 </Pie>
               </PieChart>

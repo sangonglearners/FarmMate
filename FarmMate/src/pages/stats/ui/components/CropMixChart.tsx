@@ -32,10 +32,22 @@ const COLORS = [
   "#65a30d", // light green
 ];
 
+/** 사용 이랑이 없을 때 도넛·목록에 넣는 예시 */
+const DEMO_CROP_MIX: CropData[] = [
+  { name: "결구배추", value: 15, percentage: 0 },
+  { name: "상추", value: 8, percentage: 0 },
+  { name: "브로콜리", value: 7, percentage: 0 },
+  { name: "기타", value: 5, percentage: 0 },
+];
+
 export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
+  const isPlaceholder = usedRows === 0;
+  const sourceData = isPlaceholder ? DEMO_CROP_MIX : data;
+  const centerUsedRows = isPlaceholder ? DEMO_CROP_MIX.reduce((s, d) => s + d.value, 0) : usedRows;
+
   // 기타를 맨 아래로, 기타 포함 최대 6개
-  const nonEtc = data.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
-  const etc = data.filter((d) => d.name === "기타");
+  const nonEtc = sourceData.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
+  const etc = sourceData.filter((d) => d.name === "기타");
   const displayRaw = [...nonEtc.slice(0, 5), ...etc];
   const displayTotal = displayRaw.reduce((s, d) => s + d.value, 0);
   const chartData = displayRaw.map((d) => ({
@@ -81,8 +93,23 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
     <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
         <CardTitle className="text-base font-semibold">작물 구성</CardTitle>
+        <p className="text-xs text-gray-500 font-normal mt-1">
+          작물마다 이랑을 몇 줄 쓰는지 원으로 보여 줘요. 가운데는 작업이 있는 이랑 수예요.
+        </p>
       </CardHeader>
       <CardContent>
+        {isPlaceholder && (
+          <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mb-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
+            아래 원과 목록은 예시예요. 작업이 쌓이면 실제 비율이 표시돼요.
+          </p>
+        )}
+        <div
+          className={
+            isPlaceholder
+              ? "rounded-lg border border-dashed border-gray-200 bg-white p-3"
+              : ""
+          }
+        >
         <div className="flex flex-row items-start gap-1">
           {/* 왼쪽: 원그래프 + 호버 시 툴팁(차트 바깥 왼쪽에 고정) */}
           <div
@@ -104,7 +131,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   이랑 수: {chartData[activeIndex].value}개
                 </p>
                 <p className={isMobile ? "text-xs text-gray-600" : "text-sm text-gray-600"}>
-                  비율: {chartData[activeIndex].percentage.toFixed(2)}%
+                  비율 : {chartData[activeIndex].percentage.toFixed(1)}%
                 </p>
                 {chartData[activeIndex].name === "기타" &&
                   chartData[activeIndex].others &&
@@ -128,7 +155,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   cy="50%"
                   innerRadius={isMobile ? 40 : 60}
                   outerRadius={isMobile ? 65 : 100}
-                  paddingAngle={2}
+                  paddingAngle={2.5}
                   dataKey="value"
                   activeIndex={activeIndex}
                   activeShape={(props: React.ComponentProps<typeof Sector>) => (
@@ -139,14 +166,19 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   onClick={handleSliceClick}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center">
-                <p className={`font-bold text-gray-900 ${isMobile ? "text-lg" : "text-2xl"}`}>{usedRows}</p>
+                <p className={`font-bold text-gray-900 ${isMobile ? "text-lg" : "text-2xl"}`}>{centerUsedRows}</p>
                 <p className={`text-gray-600 ${isMobile ? "text-xs" : "text-sm"}`}>사용 이랑</p>
               </div>
             </div>
@@ -165,8 +197,8 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                     <p className={`font-medium text-gray-900 truncate ${isMobile ? "text-xs" : "text-sm"}`}>
                       {crop.name}
                     </p>
-                    <p className={`text-gray-600 truncate ${isMobile ? "text-[10px]" : "text-xs"}`}>
-                      이랑 {crop.value}개 · {crop.percentage.toFixed(2)}%
+                    <p className={`text-gray-600 leading-tight ${isMobile ? "text-[10px]" : "text-xs"}`}>
+                      이랑 {crop.value}개 · {crop.percentage.toFixed(1)}%
                     </p>
                   </div>
                 </div>
@@ -175,6 +207,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
               <p className={isMobile ? "text-xs text-gray-500" : "text-sm text-gray-500"}>등록된 작물이 없습니다</p>
             )}
           </div>
+        </div>
         </div>
       </CardContent>
     </Card>

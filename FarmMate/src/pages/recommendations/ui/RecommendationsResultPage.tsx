@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../../components/ui/card';
 import { RecommendationResult, saveRecommendationResult } from '../../../shared/api/recommendation';
 
 import { sendPageView } from "../../../shared/ga";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 // Mock 데이터 (API 응답 형식)
 const mockResult = {
@@ -191,6 +192,7 @@ function IndicatorBar({ label, value, maxValue = 3 }: IndicatorBarProps) {
 
 export default function RecommendationsResultPage() {
   const [, setLocation] = useLocation();
+  const { ensureAuth } = useRequireAuth();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [result, setResult] = useState<RecommendationResult | null>(null);
   const [farmInfo, setFarmInfo] = useState<{
@@ -243,6 +245,7 @@ export default function RecommendationsResultPage() {
   }, []);
 
   const handleSaveToPlan = async () => {
+    if (!ensureAuth()) return;
     if (selectedCard === null) {
       alert("작물 조합을 선택해주세요!");
       return;

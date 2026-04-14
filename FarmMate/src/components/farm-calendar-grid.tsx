@@ -27,7 +27,7 @@ import type { FarmEntity } from "@/shared/api/farm.repository";
 import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
 import { CalendarShareDialog } from "@/features/calendar-share/ui";
 import { useUserRoleForCalendar, useSharedFarmIds } from "@/features/calendar-share";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { CalendarCommentsPanel } from "@/features/calendar-comments";
 import { isDateInTaskRange } from "@/shared/utils/task-filter";
 import { listLedgers, type LedgerWithExpenses } from "@/shared/api/ledgers";
@@ -75,8 +75,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 공유 다이얼로그 상태
   const [showShareDialog, setShowShareDialog] = useState(false);
   
-  // 현재 사용자 정보 가져오기 (먼저 선언)
-  const { user } = useAuth();
+  const { user, ensureAuth } = useRequireAuth();
   
   // 농장 데이터 가져오기
   const { data: farms = [], isLoading: farmsLoading } = useFarms();
@@ -191,6 +190,21 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       setSelectedFarm(friendFarms[0]);
     }
   }, [myFarms, friendFarms, selectedFarm]);
+
+  // 통계에서 /calendar?farmId=... 로 진입한 경우 해당 농장을 우선 선택
+  useEffect(() => {
+    if (farmsLoading || farms.length === 0) return;
+    if (typeof window === "undefined") return;
+
+    const farmIdFromQuery = new URLSearchParams(window.location.search).get("farmId");
+    if (!farmIdFromQuery) return;
+
+    const targetFarm = farms.find((farm) => farm.id === farmIdFromQuery);
+    if (!targetFarm) return;
+    if (selectedFarm?.id === targetFarm.id) return;
+
+    setSelectedFarm(targetFarm);
+  }, [farmsLoading, farms, selectedFarm]);
 
   const buildCsvForSelectedFarm = () => {
     try {
@@ -432,6 +446,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   }, [onDateClick]);
 
   const openAddTaskShortcut = useCallback((dateStr: string, rowNumber?: number | null, endDate?: string | null) => {
+    if (!ensureAuth()) return;
     if (!canCreateTask) return;
     handleDateSelection(dateStr, rowNumber);
     setSelectedDateForTask(dateStr);
@@ -440,7 +455,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       typeof rowNumber === "number" ? rowNumber : null,
     );
     setShowAddTaskDialog(true);
-  }, [canCreateTask, handleDateSelection]);
+  }, [ensureAuth, canCreateTask, handleDateSelection]);
 
   const cancelLongPressTimer = useCallback(() => {
     if (longPressTimeoutRef.current !== null) {
@@ -1413,7 +1428,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             variant="outline"
             size="sm"
             className="bg-white"
-            onClick={() => setShowShareDialog(true)}
+            onClick={() => {
+              if (!ensureAuth()) return;
+              setShowShareDialog(true);
+            }}
             aria-label="캘린더 공유"
             title="캘린더 공유"
           >
@@ -1651,7 +1669,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                     {/* 연속된 일정 박스들 렌더링 (월간/연간 뷰) - 최대 2개까지 표시 */}
                     {(() => {
                       const maxVisibleLanes = 2;
-                      const fixedBoxHeight = 28; // 고정 높이 (px) - 줄임
+                      const fixedBoxHeight = 36; // 제목+날짜 2줄이 잘리지 않도록 높이 확보
                       const gapSizePx = 3; // 간격 - 줄임
                       const topPadding = 4; // 상단 여백
                               
@@ -1754,14 +1772,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                       }
                       
                       // 제목 표시 로직
-                      let displayTitle;
-                      if (taskGroup.taskGroupId) {
-                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
-                      } else if (viewMode === "yearly") {
-                        displayTitle = taskGroup.cropName || taskGroup.task.title?.split('_')[0] || '작물';
-                      } else {
-                        displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
-                      }
+                      const displayTitle = taskGroup.task.title || `${taskGroup.task.taskType}`;
                       
                       // 날짜 표시 로직 (달력 박스: MM.DD~MM.DD)
                       const dateRangeText = formatRangeMmDd(taskGroup.startDate, taskGroup.endDate);
@@ -1791,24 +1802,24 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                           }}
                         >
                           {viewMode === "yearly" ? (
-                           <div className="flex flex-col truncate w-full px-1 py-1">
-                              <div className={`truncate text-[10px] md:text-[11px] ${
+                           <div className="flex flex-col truncate w-full px-1 py-1 leading-tight">
+                              <div className={`truncate text-[10px] md:text-[11px] leading-tight ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
                               }`}>
                                 {displayTitle}
                               </div>
-                              <div className="text-[9px] md:text-[10px] opacity-75 truncate">
+                              <div className="text-[9px] md:text-[10px] opacity-75 truncate leading-tight">
                                 {typeof dateRangeText === 'string' ? dateRangeText : ''}
                               </div>
                             </div>
                           ) : (
-                            <div className="flex flex-col truncate w-full px-1 py-1">
-                              <div className={`truncate text-[10px] md:text-[11px] ${
+                            <div className="flex flex-col truncate w-full px-1 py-1 leading-tight">
+                              <div className={`truncate text-[10px] md:text-[11px] leading-tight ${
                                 ['파종', '육묘', '수확'].includes(taskGroup.task.taskType) ? 'font-bold' : 'font-semibold'
                               }`}>
                                 {displayTitle}
                               </div>
-                              <div className="text-[9px] md:text-[10px] opacity-75 truncate">
+                              <div className="text-[9px] md:text-[10px] opacity-75 truncate leading-tight">
                                 {typeof dateRangeText === 'string' ? dateRangeText : ''}
                               </div>
                             </div>
@@ -1964,12 +1975,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                               <>
                                 {/* 연간 뷰: 단일 작업 표시 */}
                                 {displayTasks.map((task) => {
-                                  let cropName;
-                                  if (task.title && task.title.includes('_')) {
-                                    cropName = task.title?.split('_')[0] || '작물';
-                                  } else {
-                                    cropName = getCropName(task.cropId) || task.title || task.taskType;
-                                  }
+                                  const displayTitle = task.title || task.taskType || "작업";
                                   
                                   return (
                                     <div 
@@ -1981,9 +1987,9 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                                         setSelectedTask(task);
                                         setIsEditDialogOpen(true);
                                       }}
-                                      title={cropName}
+                                      title={displayTitle}
                                     >
-                                      {cropName}
+                                      {displayTitle}
                                     </div>
                                   );
                                 })}
@@ -2036,6 +2042,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 size="sm" 
                 className="flex items-center space-x-1"
                 onClick={() => {
+                  if (!ensureAuth()) return;
                   setSelectedDateForTask(selectedCellDate);
                   setShowAddTaskDialog(true);
                 }}
@@ -2295,6 +2302,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         onOpenChange={setShowActionSheet}
         task={selectedTask}
         onEditTask={() => {
+          if (!ensureAuth()) return;
           setShowActionSheet(false);
           // 일괄등록 작업은 일괄 수정 다이얼로그, 개별 작업은 개별 수정 다이얼로그
           if (selectedTask?.taskGroupId) {
@@ -2304,6 +2312,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           }
         }}
         onWriteLedger={() => {
+          if (!ensureAuth()) return;
           setShowActionSheet(false);
           setShowLedgerDialog(true);
         }}

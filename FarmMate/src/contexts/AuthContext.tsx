@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, signInWithGoogle, signOut, onAuthStateChange } from '@lib/supabaseClient'
 import { AiCreditsRepository } from '@/shared/api/ai-credits.repository'
+import { appQueryClient } from '@/lib/appQueryClient'
 
 const PENDING_REF_KEY = 'farmmate:pending_ref'
 
@@ -86,6 +87,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(session?.user ?? null)
       setLoading(false)
 
+      if (event === 'SIGNED_OUT') {
+        // 이전 로그인 사용자의 서버 캐시가 남아 보이지 않도록 즉시 정리
+        appQueryClient.clear()
+      }
+
       // 구글 로그인 완료 시 신규 유저 여부 확인 후 추천인 코드 처리
       if (event === 'SIGNED_IN' && session?.user?.id) {
         const userId = session.user.id
@@ -123,6 +129,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true)
       localStorage.removeItem('test-user')
+      localStorage.removeItem('fm_user_name')
+      localStorage.removeItem('fm_user_avatar')
       await signOut()
     } catch (error) {
       console.error('로그아웃 실패:', error)

@@ -16,6 +16,7 @@ import { useTasks } from "@/features/task-management";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
 import {
@@ -47,6 +48,19 @@ import type { Task } from "@shared/schema";
 type MetricMode = "revenue" | "netProfit" | "cost";
 
 export default function StatsPage() {
+  const insightExamples = {
+    totalValue: 2450000,
+    avgValue: 816000,
+    topCrops: [
+      { name: "딸기", value: 980000 },
+      { name: "상추", value: 760000 },
+      { name: "토마토", value: 520000 },
+    ],
+    topShare: 81.2,
+    aiSummary:
+      "딸기와 상추 중심으로 매출이 안정적으로 발생하고 있어요. 수익 비중이 높은 작물의 작업 주기를 유지하면 다음 달에도 유사한 흐름을 기대할 수 있어요.",
+  };
+
   const metricLabelMap: Record<MetricMode, string> = {
     revenue: "매출",
     cost: "비용",
@@ -58,6 +72,7 @@ export default function StatsPage() {
   };
 
   const { user } = useAuth();
+  const { ensureAuth } = useRequireAuth();
   const today = new Date();
   const initialEndDateStr = format(today, "yyyy-MM-dd");
 
@@ -387,6 +402,7 @@ export default function StatsPage() {
   }, [aiInsightCacheKey]);
 
   const fetchAiInsight = useCallback(async () => {
+    if (!ensureAuth()) return;
     if (!insights.hasRevenue && !insights.hasCropShare) return;
     if (!canUseAI) return;
 
@@ -412,7 +428,7 @@ export default function StatsPage() {
     } finally {
       setAiInsightLoading(false);
     }
-  }, [insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit]);
+  }, [ensureAuth, insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{
@@ -427,6 +443,9 @@ export default function StatsPage() {
     const ownFarms = farms.filter((f) => f.userId === user?.id);
     const friendFarms = farms.filter((f) => f.userId !== user?.id);
     const sortedFarms = [...ownFarms, ...friendFarms];
+    const farmOrderIndex = new Map(
+      sortedFarms.map((farm, index) => [farm.id, index]),
+    );
 
     sortedFarms.forEach((farm) => {
       const isOwnFarm = farm.userId === user?.id;
@@ -462,7 +481,9 @@ export default function StatsPage() {
     return blocks.sort((a, b) => {
       if (a.isOwnFarm && !b.isOwnFarm) return -1;
       if (!a.isOwnFarm && b.isOwnFarm) return 1;
-      if (a.farmName !== b.farmName) return a.farmName.localeCompare(b.farmName);
+      const aOrder = farmOrderIndex.get(a.farmId) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = farmOrderIndex.get(b.farmId) ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
       return a.rowNumber - b.rowNumber;
     });
   }, [farms, tasks, user?.id]);
@@ -651,10 +672,26 @@ export default function StatsPage() {
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-gray-700">
-                      이번 달 {insights.metricLabel} 데이터가 아직 없어요. 기간을 넓혀보거나 장부에
-                      거래를 등록해보세요.
-                    </p>
+                    <div className="space-y-1 opacity-80">
+                      <p className="text-xs text-gray-600">
+                        예시 · 이번 달{" "}
+                        <span className="font-semibold">총 {insights.metricLabel}</span>
+                      </p>
+                      <p className="text-xl font-bold text-[#4CAF50]">
+                        ₩{insightExamples.totalValue.toLocaleString()}원
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {insights.periodLabel} 기간 동안{" "}
+                        <span className="font-semibold">
+                          {insights.unitLabel} 평균 {insights.metricLabel}
+                        </span>
+                        은{" "}
+                        <span className="font-semibold text-gray-900">
+                          약 ₩{insightExamples.avgValue.toLocaleString()}원
+                        </span>
+                        이에요.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -695,9 +732,34 @@ export default function StatsPage() {
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-gray-700">
-                      이번 달 작물별 {insights.metricLabel} 비중을 계산할 수 있는 데이터가 없어요.
-                    </p>
+                    <div className="space-y-1 opacity-80">
+                      <p className="text-xs text-gray-600">
+                        예시 · 이번 달{" "}
+                        <span className="font-semibold">
+                          {insights.metricLabel} 상위 작물 순위
+                        </span>
+                        예요.
+                      </p>
+                      <ol className="mt-1 space-y-0.5 text-sm text-gray-900">
+                        {insightExamples.topCrops.map((crop, index) => (
+                          <li key={crop.name} className="flex items-baseline gap-1">
+                            <span className="text-xs text-gray-500">{index + 1}.</span>
+                            <span>{crop.name}</span>
+                            <span className="mx-1 text-gray-500">:</span>
+                            <span className="font-semibold">
+                              ₩{crop.value.toLocaleString()}원
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                      <p className="text-xs text-gray-600">
+                        상위 3개 작물이 전체 {insights.metricLabel}의 약{" "}
+                        <span className="font-semibold">
+                          {insightExamples.topShare.toFixed(1)}%
+                        </span>
+                        을 차지하고 있어요.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -707,8 +769,8 @@ export default function StatsPage() {
                 <div className="flex-1 space-y-2">
                   {/* 데이터 없을 때 */}
                   {!insights.hasRevenue && !insights.hasCropShare ? (
-                    <p className="text-sm text-gray-400">
-                      장부에 거래를 등록하면 AI가 맞춤 인사이트를 제공해 드려요.
+                    <p className="text-sm text-gray-500 opacity-80">
+                      예시 · {insightExamples.aiSummary}
                     </p>
                   ) : aiInsightLoading ? (
                     <div className="flex items-center gap-2 py-1">
@@ -870,6 +932,7 @@ export default function StatsPage() {
               <div className="border-t border-gray-100 pt-4">
                 <CropRevenueShareChart
                   embedded
+                  metricLabel={metricLabelMap[metricMode]}
                   title={
                     metricMode === "revenue"
                       ? "작물별 매출 비중"
@@ -889,14 +952,19 @@ export default function StatsPage() {
           <div className="w-full rounded-xl bg-[#E8F5E9] px-4 py-2">
             <h2 className="text-xl font-bold text-gray-900">내 농장의 작업 현황은?</h2>
           </div>
-          {cropMixData.totalRows > 0 && (
-            <CropMixChart
-              data={cropMixData.data}
-              totalRows={cropMixData.totalRows}
-              usedRows={cropMixData.usedRows}
-            />
-          )}
-          {blockStatuses.length > 0 && <BlockHealthGrid blocks={blockStatuses} />}
+          <p className="text-sm text-gray-600 -mt-1">
+            작물마다 이랑을 얼마나 쓰는지는{" "}
+            <span className="font-medium text-gray-800">위쪽 원</span>으로, 이랑마다 작업이 많은지는{" "}
+            <span className="font-medium text-gray-800">아래 색칠한 칸</span>으로 볼 수 있어요.
+          </p>
+
+          <CropMixChart
+            data={cropMixData.data}
+            totalRows={cropMixData.totalRows}
+            usedRows={cropMixData.usedRows}
+          />
+
+          <BlockHealthGrid blocks={blockStatuses} />
         </section>
       </div>
     </div>
