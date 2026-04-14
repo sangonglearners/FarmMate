@@ -443,6 +443,9 @@ export default function StatsPage() {
     const ownFarms = farms.filter((f) => f.userId === user?.id);
     const friendFarms = farms.filter((f) => f.userId !== user?.id);
     const sortedFarms = [...ownFarms, ...friendFarms];
+    const farmOrderIndex = new Map(
+      sortedFarms.map((farm, index) => [farm.id, index]),
+    );
 
     sortedFarms.forEach((farm) => {
       const isOwnFarm = farm.userId === user?.id;
@@ -478,7 +481,9 @@ export default function StatsPage() {
     return blocks.sort((a, b) => {
       if (a.isOwnFarm && !b.isOwnFarm) return -1;
       if (!a.isOwnFarm && b.isOwnFarm) return 1;
-      if (a.farmName !== b.farmName) return a.farmName.localeCompare(b.farmName);
+      const aOrder = farmOrderIndex.get(a.farmId) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = farmOrderIndex.get(b.farmId) ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
       return a.rowNumber - b.rowNumber;
     });
   }, [farms, tasks, user?.id]);
