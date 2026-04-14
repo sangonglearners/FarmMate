@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { TodayReportCardDialog } from "./TodayReportCardDialog";
-import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/features/task-management";
 import { useCrops } from "@/features/crop-management";
 import { useOwnFarms, useSharedFarms } from "@/features/farm-management/model/farm.hooks";
 import { useSharedCalendars } from "@/features/calendar-share";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import {
   getValidFarmIds,
   getOwnFarmIds,
@@ -46,7 +46,7 @@ export function TodayReportCardGoButton({
   buttonClassName,
   children,
 }: TodayReportCardGoButtonProps = {}) {
-  const { user } = useAuth();
+  const { user, ensureAuth } = useRequireAuth();
   const todayDateStr = useTodayDateStr();
   const streakStartDateStr = useMemo(() => {
     const [y, m, d] = todayDateStr.split("-").map((n) => Number(n));
@@ -215,6 +215,7 @@ export function TodayReportCardGoButton({
         variant="outline"
         className={buttonClassName ?? "w-full justify-between bg-white"}
         onClick={() => {
+          if (!ensureAuth()) return;
           setDialogOpen(true);
           setReportNeedsUpdate(true);
         }}
