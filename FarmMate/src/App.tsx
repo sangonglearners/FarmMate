@@ -23,6 +23,7 @@ import {
   RecommendationsHistoryDetailPage 
 } from './pages/recommendations';
 import { appQueryClient } from './lib/appQueryClient';
+import { Toaster } from '@/components/ui/toaster';
 
 // 메인 앱 컴포넌트 (로그인 후 표시되는 기존 FarmMate 웹앱)
 function MainApp() {
@@ -75,6 +76,7 @@ function AppRouter() {
     <>
       <MainApp />
       <LoginPromptDialog />
+      <Toaster />
     </>
   );
 }
