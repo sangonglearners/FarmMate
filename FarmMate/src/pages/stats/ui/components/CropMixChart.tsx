@@ -14,6 +14,8 @@ interface CropMixChartProps {
   data: CropData[];
   totalRows: number;
   usedRows: number;
+  /** false면 작업 이랑이 없을 때 예시 도넛 대신 빈 상태 */
+  useSampleDataWhenEmpty?: boolean;
 }
 
 // 농업/자연 테마 색상 팔레트 (잎·흙·밀·하늘 톤)
@@ -40,10 +42,16 @@ const DEMO_CROP_MIX: CropData[] = [
   { name: "기타", value: 5, percentage: 0 },
 ];
 
-export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
-  const isPlaceholder = usedRows === 0;
-  const sourceData = isPlaceholder ? DEMO_CROP_MIX : data;
-  const centerUsedRows = isPlaceholder ? DEMO_CROP_MIX.reduce((s, d) => s + d.value, 0) : usedRows;
+export function CropMixChart({
+  data,
+  totalRows,
+  usedRows,
+  useSampleDataWhenEmpty = true,
+}: CropMixChartProps) {
+  const noRowUsage = usedRows === 0;
+  const useDemo = noRowUsage && useSampleDataWhenEmpty;
+  const sourceData = useDemo ? DEMO_CROP_MIX : data;
+  const centerUsedRows = useDemo ? DEMO_CROP_MIX.reduce((s, d) => s + d.value, 0) : usedRows;
 
   // 기타를 맨 아래로, 기타 포함 최대 6개
   const nonEtc = sourceData.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
@@ -89,6 +97,24 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
     }
   };
 
+  if (noRowUsage && !useSampleDataWhenEmpty) {
+    return (
+      <Card className="rounded-xl shadow-sm border border-gray-100">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">작물 구성</CardTitle>
+          <p className="text-xs text-gray-500 font-normal mt-1">
+            작물마다 이랑을 몇 줄 쓰는지 원으로 보여 줘요. 가운데는 작업이 있는 이랑 수예요.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500 text-center py-8 rounded-lg border border-gray-100 bg-gray-50/50 px-3 leading-relaxed">
+            작업이 있는 이랑이 없어요. 캘린더에서 작업을 추가하면 작물별 비율이 표시돼요.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
@@ -98,14 +124,14 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
         </p>
       </CardHeader>
       <CardContent>
-        {isPlaceholder && (
+        {useDemo && (
           <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mb-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
             아래 원과 목록은 예시예요. 작업이 쌓이면 실제 비율이 표시돼요.
           </p>
         )}
         <div
           className={
-            isPlaceholder
+            useDemo
               ? "rounded-lg border border-dashed border-gray-200 bg-white p-3"
               : ""
           }

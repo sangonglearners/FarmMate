@@ -25,6 +25,8 @@ interface CropRevenueShareChartProps {
   metricLabel?: string;
   data: { name: string; value: number }[];
   embedded?: boolean;
+  /** false면 거래가 없을 때 예시 원·목록 대신 빈 상태 */
+  useSampleDataWhenEmpty?: boolean;
 }
 
 export function CropRevenueShareChart({
@@ -32,10 +34,12 @@ export function CropRevenueShareChart({
   metricLabel = "매출",
   data,
   embedded = false,
+  useSampleDataWhenEmpty = true,
 }: CropRevenueShareChartProps) {
   const rawTotal = data.reduce((s, d) => s + d.value, 0);
-  const isPlaceholder = data.length === 0 || rawTotal === 0;
-  const sourceData = isPlaceholder ? DEMO_CROP_REVENUE_SHARE : data;
+  const noData = data.length === 0 || rawTotal === 0;
+  const useDemo = noData && useSampleDataWhenEmpty;
+  const sourceData = useDemo ? DEMO_CROP_REVENUE_SHARE : data;
 
   const fullTotal = sourceData.reduce((s, d) => s + d.value, 0);
   const withPercentage = sourceData.map((d) => ({
@@ -87,6 +91,33 @@ export function CropRevenueShareChart({
     }
   };
 
+  if (noData && !useSampleDataWhenEmpty) {
+    const emptyInner = (
+      <>
+        <div className="mb-3">
+          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+          <p className="text-xs text-gray-500 mt-1">
+            왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
+          </p>
+        </div>
+        <p className="text-sm text-gray-500 text-center py-8 rounded-lg border border-gray-100 bg-gray-50/50 px-3 leading-relaxed">
+          이 기간에 집계된 {metricLabel}이 없어요. 장부에 거래를 입력하면 여기에 표시돼요.
+        </p>
+      </>
+    );
+    if (embedded) {
+      return <div>{emptyInner}</div>;
+    }
+    return (
+      <Card className="rounded-lg shadow-sm">
+        <CardHeader>
+          <CardTitle className="sr-only">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>{emptyInner}</CardContent>
+      </Card>
+    );
+  }
+
   const chartBody = (
     <>
       <div className="mb-3">
@@ -95,12 +126,12 @@ export function CropRevenueShareChart({
           왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
         </p>
       </div>
-      {isPlaceholder && (
+      {useDemo && (
         <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
           아래 원과 목록은 예시예요. 거래가 쌓이면 실제 비중이 표시돼요.
         </p>
       )}
-      <div className={isPlaceholder ? "mt-2 rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}>
+      <div className={useDemo ? "mt-2 rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}>
         <div className="flex flex-row items-start gap-1">
           {/* 왼쪽: 원그래프 */}
           <div

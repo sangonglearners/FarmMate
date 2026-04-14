@@ -3,7 +3,12 @@ import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 
-export const LoginPage: React.FC = () => {
+export type LoginPageProps = {
+  /** 랜딩에서만 전달 — 비로그인 둘러보기 진입 */
+  onBrowseWithoutLogin?: () => void;
+};
+
+export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) => {
   const { signInWithGoogle, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [viewport, setViewport] = useState({
@@ -122,7 +127,9 @@ export const LoginPage: React.FC = () => {
             onClick={handleGoogleLogin}
             disabled={loading}
             aria-label="Google 계정으로 로그인"
-            className="absolute left-1/2 -translate-x-1/2 top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
+            className={`absolute left-1/2 -translate-x-1/2 w-[68.31%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40 ${
+              onBrowseWithoutLogin ? "top-[82%] h-[5.85%]" : "top-[85.31%] h-[6.40%]"
+            }`}
           >
             {loading ? (
               <>
@@ -151,6 +158,17 @@ export const LoginPage: React.FC = () => {
               </>
             )}
           </button>
+
+          {onBrowseWithoutLogin && (
+            <button
+              type="button"
+              onClick={onBrowseWithoutLogin}
+              className="absolute left-1/2 -translate-x-1/2 top-[89.2%] w-[78%] max-w-[320px] min-h-[36px] px-2 py-1.5 rounded-[11.2px] border border-[#7DA463]/50 bg-white/90 text-[#5a8a42] text-center font-medium z-40 shadow-sm hover:bg-[#f8faf3] focus:outline-none focus:ring-2 focus:ring-[#7DA463]/40 focus:ring-offset-1"
+              style={{ fontSize: 'clamp(11px, 1.85vh, 15px)', lineHeight: 1.35 }}
+            >
+              로그인 없이 기능 둘러보기
+            </button>
+          )}
         </div>
         </div>
 

@@ -277,6 +277,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   };
 
   const handleExportCsv = () => {
+    if (!ensureAuth()) return;
     try {
       const csv = buildCsvForSelectedFarm();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -296,6 +297,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   };
 
   const handleExportGoogleSheets = async () => {
+    if (!ensureAuth()) return;
     try {
       const csv = buildCsvForSelectedFarm();
       const filename = `F_log 캘린더 ${new Date().toISOString().split("T")[0]}`;

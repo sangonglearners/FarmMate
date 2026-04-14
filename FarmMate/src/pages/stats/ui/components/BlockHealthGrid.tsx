@@ -14,6 +14,8 @@ interface BlockStatus {
 
 interface BlockHealthGridProps {
   blocks: BlockStatus[];
+  /** false면 작업 블록이 없을 때 예시 이랑 대신 빈 상태 */
+  useSampleDataWhenEmpty?: boolean;
 }
 
 const PLACEHOLDER_FARM_ID = "__farmmate_placeholder__";
@@ -67,12 +69,15 @@ const statusTextColors = {
   empty: "text-gray-600",
 };
 
-export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
+export function BlockHealthGrid({
+  blocks,
+  useSampleDataWhenEmpty = true,
+}: BlockHealthGridProps) {
   const [, setLocation] = useLocation();
   const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({});
 
-  const isPlaceholder = blocks.length === 0;
-  const displayBlocks = isPlaceholder ? PLACEHOLDER_BLOCKS : blocks;
+  const useDemo = blocks.length === 0 && useSampleDataWhenEmpty;
+  const displayBlocks = useDemo ? PLACEHOLDER_BLOCKS : blocks;
 
   const handleBlockClick = (farmId: string) => {
     if (farmId === PLACEHOLDER_FARM_ID) return;
@@ -123,6 +128,26 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
     return "";
   };
 
+  if (blocks.length === 0 && !useSampleDataWhenEmpty) {
+    return (
+      <Card className="rounded-xl shadow-sm border border-gray-100">
+        <CardHeader>
+          <div className="flex flex-col gap-0.5">
+            <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
+            <p className="text-xs text-gray-500">
+              이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500 text-center py-8 rounded-lg border border-gray-100 bg-gray-50/50 px-3 leading-relaxed">
+            표시할 이랑·작업이 없어요. 농장을 등록하고 캘린더에 작업을 추가하면 상태가 표시돼요.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
@@ -137,13 +162,13 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {isPlaceholder && (
+        {useDemo && (
           <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mb-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
             아래 이랑 칸은 예시예요. 작업이 쌓이면 실제 상태가 표시돼요.
           </p>
         )}
         <div
-          className={`space-y-6 mb-4 ${isPlaceholder ? "rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}`}
+          className={`space-y-6 mb-4 ${useDemo ? "rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}`}
         >
           {Object.entries(blocksByFarm).map(([farmName, farmBlocks]) => {
             const isExpanded = expandedFarms[farmName] ?? true;
