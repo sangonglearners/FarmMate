@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
+import { trackPageView } from '@/lib/analytics';
 
 interface LoginPageProps {
   onBrowseWithoutLogin?: () => void;
@@ -31,6 +32,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
     { left: 88.57, top: 72.25, soft: true },
     { left: 92.09, top: 63.66, soft: false },
   ]
+
+  useEffect(() => {
+    trackPageView({
+      page_name: 'login',
+      page_category: 'login',
+      page_path: '/login',
+    })
+  }, [])
 
   const handleGoogleLogin = async () => {
     try {

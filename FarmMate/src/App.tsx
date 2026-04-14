@@ -24,6 +24,7 @@ import {
 } from './pages/recommendations';
 import { appQueryClient } from './lib/appQueryClient';
 import { Toaster } from '@/components/ui/toaster';
+import AnalyticsPageTracker from '@/components/AnalyticsPageTracker';
 
 /** 탭(세션) 동안만 유지. 창·탭을 닫고 링크로 다시 들어오면 랜딩이 다시 뜸 (localStorage 미사용) */
 const GUEST_BROWSE_KEY = 'farmmate:browse_without_login';
@@ -42,6 +43,7 @@ function MainApp() {
     <QueryClientProvider client={appQueryClient}>
       <Router>
         <Layout>
+          <AnalyticsPageTracker />
           <Route path="/" component={HomePage} />
           <Route path="/farms" component={FarmsPage} />
           <Route path="/crops" component={FarmsPage} />
