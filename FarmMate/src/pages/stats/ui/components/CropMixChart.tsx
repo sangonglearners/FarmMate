@@ -16,6 +16,8 @@ interface CropMixChartProps {
   usedRows: number;
   /** false면 작업 이랑이 없을 때 예시 도넛 대신 빈 상태 */
   useSampleDataWhenEmpty?: boolean;
+  /** 비로그인(둘러보기)일 때만 제목 아래 회색 안내 문구 표시 */
+  showGuideSubtitle?: boolean;
 }
 
 // 농업/자연 테마 색상 팔레트 (잎·흙·밀·하늘 톤)
@@ -47,6 +49,7 @@ export function CropMixChart({
   totalRows,
   usedRows,
   useSampleDataWhenEmpty = true,
+  showGuideSubtitle = false,
 }: CropMixChartProps) {
   const noRowUsage = usedRows === 0;
   const useDemo = noRowUsage && useSampleDataWhenEmpty;
@@ -102,9 +105,11 @@ export function CropMixChart({
       <Card className="rounded-xl shadow-sm border border-gray-100">
         <CardHeader>
           <CardTitle className="text-base font-semibold">작물 구성</CardTitle>
-          <p className="text-xs text-gray-500 font-normal mt-1">
-            작물마다 이랑을 몇 줄 쓰는지 원으로 보여 줘요. 가운데는 작업이 있는 이랑 수예요.
-          </p>
+          {showGuideSubtitle && (
+            <p className="text-xs text-gray-500 font-normal mt-1">
+              작물마다 이랑을 몇 줄 쓰는지 원으로 보여 줘요. 가운데는 작업이 있는 이랑 수예요.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500 text-center py-8 rounded-lg border border-gray-100 bg-gray-50/50 px-3 leading-relaxed">
@@ -119,9 +124,11 @@ export function CropMixChart({
     <Card className="rounded-xl shadow-sm border border-gray-100">
       <CardHeader>
         <CardTitle className="text-base font-semibold">작물 구성</CardTitle>
-        <p className="text-xs text-gray-500 font-normal mt-1">
-          작물마다 이랑을 몇 줄 쓰는지 원으로 보여 줘요. 가운데는 작업이 있는 이랑 수예요.
-        </p>
+        {showGuideSubtitle && (
+          <p className="text-xs text-gray-500 font-normal mt-1">
+            작물마다 이랑을 몇 줄 쓰는지 원으로 보여 줘요. 가운데는 작업이 있는 이랑 수예요.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         {useDemo && (

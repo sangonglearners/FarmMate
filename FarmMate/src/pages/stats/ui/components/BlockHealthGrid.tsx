@@ -16,6 +16,8 @@ interface BlockHealthGridProps {
   blocks: BlockStatus[];
   /** false면 작업 블록이 없을 때 예시 이랑 대신 빈 상태 */
   useSampleDataWhenEmpty?: boolean;
+  /** 비로그인(둘러보기)일 때만 제목 아래 회색 안내 문구 표시 */
+  showGuideSubtitle?: boolean;
 }
 
 const PLACEHOLDER_FARM_ID = "__farmmate_placeholder__";
@@ -72,6 +74,7 @@ const statusTextColors = {
 export function BlockHealthGrid({
   blocks,
   useSampleDataWhenEmpty = true,
+  showGuideSubtitle = false,
 }: BlockHealthGridProps) {
   const [, setLocation] = useLocation();
   const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({});
@@ -134,9 +137,11 @@ export function BlockHealthGrid({
         <CardHeader>
           <div className="flex flex-col gap-0.5">
             <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
-            <p className="text-xs text-gray-500">
-              이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
-            </p>
+            {showGuideSubtitle && (
+              <p className="text-xs text-gray-500">
+                이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
+              </p>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -153,9 +158,11 @@ export function BlockHealthGrid({
       <CardHeader>
         <div className="flex flex-col gap-0.5">
           <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
-          <p className="text-xs text-gray-500">
-            이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
-          </p>
+          {showGuideSubtitle && (
+            <p className="text-xs text-gray-500">
+              이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
+            </p>
+          )}
           <span className="text-xs text-gray-600">
             이랑 사용 {formatUsage(overallUsagePct, usedBlocks, totalBlocks)}
           </span>

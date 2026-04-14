@@ -27,6 +27,8 @@ interface CropRevenueShareChartProps {
   embedded?: boolean;
   /** false면 거래가 없을 때 예시 원·목록 대신 빈 상태 */
   useSampleDataWhenEmpty?: boolean;
+  /** 비로그인(둘러보기)일 때만 제목 아래 회색 안내 문구 표시 */
+  showGuideSubtitle?: boolean;
 }
 
 export function CropRevenueShareChart({
@@ -35,6 +37,7 @@ export function CropRevenueShareChart({
   data,
   embedded = false,
   useSampleDataWhenEmpty = true,
+  showGuideSubtitle = false,
 }: CropRevenueShareChartProps) {
   const rawTotal = data.reduce((s, d) => s + d.value, 0);
   const noData = data.length === 0 || rawTotal === 0;
@@ -96,9 +99,11 @@ export function CropRevenueShareChart({
       <>
         <div className="mb-3">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-          <p className="text-xs text-gray-500 mt-1">
-            왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
-          </p>
+          {showGuideSubtitle && (
+            <p className="text-xs text-gray-500 mt-1">
+              왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
+            </p>
+          )}
         </div>
         <p className="text-sm text-gray-500 text-center py-8 rounded-lg border border-gray-100 bg-gray-50/50 px-3 leading-relaxed">
           이 기간에 집계된 {metricLabel}이 없어요. 장부에 거래를 입력하면 여기에 표시돼요.
@@ -122,9 +127,11 @@ export function CropRevenueShareChart({
     <>
       <div className="mb-3">
         <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        <p className="text-xs text-gray-500 mt-1">
-          왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
-        </p>
+        {showGuideSubtitle && (
+          <p className="text-xs text-gray-500 mt-1">
+            왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
+          </p>
+        )}
       </div>
       {useDemo && (
         <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
