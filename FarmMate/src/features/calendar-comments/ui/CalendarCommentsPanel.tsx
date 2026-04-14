@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCalendarComments, useCreateCalendarComment, useDeleteCalendarComment, useUpdateCalendarComment } from "../model/calendar-comment.hooks";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import type { UserRole } from "@/shared/api/calendar-share.repository";
 
 interface CalendarCommentsPanelProps {
@@ -34,6 +35,7 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
   const [isOpen, setIsOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { ensureAuth } = useRequireAuth();
   const { data: comments = [], isLoading } = useCalendarComments(calendarId);
   const createComment = useCreateCalendarComment();
   const updateComment = useUpdateCalendarComment();
@@ -67,6 +69,7 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
   };
 
   const handleEditSave = async (commentId: string) => {
+    if (!ensureAuth()) return;
     if (!editContent.trim()) return;
 
     await updateComment.mutateAsync({
@@ -78,11 +81,13 @@ export function CalendarCommentsPanel({ calendarId, userRole }: CalendarComments
   };
 
   const handleDelete = (commentId: string) => {
+    if (!ensureAuth()) return;
     setPendingDeleteId(commentId);
   };
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return;
+    if (!ensureAuth()) return;
     await deleteComment.mutateAsync(pendingDeleteId);
     setPendingDeleteId(null);
   };

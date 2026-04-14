@@ -35,6 +35,7 @@ import {
 import type { Task } from "@shared/schema";
 import { useEffect } from "react";
 import { sendPageView } from "../../../shared/ga";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -52,6 +53,7 @@ export default function HomePage() {
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
+  const { ensureAuth } = useRequireAuth();
 
   // Google Analytics 페이지뷰 추적
   useEffect(() => {
@@ -132,10 +134,12 @@ export default function HomePage() {
 
 
   const handleAddTaskClick = () => {
+    if (!ensureAuth()) return;
     setShowAddTaskDialog(true);
   };
 
   const handleTaskClick = (task: any) => {
+    if (!ensureAuth()) return;
     console.log("편집할 task 데이터:", task);
     
     // 그룹 정보: 투두리스트에서는 originalTaskGroup, 없으면 taskGroupId로 전체 작업에서 그룹 조회

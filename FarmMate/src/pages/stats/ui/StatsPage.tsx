@@ -16,6 +16,7 @@ import { useTasks } from "@/features/task-management";
 import { useFarms } from "@/features/farm-management/model/farm.hooks";
 import { useCrops } from "@/features/crop-management";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { listLedgers } from "@/shared/api/ledgers";
 import { filterTasksByDateRange } from "@/shared/utils/task-filter";
 import {
@@ -58,6 +59,7 @@ export default function StatsPage() {
   };
 
   const { user } = useAuth();
+  const { ensureAuth } = useRequireAuth();
   const today = new Date();
   const initialEndDateStr = format(today, "yyyy-MM-dd");
 
@@ -387,6 +389,7 @@ export default function StatsPage() {
   }, [aiInsightCacheKey]);
 
   const fetchAiInsight = useCallback(async () => {
+    if (!ensureAuth()) return;
     if (!insights.hasRevenue && !insights.hasCropShare) return;
     if (!canUseAI) return;
 
@@ -412,7 +415,7 @@ export default function StatsPage() {
     } finally {
       setAiInsightLoading(false);
     }
-  }, [insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit]);
+  }, [ensureAuth, insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{

@@ -27,7 +27,7 @@ import type { FarmEntity } from "@/shared/api/farm.repository";
 import { getTaskGroups, type TaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
 import { CalendarShareDialog } from "@/features/calendar-share/ui";
 import { useUserRoleForCalendar, useSharedFarmIds } from "@/features/calendar-share";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { CalendarCommentsPanel } from "@/features/calendar-comments";
 import { isDateInTaskRange } from "@/shared/utils/task-filter";
 import { listLedgers, type LedgerWithExpenses } from "@/shared/api/ledgers";
@@ -75,8 +75,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   // 공유 다이얼로그 상태
   const [showShareDialog, setShowShareDialog] = useState(false);
   
-  // 현재 사용자 정보 가져오기 (먼저 선언)
-  const { user } = useAuth();
+  const { user, ensureAuth } = useRequireAuth();
   
   // 농장 데이터 가져오기
   const { data: farms = [], isLoading: farmsLoading } = useFarms();
@@ -432,6 +431,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   }, [onDateClick]);
 
   const openAddTaskShortcut = useCallback((dateStr: string, rowNumber?: number | null, endDate?: string | null) => {
+    if (!ensureAuth()) return;
     if (!canCreateTask) return;
     handleDateSelection(dateStr, rowNumber);
     setSelectedDateForTask(dateStr);
@@ -440,7 +440,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
       typeof rowNumber === "number" ? rowNumber : null,
     );
     setShowAddTaskDialog(true);
-  }, [canCreateTask, handleDateSelection]);
+  }, [ensureAuth, canCreateTask, handleDateSelection]);
 
   const cancelLongPressTimer = useCallback(() => {
     if (longPressTimeoutRef.current !== null) {
@@ -1413,7 +1413,10 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
             variant="outline"
             size="sm"
             className="bg-white"
-            onClick={() => setShowShareDialog(true)}
+            onClick={() => {
+              if (!ensureAuth()) return;
+              setShowShareDialog(true);
+            }}
             aria-label="캘린더 공유"
             title="캘린더 공유"
           >
@@ -2036,6 +2039,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
                 size="sm" 
                 className="flex items-center space-x-1"
                 onClick={() => {
+                  if (!ensureAuth()) return;
                   setSelectedDateForTask(selectedCellDate);
                   setShowAddTaskDialog(true);
                 }}
@@ -2295,6 +2299,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         onOpenChange={setShowActionSheet}
         task={selectedTask}
         onEditTask={() => {
+          if (!ensureAuth()) return;
           setShowActionSheet(false);
           // 일괄등록 작업은 일괄 수정 다이얼로그, 개별 작업은 개별 수정 다이얼로그
           if (selectedTask?.taskGroupId) {
@@ -2304,6 +2309,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
           }
         }}
         onWriteLedger={() => {
+          if (!ensureAuth()) return;
           setShowActionSheet(false);
           setShowLedgerDialog(true);
         }}

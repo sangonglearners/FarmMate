@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddFarmDialog, useFarms, useDeleteFarm } from "@features/farm-management";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLoginPrompt } from "@/contexts/LoginPromptContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { AddCropDialog, useCrops, useDeleteCrop } from "@features/crop-management";
 import { useSharedFarmIds, useFarmOwners, useSharedCalendars, useRemoveSharedUser } from "@features/calendar-share";
 import {
@@ -33,8 +35,9 @@ export default function FarmsPage() {
     onConfirm: () => void;
   }>({ open: false, title: "", description: "", onConfirm: () => {} });
   
-  // 현재 사용자 정보 가져오기
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { openLoginPrompt } = useLoginPrompt();
+  const { ensureAuth } = useRequireAuth();
   
   // 농장 데이터 가져오기 (내 농장과 친구 농장을 userId로 분리)
   const { data: farms = [], isLoading: farmsLoading } = useFarms();
@@ -80,11 +83,31 @@ export default function FarmsPage() {
 
   // Open dialogs when query params are present (e.g., /farms?add=farm or ?add=crop)
   useEffect(() => {
+    if (authLoading) return;
     const params = new URLSearchParams(window.location.search);
     const add = params.get('add');
-    if (add === 'farm') setIsAddFarmDialogOpen(true);
-    if (add === 'crop') setIsAddCropDialogOpen(true);
-  }, []);
+    if (!add) return;
+
+    if (add === 'farm') {
+      if (user) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('add');
+        window.history.replaceState({}, '', url.toString());
+        setIsAddFarmDialogOpen(true);
+      } else {
+        openLoginPrompt();
+      }
+    } else if (add === 'crop') {
+      if (user) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('add');
+        window.history.replaceState({}, '', url.toString());
+        setIsAddCropDialogOpen(true);
+      } else {
+        openLoginPrompt();
+      }
+    }
+  }, [authLoading, user, openLoginPrompt]);
 
   const getFarmCrops = (farmId: string) => {
     return crops?.filter(crop => crop.farmId === farmId) || [];
@@ -117,7 +140,10 @@ export default function FarmsPage() {
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-gray-600" /> 내 농장 목록</h2>
           <Button 
             size="sm" 
-            onClick={() => setIsAddFarmDialogOpen(true)}
+            onClick={() => {
+              if (!ensureAuth()) return;
+              setIsAddFarmDialogOpen(true);
+            }}
             className="flex items-center space-x-1"
           >
             <Plus className="w-4 h-4" />
@@ -152,12 +178,16 @@ export default function FarmsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setEditingFarm(farm); setIsAddFarmDialogOpen(true); }}>
+                            <DropdownMenuItem onClick={() => {
+                              if (!ensureAuth()) return;
+                              setEditingFarm(farm); setIsAddFarmDialogOpen(true);
+                            }}>
                               <Edit className="w-4 h-4 mr-2" /> 수정
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive" 
                               onClick={() => {
+                                if (!ensureAuth()) return;
                                 setConfirmDialog({
                                   open: true,
                                   title: `"${farm.name}" 농장을 삭제하시겠습니까?`,
@@ -182,7 +212,10 @@ export default function FarmsPage() {
             <CardContent className="p-8 text-center">
               <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">등록된 농장이 없습니다</p>
-              <Button onClick={() => setIsAddFarmDialogOpen(true)}>
+              <Button onClick={() => {
+                if (!ensureAuth()) return;
+                setIsAddFarmDialogOpen(true);
+              }}>
                 <Plus className="w-4 h-4 mr-2" />
                 첫 농장 추가하기
               </Button>
@@ -234,6 +267,7 @@ export default function FarmsPage() {
                             <DropdownMenuItem 
                               className="text-destructive" 
                               onClick={() => {
+                                if (!ensureAuth()) return;
                                 if (!shareId) return;
                                 setConfirmDialog({
                                   open: true,
@@ -272,7 +306,10 @@ export default function FarmsPage() {
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Sprout className="w-5 h-5 text-gray-600" /> 내 작물 관리</h2>
           <Button 
             size="sm" 
-            onClick={() => setIsAddCropDialogOpen(true)}
+            onClick={() => {
+              if (!ensureAuth()) return;
+              setIsAddCropDialogOpen(true);
+            }}
             className="flex items-center space-x-1"
           >
             <Plus className="w-4 h-4" />
@@ -309,12 +346,16 @@ export default function FarmsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditingCrop(crop); setIsAddCropDialogOpen(true); }}>
+                        <DropdownMenuItem onClick={() => {
+                          if (!ensureAuth()) return;
+                          setEditingCrop(crop); setIsAddCropDialogOpen(true);
+                        }}>
                           <Edit className="w-4 h-4 mr-2" /> 수정
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-destructive" 
                           onClick={() => {
+                            if (!ensureAuth()) return;
                             setConfirmDialog({
                               open: true,
                               title: `"${crop.name}" 작물을 삭제하시겠습니까?`,
@@ -337,7 +378,10 @@ export default function FarmsPage() {
             <CardContent className="p-8 text-center">
               <Sprout className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">등록된 작물이 없습니다</p>
-              <Button onClick={() => setIsAddCropDialogOpen(true)}>
+              <Button onClick={() => {
+                if (!ensureAuth()) return;
+                setIsAddCropDialogOpen(true);
+              }}>
                 <Plus className="w-4 h-4 mr-2" />
                 첫 작물 추가하기
               </Button>

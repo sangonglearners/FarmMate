@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LoginPromptProvider } from './contexts/LoginPromptContext';
 import { LoginPage } from './components/LoginPage';
+import { LoginPromptDialog } from './components/LoginPromptDialog';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Router, Route } from 'wouter';
 import HomePage from './pages/home/ui/HomePage';
@@ -59,9 +62,9 @@ function MainApp() {
 }
 
 function AppRouter() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
+  const [path] = useLocation();
 
-  // 로딩 중일 때
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -73,13 +76,16 @@ function AppRouter() {
     );
   }
 
-  // 로그인하지 않은 경우
-  if (!user) {
+  if (path === '/login') {
     return <LoginPage />;
   }
 
-  // 로그인한 경우 - 기존 FarmMate 홈화면으로 연결
-  return <MainApp />;
+  return (
+    <>
+      <MainApp />
+      <LoginPromptDialog />
+    </>
+  );
 }
 
 function ReferralCapture() {
@@ -100,8 +106,10 @@ function ReferralCapture() {
 function App() {
   return (
     <AuthProvider>
-      <ReferralCapture />
-      <AppRouter />
+      <LoginPromptProvider>
+        <ReferralCapture />
+        <AppRouter />
+      </LoginPromptProvider>
     </AuthProvider>
   );
 }
