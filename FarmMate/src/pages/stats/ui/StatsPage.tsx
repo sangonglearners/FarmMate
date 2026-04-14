@@ -958,6 +958,7 @@ export default function StatsPage() {
                   }
                   data={cropRevenueData}
                   useSampleDataWhenEmpty={!user}
+                  showGuideSubtitle={!user}
                 />
               </div>
             </CardContent>
@@ -969,20 +970,27 @@ export default function StatsPage() {
           <div className="w-full rounded-xl bg-[#E8F5E9] px-4 py-2">
             <h2 className="text-xl font-bold text-gray-900">내 농장의 작업 현황은?</h2>
           </div>
-          <p className="text-sm text-gray-600 -mt-1">
-            작물마다 이랑을 얼마나 쓰는지는{" "}
-            <span className="font-medium text-gray-800">위쪽 원</span>으로, 이랑마다 작업이 많은지는{" "}
-            <span className="font-medium text-gray-800">아래 색칠한 칸</span>으로 볼 수 있어요.
-          </p>
+          {!user && (
+            <p className="text-sm text-gray-600 -mt-1">
+              작물마다 이랑을 얼마나 쓰는지는{" "}
+              <span className="font-medium text-gray-800">위쪽 원</span>으로, 이랑마다 작업이 많은지는{" "}
+              <span className="font-medium text-gray-800">아래 색칠한 칸</span>으로 볼 수 있어요.
+            </p>
+          )}
 
           <CropMixChart
             data={cropMixData.data}
             totalRows={cropMixData.totalRows}
             usedRows={cropMixData.usedRows}
             useSampleDataWhenEmpty={!user}
+            showGuideSubtitle={!user}
           />
 
-          <BlockHealthGrid blocks={blockStatuses} useSampleDataWhenEmpty={!user} />
+          <BlockHealthGrid
+            blocks={blockStatuses}
+            useSampleDataWhenEmpty={!user}
+            showGuideSubtitle={!user}
+          />
         </section>
       </div>
     </div>
