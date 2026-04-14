@@ -26,7 +26,7 @@ export default function MyPage() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { signOut, user } = useAuth();
+  const { signOut, signInWithGoogle, user } = useAuth();
 
   useEffect(() => {
     // user_profiles에서 display_name 가져오기
@@ -54,13 +54,10 @@ export default function MyPage() {
           setTempUserName(user.user_metadata?.full_name || user.email || '사용자');
         }
       } else {
-        const savedName = localStorage.getItem('fm_user_name');
-        const savedAvatar = localStorage.getItem('fm_user_avatar');
-        if (savedName) {
-          setUserName(savedName);
-          setTempUserName(savedName);
-        }
-        if (savedAvatar) setAvatarUrl(savedAvatar);
+        // 비로그인 상태에서는 이전 사용자 정보가 노출되지 않도록 기본값으로 초기화
+        setUserName('사용자');
+        setTempUserName('사용자');
+        setAvatarUrl('');
       }
     };
 
@@ -126,6 +123,15 @@ export default function MyPage() {
     }
   };
 
+  const handleLogin = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('❌ 로그인 실패:', error);
+      alert('로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  };
+
   const handleWithdraw = async () => {
     if (isWithdrawing) return;
     setIsWithdrawing(true);
@@ -183,14 +189,20 @@ export default function MyPage() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44 z-[100]">
-            <DropdownMenuItem onClick={() => setShowLogout(true)}>로그아웃</DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                window.setTimeout(() => setShowWithdraw(true), 0);
-              }}
-            >
-              회원탈퇴
-            </DropdownMenuItem>
+            {user ? (
+              <>
+                <DropdownMenuItem onClick={() => setShowLogout(true)}>로그아웃</DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    window.setTimeout(() => setShowWithdraw(true), 0);
+                  }}
+                >
+                  회원탈퇴
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <DropdownMenuItem onClick={handleLogin}>로그인</DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

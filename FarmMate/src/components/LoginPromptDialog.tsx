@@ -26,10 +26,10 @@ export function LoginPromptDialog() {
         <DialogHeader>
           <DialogTitle>로그인이 필요합니다</DialogTitle>
           <DialogDescription>
-            저장하려면 Google로 로그인해 주세요. 화면만 볼 때는 로그인 없이 돼요.
+            저장 기능은 로그인 후 이용할 수 있어요.
           </DialogDescription>
         </DialogHeader>
-        <GoogleLoginButton className="mt-2">Google 계정으로 로그인</GoogleLoginButton>
+        <GoogleLoginButton className="mt-2">Google로 로그인</GoogleLoginButton>
       </DialogContent>
     </Dialog>
   )

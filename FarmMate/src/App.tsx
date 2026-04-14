@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPromptProvider } from './contexts/LoginPromptContext';
 import { LoginPage } from './components/LoginPage';
 import { LoginPromptDialog } from './components/LoginPromptDialog';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Router, Route } from 'wouter';
 import HomePage from './pages/home/ui/HomePage';
 import { FarmsPage } from './pages/farms';
@@ -22,21 +22,12 @@ import {
   RecommendationsHistoryPage,
   RecommendationsHistoryDetailPage 
 } from './pages/recommendations';
-
-// QueryClient 생성
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5분
-    },
-  },
-});
+import { appQueryClient } from './lib/appQueryClient';
 
 // 메인 앱 컴포넌트 (로그인 후 표시되는 기존 FarmMate 웹앱)
 function MainApp() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={appQueryClient}>
       <Router>
         <Layout>
           <Route path="/" component={HomePage} />
