@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPromptProvider } from './contexts/LoginPromptContext';
@@ -24,6 +24,16 @@ import {
 } from './pages/recommendations';
 import { appQueryClient } from './lib/appQueryClient';
 import { Toaster } from '@/components/ui/toaster';
+
+const GUEST_BROWSE_KEY = 'farmmate:browse_without_login';
+
+function readGuestBrowseFlag(): boolean {
+  try {
+    return localStorage.getItem(GUEST_BROWSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 // 메인 앱 컴포넌트 (로그인 후 표시되는 기존 FarmMate 웹앱)
 function MainApp() {
@@ -54,8 +64,22 @@ function MainApp() {
 }
 
 function AppRouter() {
-  const { loading } = useAuth();
-  const [path] = useLocation();
+  const { loading, user } = useAuth();
+  const [path, setLocation] = useLocation();
+  const [guestBrowse, setGuestBrowse] = useState(readGuestBrowseFlag);
+
+  useEffect(() => {
+    if (!user) {
+      setGuestBrowse(readGuestBrowseFlag());
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (user && path === '/login') {
+      setLocation('/');
+    }
+  }, [loading, user, path, setLocation]);
 
   if (loading) {
     return (
@@ -68,8 +92,26 @@ function AppRouter() {
     );
   }
 
-  if (path === '/login') {
-    return <LoginPage />;
+  const handleBrowseWithoutLogin = () => {
+    try {
+      localStorage.setItem(GUEST_BROWSE_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setGuestBrowse(true);
+    setLocation('/');
+  };
+
+  if (!user && path === '/login') {
+    return (
+      <LoginPage
+        onBrowseWithoutLogin={guestBrowse ? undefined : handleBrowseWithoutLogin}
+      />
+    );
+  }
+
+  if (!user && !guestBrowse && path === '/') {
+    return <LoginPage onBrowseWithoutLogin={handleBrowseWithoutLogin} />;
   }
 
   return (

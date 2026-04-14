@@ -18,6 +18,8 @@ interface TrendChartProps {
   criterionLabel?: string;
   viewUnitOptions?: { value: ViewUnit; label: string }[];
   embedded?: boolean;
+  /** false면 장부 합이 0이어도 예시 곡선을 쓰지 않고 실제(0)만 표시 */
+  useSampleDataWhenEmpty?: boolean;
 }
 
 const DEEP_GREEN = "#4CAF50";
@@ -245,6 +247,7 @@ export function TrendChart({
   criterionLabel,
   viewUnitOptions,
   embedded = false,
+  useSampleDataWhenEmpty = true,
 }: TrendChartProps) {
   const isMobile = useIsMobile();
   const units = viewUnitOptions ?? VIEW_UNITS;
@@ -256,19 +259,21 @@ export function TrendChart({
 
   const targetVisibleCount = useMemo(() => getTargetVisibleCount(viewUnit), [viewUnit]);
 
-  const isPlaceholderTrend = useMemo(
+  const allZeroTrend = useMemo(
     () => data.length > 0 && data.every((d) => d.value === 0),
     [data],
   );
 
+  const showSampleLine = useSampleDataWhenEmpty && allZeroTrend;
+
   const effectiveSource = useMemo(() => {
-    if (!isPlaceholderTrend) return data;
+    if (!showSampleLine) return data;
     const demos = buildDemoTrendValues(data.length);
     return data.map((d, i) => ({
       period: d.period,
       value: demos[i] ?? 0,
     }));
-  }, [data, isPlaceholderTrend]);
+  }, [data, showSampleLine]);
 
   const chartData: TrendChartRow[] = useMemo(
     () =>
@@ -367,7 +372,7 @@ export function TrendChart({
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-1">단위: 천원</p>
-        {isPlaceholderTrend && (
+        {showSampleLine && (
           <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
             아래 곡선은 예시예요. 장부에 거래가 쌓이면 실제 금액이 표시돼요.
           </p>
@@ -376,7 +381,7 @@ export function TrendChart({
       <div className="h-64 relative -ml-4 w-[calc(100%+1rem)]">
         <div
           className={`h-full w-full flex min-h-0 overflow-hidden rounded-lg border bg-white ${
-            isPlaceholderTrend ? "border-dashed border-gray-200" : "border-gray-100"
+            showSampleLine ? "border-dashed border-gray-200" : "border-gray-100"
           }`}
         >
           <div

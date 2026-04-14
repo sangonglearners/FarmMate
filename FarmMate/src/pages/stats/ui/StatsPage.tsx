@@ -683,6 +683,10 @@ export default function StatsPage() {
                         이에요.
                       </p>
                     </>
+                  ) : user ? (
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      선택한 기간에 집계된 {insights.metricLabel}이 없어요. 장부에 거래를 입력하면 여기에 표시돼요.
+                    </p>
                   ) : (
                     <div className="space-y-1 opacity-80">
                       <p className="text-xs text-gray-600">
@@ -743,6 +747,10 @@ export default function StatsPage() {
                         을 차지하고 있어요.
                       </p>
                     </>
+                  ) : user ? (
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      선택한 기간에 작물별 {insights.metricLabel} 비중을 계산할 수 있어요. 장부와 작물 데이터가 쌓이면 순위가 표시돼요.
+                    </p>
                   ) : (
                     <div className="space-y-1 opacity-80">
                       <p className="text-xs text-gray-600">
@@ -935,6 +943,7 @@ export default function StatsPage() {
                 onViewUnitChange={setViewUnit}
                 viewUnitOptions={chartViewOptions}
                 criterionLabel={rangeLabel}
+                useSampleDataWhenEmpty={!user}
               />
               <div className="border-t border-gray-100 pt-4">
                 <CropRevenueShareChart
@@ -948,6 +957,7 @@ export default function StatsPage() {
                         : "작물별 순수익 비중"
                   }
                   data={cropRevenueData}
+                  useSampleDataWhenEmpty={!user}
                 />
               </div>
             </CardContent>
@@ -969,9 +979,10 @@ export default function StatsPage() {
             data={cropMixData.data}
             totalRows={cropMixData.totalRows}
             usedRows={cropMixData.usedRows}
+            useSampleDataWhenEmpty={!user}
           />
 
-          <BlockHealthGrid blocks={blockStatuses} />
+          <BlockHealthGrid blocks={blockStatuses} useSampleDataWhenEmpty={!user} />
         </section>
       </div>
     </div>
