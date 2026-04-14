@@ -873,6 +873,7 @@ export default function StatsPage() {
               <div className="border-t border-gray-100 pt-4">
                 <CropRevenueShareChart
                   embedded
+                  metricLabel={metricLabelMap[metricMode]}
                   title={
                     metricMode === "revenue"
                       ? "작물별 매출 비중"
@@ -892,14 +893,19 @@ export default function StatsPage() {
           <div className="w-full rounded-xl bg-[#E8F5E9] px-4 py-2">
             <h2 className="text-xl font-bold text-gray-900">내 농장의 작업 현황은?</h2>
           </div>
-          {cropMixData.totalRows > 0 && (
-            <CropMixChart
-              data={cropMixData.data}
-              totalRows={cropMixData.totalRows}
-              usedRows={cropMixData.usedRows}
-            />
-          )}
-          {blockStatuses.length > 0 && <BlockHealthGrid blocks={blockStatuses} />}
+          <p className="text-sm text-gray-600 -mt-1">
+            작물마다 이랑을 얼마나 쓰는지는{" "}
+            <span className="font-medium text-gray-800">위쪽 원</span>으로, 이랑마다 작업이 많은지는{" "}
+            <span className="font-medium text-gray-800">아래 색칠한 칸</span>으로 볼 수 있어요.
+          </p>
+
+          <CropMixChart
+            data={cropMixData.data}
+            totalRows={cropMixData.totalRows}
+            usedRows={cropMixData.usedRows}
+          />
+
+          <BlockHealthGrid blocks={blockStatuses} />
         </section>
       </div>
     </div>

@@ -16,6 +16,43 @@ interface BlockHealthGridProps {
   blocks: BlockStatus[];
 }
 
+const PLACEHOLDER_FARM_ID = "__farmmate_placeholder__";
+
+const PLACEHOLDER_BLOCKS: BlockStatus[] = [
+  {
+    blockId: "ph-1",
+    farmName: "예시 농장",
+    farmId: PLACEHOLDER_FARM_ID,
+    rowNumber: 1,
+    status: "good",
+    pendingTasks: 3,
+  },
+  {
+    blockId: "ph-2",
+    farmName: "예시 농장",
+    farmId: PLACEHOLDER_FARM_ID,
+    rowNumber: 2,
+    status: "watch",
+    pendingTasks: 5,
+  },
+  {
+    blockId: "ph-3",
+    farmName: "예시 농장",
+    farmId: PLACEHOLDER_FARM_ID,
+    rowNumber: 3,
+    status: "danger",
+    pendingTasks: 7,
+  },
+  {
+    blockId: "ph-4",
+    farmName: "예시 농장",
+    farmId: PLACEHOLDER_FARM_ID,
+    rowNumber: 4,
+    status: "empty",
+    pendingTasks: 0,
+  },
+];
+
 const statusColors = {
   good: "bg-green-100 border-green-300 hover:bg-green-200",
   watch: "bg-yellow-100 border-yellow-300 hover:bg-yellow-200",
@@ -34,13 +71,16 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   const [, setLocation] = useLocation();
   const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({});
 
+  const isPlaceholder = blocks.length === 0;
+  const displayBlocks = isPlaceholder ? PLACEHOLDER_BLOCKS : blocks;
+
   const handleBlockClick = (farmId: string) => {
-    // 해당 농장의 캘린더 페이지로 이동
+    if (farmId === PLACEHOLDER_FARM_ID) return;
     setLocation(`/calendar?farmId=${farmId}`);
   };
 
   // 농장별로 그룹화
-  const blocksByFarm = blocks.reduce((acc, block) => {
+  const blocksByFarm = displayBlocks.reduce((acc, block) => {
     if (!acc[block.farmName]) {
       acc[block.farmName] = [];
     }
@@ -54,9 +94,10 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   });
 
   // 전체 이랑 사용률 (empty가 아닌 블록 = 사용 이랑)
-  const totalBlocks = blocks.length;
-  const usedBlocks = blocks.filter(b => b.status !== "empty").length;
+  const totalBlocks = displayBlocks.length;
+  const usedBlocks = displayBlocks.filter((b) => b.status !== "empty").length;
   const overallUsagePct = totalBlocks > 0 ? ((usedBlocks / totalBlocks) * 100).toFixed(1) : "0";
+  const formatUsage = (pct: string, used: number, total: number) => `${pct}% (${used}개/${total}개)`;
 
   // 농장별 이랑 사용률
   const getFarmUsage = (farmBlocks: BlockStatus[]) => {
@@ -87,15 +128,25 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
       <CardHeader>
         <div className="flex flex-col gap-0.5">
           <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
+          <p className="text-xs text-gray-500">
+            이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
+          </p>
           <span className="text-xs text-gray-600">
-            이랑 사용률: {overallUsagePct}% ({usedBlocks}개/{totalBlocks}개)
+            이랑 사용 {formatUsage(overallUsagePct, usedBlocks, totalBlocks)}
           </span>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6 mb-4">
+        {isPlaceholder && (
+          <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mb-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
+            아래 이랑 칸은 예시예요. 작업이 쌓이면 실제 상태가 표시돼요.
+          </p>
+        )}
+        <div
+          className={`space-y-6 mb-4 ${isPlaceholder ? "rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}`}
+        >
           {Object.entries(blocksByFarm).map(([farmName, farmBlocks]) => {
-            const isExpanded = expandedFarms[farmName] ?? false;
+            const isExpanded = expandedFarms[farmName] ?? true;
             const farmUsage = getFarmUsage(farmBlocks);
 
             return (
@@ -118,7 +169,7 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
                     {farmName}
                   </h3>
                   <span className="text-xs text-gray-600 shrink-0">
-                    {farmUsage.pct}% ({farmUsage.used}개/{farmUsage.total}개)
+                    {formatUsage(farmUsage.pct, farmUsage.used, farmUsage.total)}
                   </span>
                 </button>
 
@@ -128,13 +179,16 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
                     {farmBlocks.map((block) => (
                       <button
                         key={block.blockId}
+                        type="button"
                         onClick={() => handleBlockClick(block.farmId)}
                         disabled={block.status === "empty"}
                         className={cn(
                           "rounded-lg border-2 p-3 text-center transition-colors",
                           block.status === "empty"
                             ? "cursor-not-allowed opacity-75"
-                            : "cursor-pointer",
+                            : block.farmId === PLACEHOLDER_FARM_ID
+                              ? "cursor-default"
+                              : "cursor-pointer",
                           statusColors[block.status]
                         )}
                       >
