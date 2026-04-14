@@ -702,14 +702,20 @@ export default function AddTaskDialog({
     if (!crop) return;
 
     form.setValue("cropId", cropId);
-    form.setValue("farmId", (crop as any).farmId || "");
     setCropSearchTerm(crop.name);
     setSelectedCrop(crop);
 
-    const farm = farms?.find((f) => f.id === (crop as any).farmId);
-    if (farm) {
-      form.setValue("environment", farm.environment || "");
-      setSelectedFarm(farm);
+    const currentFarmId = form.getValues("farmId");
+    const cropFarmId = (crop as any).farmId;
+
+    // 캘린더/사용자에서 이미 선택한 농장이 있으면 유지하고, 비어 있을 때만 작물 농장으로 보정
+    if (!currentFarmId && cropFarmId) {
+      form.setValue("farmId", cropFarmId);
+      const farm = farms?.find((f) => f.id === cropFarmId);
+      if (farm) {
+        form.setValue("environment", farm.environment || "");
+        setSelectedFarm(farm);
+      }
     }
   };
   
@@ -737,12 +743,18 @@ export default function AddTaskDialog({
     if (matchingCrop) {
       form.setValue("cropId", matchingCrop.id);
       setSelectedCrop(matchingCrop);
-      
-      const farm = farms?.find((f) => f.id === (matchingCrop as any).farmId);
-      if (farm) {
-        form.setValue("farmId", (matchingCrop as any).farmId || "");
-        form.setValue("environment", farm.environment || "");
-        setSelectedFarm(farm);
+
+      const currentFarmId = form.getValues("farmId");
+      const cropFarmId = (matchingCrop as any).farmId;
+
+      // 이미 고른 농장이 있으면 변경하지 않음
+      if (!currentFarmId && cropFarmId) {
+        const farm = farms?.find((f) => f.id === cropFarmId);
+        if (farm) {
+          form.setValue("farmId", cropFarmId);
+          form.setValue("environment", farm.environment || "");
+          setSelectedFarm(farm);
+        }
       }
     } else {
       form.setValue("cropId", "");
@@ -2022,9 +2034,6 @@ export default function AddTaskDialog({
                           </SelectContent>
                         </Select>
                         <FormMessage />
-                        <p className="text-xs text-gray-500">
-                          특정 이랑을 반드시 선택해야 합니다
-                        </p>
                       </FormItem>
                     );
                     }}
