@@ -27,7 +27,6 @@ import {
 } from "@/shared/api/weather";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
 import { useAiCredits, useReferralCode } from "../hooks/useAiCredits";
 import {
   Popover,
@@ -49,17 +48,6 @@ import type { Task } from "@shared/schema";
 type MetricMode = "revenue" | "netProfit" | "cost";
 
 export default function StatsPage() {
-  const insightExamples = {
-    totalValue: 2450000,
-    avgValue: 816000,
-    topCrops: [
-      { name: "딸기", value: 980000 },
-      { name: "상추", value: 760000 },
-      { name: "토마토", value: 520000 },
-    ],
-    topShare: 81.2,
-  };
-
   const metricLabelMap: Record<MetricMode, string> = {
     revenue: "매출",
     cost: "비용",
@@ -72,7 +60,6 @@ export default function StatsPage() {
 
   const { user } = useAuth();
   const { ensureAuth } = useRequireAuth();
-  const { toast } = useToast();
   const today = new Date();
   const initialEndDateStr = format(today, "yyyy-MM-dd");
 
@@ -403,13 +390,7 @@ export default function StatsPage() {
 
   const fetchAiInsight = useCallback(async () => {
     if (!ensureAuth()) return;
-    if (!insights.hasRevenue && !insights.hasCropShare) {
-      toast({
-        description:
-          "선택한 기간에 매출·작물 비중 데이터가 있으면 AI 인사이트를 받을 수 있어요.",
-      });
-      return;
-    }
+    if (!insights.hasRevenue && !insights.hasCropShare) return;
     if (!canUseAI) return;
 
     setAiInsightLoading(true);
@@ -434,7 +415,7 @@ export default function StatsPage() {
     } finally {
       setAiInsightLoading(false);
     }
-  }, [ensureAuth, insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit, toast]);
+  }, [ensureAuth, insights, aiInsightCacheKey, canUseAI, isAdmin, consumeCredit]);
 
   const blockStatuses = useMemo(() => {
     const blocks: Array<{
@@ -651,12 +632,6 @@ export default function StatsPage() {
           </div>
           <Card className="rounded-xl border border-gray-100 shadow-sm">
             <CardContent className="p-4 space-y-3">
-              {!user && (
-                <p className="text-[clamp(9px,2.2vw,12px)] rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-snug space-y-1">
-                  <span className="block text-gray-600">아래 인사이트는 예시예요.</span>
-                  <span className="block font-medium text-[#4CAF50]">로그인해서 나의 인사이트로 만들어봐요!</span>
-                </p>
-              )}
               {/* 1. 총 매출/평균 매출 카드형 요약 */}
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 text-base">✓</span>
@@ -683,31 +658,10 @@ export default function StatsPage() {
                         이에요.
                       </p>
                     </>
-                  ) : user ? (
-                    <p className="text-xs text-gray-500 leading-relaxed">
-                      선택한 기간에 집계된 {insights.metricLabel}이 없어요. 장부에 거래를 입력하면 여기에 표시돼요.
-                    </p>
                   ) : (
-                    <div className="space-y-1 opacity-80">
-                      <p className="text-xs text-gray-600">
-                        예시 · 이번 달{" "}
-                        <span className="font-semibold">총 {insights.metricLabel}</span>
-                      </p>
-                      <p className="text-xl font-bold text-[#4CAF50]">
-                        ₩{insightExamples.totalValue.toLocaleString()}원
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {insights.periodLabel} 기간 동안{" "}
-                        <span className="font-semibold">
-                          {insights.unitLabel} 평균 {insights.metricLabel}
-                        </span>
-                        은{" "}
-                        <span className="font-semibold text-gray-900">
-                          약 ₩{insightExamples.avgValue.toLocaleString()}원
-                        </span>
-                        이에요.
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-500">
+                      이번 달 표시할 {insights.metricLabel} 데이터가 없어요.
+                    </p>
                   )}
                 </div>
               </div>
@@ -747,49 +701,23 @@ export default function StatsPage() {
                         을 차지하고 있어요.
                       </p>
                     </>
-                  ) : user ? (
-                    <p className="text-xs text-gray-500 leading-relaxed">
-                      선택한 기간에 작물별 {insights.metricLabel} 비중을 계산할 수 있어요. 장부와 작물 데이터가 쌓이면 순위가 표시돼요.
-                    </p>
                   ) : (
-                    <div className="space-y-1 opacity-80">
-                      <p className="text-xs text-gray-600">
-                        예시 · 이번 달{" "}
-                        <span className="font-semibold">
-                          {insights.metricLabel} 상위 작물 순위
-                        </span>
-                        예요.
-                      </p>
-                      <ol className="mt-1 space-y-0.5 text-sm text-gray-900">
-                        {insightExamples.topCrops.map((crop, index) => (
-                          <li key={crop.name} className="flex items-baseline gap-1">
-                            <span className="text-xs text-gray-500">{index + 1}.</span>
-                            <span>{crop.name}</span>
-                            <span className="mx-1 text-gray-500">:</span>
-                            <span className="font-semibold">
-                              ₩{crop.value.toLocaleString()}원
-                            </span>
-                          </li>
-                        ))}
-                      </ol>
-                      <p className="text-xs text-gray-600">
-                        상위 3개 작물이 전체 {insights.metricLabel}의 약{" "}
-                        <span className="font-semibold">
-                          {insightExamples.topShare.toFixed(1)}%
-                        </span>
-                        을 차지하고 있어요.
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-500">
+                      작물별 비중을 표시할 데이터가 없어요.
+                    </p>
                   )}
                 </div>
               </div>
-              {/* 3. AI 자연어 인사이트 (예시 문단 없이 안내 + CTA만) */}
+              {/* 3. AI 자연어 인사이트 */}
               <div className="flex items-start gap-2 pt-1 border-t border-gray-100">
-                <span className="mt-0.5 shrink-0 text-base leading-none" aria-hidden>
-                  ✨
-                </span>
+                <span className="mt-0.5 text-base">✨</span>
                 <div className="flex-1 space-y-2">
-                  {aiInsightLoading ? (
+                  {/* 데이터 없을 때 */}
+                  {!insights.hasRevenue && !insights.hasCropShare ? (
+                    <p className="text-sm text-gray-500">
+                      장부·작물 데이터가 준비되면 AI 인사이트를 받을 수 있어요.
+                    </p>
+                  ) : aiInsightLoading ? (
                     <div className="flex items-center gap-2 py-1">
                       <svg
                         className="h-4 w-4 animate-spin text-[#4CAF50] shrink-0"
@@ -806,21 +734,22 @@ export default function StatsPage() {
                     <p className="text-xs text-red-500">{aiInsightError}</p>
                   ) : aiInsight ? (
                     renderInsight(aiInsight)
-                  ) : canUseAI ? (
+                  ) : (
                     <p className="text-xs text-gray-400">버튼을 눌러 AI 요약을 받아보세요.</p>
-                  ) : null}
+                  )}
 
-                  {!aiInsightLoading &&
-                    (canUseAI ? (
-                      <div className="flex flex-wrap items-center gap-2">
+                  {/* 데이터 있을 때 & 로딩 아닐 때: 버튼 + 크레딧 한 줄 */}
+                  {(insights.hasRevenue || insights.hasCropShare) && !aiInsightLoading && (
+                    canUseAI ? (
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={fetchAiInsight}
-                          className="text-sm font-semibold text-[#4CAF50] hover:text-[#388E3C] hover:underline transition-colors"
+                          className="text-xs font-semibold text-[#4CAF50] hover:text-[#388E3C] hover:underline transition-colors"
                         >
                           {aiInsight ? "다시 생성하기" : "AI 인사이트 받기"}
                         </button>
-                        {(insights.hasRevenue || insights.hasCropShare) && !isAdmin && (
+                        {!isAdmin && (
                           <span className="text-xs text-gray-400">
                             · 이번 달{" "}
                             <span className={remainingCredits <= 1 ? "text-orange-500 font-medium" : "text-gray-500"}>
@@ -844,7 +773,8 @@ export default function StatsPage() {
                           </>
                         )}
                       </p>
-                    ))}
+                    )
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -943,7 +873,6 @@ export default function StatsPage() {
                 onViewUnitChange={setViewUnit}
                 viewUnitOptions={chartViewOptions}
                 criterionLabel={rangeLabel}
-                useSampleDataWhenEmpty={!user}
               />
               <div className="border-t border-gray-100 pt-4">
                 <CropRevenueShareChart
@@ -957,8 +886,6 @@ export default function StatsPage() {
                         : "작물별 순수익 비중"
                   }
                   data={cropRevenueData}
-                  useSampleDataWhenEmpty={!user}
-                  showGuideSubtitle={!user}
                 />
               </div>
             </CardContent>
@@ -970,27 +897,19 @@ export default function StatsPage() {
           <div className="w-full rounded-xl bg-[#E8F5E9] px-4 py-2">
             <h2 className="text-xl font-bold text-gray-900">내 농장의 작업 현황은?</h2>
           </div>
-          {!user && (
-            <p className="text-sm text-gray-600 -mt-1">
-              작물마다 이랑을 얼마나 쓰는지는{" "}
-              <span className="font-medium text-gray-800">위쪽 원</span>으로, 이랑마다 작업이 많은지는{" "}
-              <span className="font-medium text-gray-800">아래 색칠한 칸</span>으로 볼 수 있어요.
-            </p>
-          )}
+          <p className="text-sm text-gray-600 -mt-1">
+            작물마다 이랑을 얼마나 쓰는지는{" "}
+            <span className="font-medium text-gray-800">위쪽 원</span>으로, 이랑마다 작업이 많은지는{" "}
+            <span className="font-medium text-gray-800">아래 색칠한 칸</span>으로 볼 수 있어요.
+          </p>
 
           <CropMixChart
             data={cropMixData.data}
             totalRows={cropMixData.totalRows}
             usedRows={cropMixData.usedRows}
-            useSampleDataWhenEmpty={!user}
-            showGuideSubtitle={!user}
           />
 
-          <BlockHealthGrid
-            blocks={blockStatuses}
-            useSampleDataWhenEmpty={!user}
-            showGuideSubtitle={!user}
-          />
+          <BlockHealthGrid blocks={blockStatuses} />
         </section>
       </div>
     </div>

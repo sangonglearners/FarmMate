@@ -138,7 +138,7 @@ export default function MyPage() {
     try {
       await withdrawCurrentUserAccount();
       try {
-        await signOut();
+        await signOut({ redirectToLogin: false });
       } catch (signOutErr) {
         console.error('탈퇴 후 세션 종료 중 오류(로컬 정리는 계속):', signOutErr);
       }
@@ -146,7 +146,7 @@ export default function MyPage() {
       queryClient.clear();
       setShowWithdraw(false);
       alert('회원 탈퇴 처리가 완료되었습니다. 이용해 주셔서 감사합니다.');
-      window.location.assign('/');
+      window.location.assign('/login');
     } catch (error) {
       console.error('회원 탈퇴 실패:', error);
       alert(

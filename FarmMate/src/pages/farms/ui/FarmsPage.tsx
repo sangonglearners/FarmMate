@@ -56,6 +56,9 @@ export default function FarmsPage() {
   
   const isLoading = farmsLoading;
   const deleteCrop = useDeleteCrop();
+
+  const hasOwnFarmOrCrop =
+    (ownFarms?.length ?? 0) > 0 || (cropsLinkedToFarm?.length ?? 0) > 0;
   
   // 모든 농장을 합쳐서 작물 표시용으로 사용
   const allFarms = farms;
@@ -137,36 +140,40 @@ export default function FarmsPage() {
       {/* Own Farms List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-gray-600" /> 내 농장 목록</h2>
-          <Button 
-            size="sm" 
-            onClick={() => {
-              if (!ensureAuth()) return;
-              setIsAddFarmDialogOpen(true);
-            }}
-            className="flex items-center space-x-1"
-          >
-            <Plus className="w-4 h-4" />
-            <span>농장 추가</span>
-          </Button>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-gray-600" /> 내 농장 목록
+          </h2>
+          {hasOwnFarmOrCrop && (
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!ensureAuth()) return;
+                setIsAddFarmDialogOpen(true);
+              }}
+              className="flex items-center space-x-1"
+            >
+              <Plus className="h-4 w-4" />
+              <span>농장 추가</span>
+            </Button>
+          )}
         </div>
 
         {ownFarms && ownFarms.length > 0 ? (
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+          <div className="max-h-[300px] space-y-3 overflow-y-auto pr-1">
             {ownFarms.map((farm) => {
               const farmCrops = getFarmCrops(farm.id);
               const isShared = sharedFarmIds.has(farm.id);
-              
+
               return (
                 <Card key={farm.id} className={isShared ? "border-blue-200 bg-blue-50/30" : ""}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <MapPin className={`w-4 h-4 ${isShared ? "text-blue-500" : "text-gray-500"}`} />
+                        <div className="mb-1 flex items-center space-x-2">
+                          <MapPin className={`h-4 w-4 ${isShared ? "text-blue-500" : "text-gray-500"}`} />
                           <h3 className="font-medium text-gray-900">{farm.name}</h3>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="mt-1 text-xs text-gray-500">
                           {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount} | 작물 {farmCrops.length}종
                         </p>
                       </div>
@@ -174,18 +181,21 @@ export default function FarmsPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="w-4 h-4" />
+                              <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              if (!ensureAuth()) return;
-                              setEditingFarm(farm); setIsAddFarmDialogOpen(true);
-                            }}>
-                              <Edit className="w-4 h-4 mr-2" /> 수정
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (!ensureAuth()) return;
+                                setEditingFarm(farm);
+                                setIsAddFarmDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" /> 수정
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-destructive" 
+                            <DropdownMenuItem
+                              className="text-destructive"
                               onClick={() => {
                                 if (!ensureAuth()) return;
                                 setConfirmDialog({
@@ -196,7 +206,7 @@ export default function FarmsPage() {
                                 });
                               }}
                             >
-                              <Trash2 className="w-4 h-4 mr-2" /> 삭제
+                              <Trash2 className="mr-2 h-4 w-4" /> 삭제
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -207,16 +217,25 @@ export default function FarmsPage() {
               );
             })}
           </div>
+        ) : hasOwnFarmOrCrop ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <MapPin className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <p className="text-gray-500">등록된 농장이 없습니다</p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardContent className="p-8 text-center">
-              <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">등록된 농장이 없습니다</p>
-              <Button onClick={() => {
-                if (!ensureAuth()) return;
-                setIsAddFarmDialogOpen(true);
-              }}>
-                <Plus className="w-4 h-4 mr-2" />
+              <MapPin className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <p className="mb-4 text-gray-500">등록된 농장이 없습니다</p>
+              <Button
+                onClick={() => {
+                  if (!ensureAuth()) return;
+                  setIsAddFarmDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
                 첫 농장 추가하기
               </Button>
             </CardContent>
@@ -303,29 +322,33 @@ export default function FarmsPage() {
       {/* Crop Management */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Sprout className="w-5 h-5 text-gray-600" /> 내 작물 관리</h2>
-          <Button 
-            size="sm" 
-            onClick={() => {
-              if (!ensureAuth()) return;
-              setIsAddCropDialogOpen(true);
-            }}
-            className="flex items-center space-x-1"
-          >
-            <Plus className="w-4 h-4" />
-            <span>작물 추가</span>
-          </Button>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Sprout className="h-5 w-5 text-gray-600" /> 내 작물 관리
+          </h2>
+          {hasOwnFarmOrCrop && (
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!ensureAuth()) return;
+                setIsAddCropDialogOpen(true);
+              }}
+              className="flex items-center space-x-1"
+            >
+              <Plus className="h-4 w-4" />
+              <span>작물 추가</span>
+            </Button>
+          )}
         </div>
 
         {cropsLinkedToFarm.length > 0 ? (
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+          <div className="max-h-[300px] space-y-3 overflow-y-auto pr-1">
             {cropsLinkedToFarm.map((crop) => (
               <Card key={crop.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Sprout className="w-4 h-4 text-green-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
+                        <Sprout className="h-4 w-4 text-green-600" />
                       </div>
                       <div className="space-y-1">
                         <h3 className="font-medium text-gray-900">{crop.name}</h3>
@@ -334,7 +357,7 @@ export default function FarmsPage() {
                             {crop.variety}
                           </span>
                           <span className="text-xs text-gray-400">
-                            {allFarms.find(f => f.id === crop.farmId)?.name || '농장 정보 없음'}
+                            {allFarms.find((f) => f.id === crop.farmId)?.name || "농장 정보 없음"}
                           </span>
                         </div>
                       </div>
@@ -342,18 +365,21 @@ export default function FarmsPage() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="w-4 h-4" />
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => {
-                          if (!ensureAuth()) return;
-                          setEditingCrop(crop); setIsAddCropDialogOpen(true);
-                        }}>
-                          <Edit className="w-4 h-4 mr-2" /> 수정
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (!ensureAuth()) return;
+                            setEditingCrop(crop);
+                            setIsAddCropDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="mr-2 h-4 w-4" /> 수정
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive" 
+                        <DropdownMenuItem
+                          className="text-destructive"
                           onClick={() => {
                             if (!ensureAuth()) return;
                             setConfirmDialog({
@@ -364,7 +390,7 @@ export default function FarmsPage() {
                             });
                           }}
                         >
-                          <Trash2 className="w-4 h-4 mr-2" /> 삭제
+                          <Trash2 className="mr-2 h-4 w-4" /> 삭제
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -373,16 +399,25 @@ export default function FarmsPage() {
               </Card>
             ))}
           </div>
+        ) : hasOwnFarmOrCrop ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Sprout className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <p className="text-gray-500">등록된 작물이 없습니다</p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardContent className="p-8 text-center">
-              <Sprout className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">등록된 작물이 없습니다</p>
-              <Button onClick={() => {
-                if (!ensureAuth()) return;
-                setIsAddCropDialogOpen(true);
-              }}>
-                <Plus className="w-4 h-4 mr-2" />
+              <Sprout className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <p className="mb-4 text-gray-500">등록된 작물이 없습니다</p>
+              <Button
+                onClick={() => {
+                  if (!ensureAuth()) return;
+                  setIsAddCropDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
                 첫 작물 추가하기
               </Button>
             </CardContent>

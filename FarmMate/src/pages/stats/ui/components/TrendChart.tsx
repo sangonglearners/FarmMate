@@ -18,8 +18,6 @@ interface TrendChartProps {
   criterionLabel?: string;
   viewUnitOptions?: { value: ViewUnit; label: string }[];
   embedded?: boolean;
-  /** false면 장부 합이 0이어도 예시 곡선을 쓰지 않고 실제(0)만 표시 */
-  useSampleDataWhenEmpty?: boolean;
 }
 
 const DEEP_GREEN = "#4CAF50";
@@ -41,18 +39,6 @@ const VIEW_UNITS: { value: ViewUnit; label: string }[] = [
   { value: "quarterly", label: "분기" },
   { value: "yearly", label: "연" },
 ];
-
-/** 실제 장부 합이 모두 0일 때 보여 줄 예시 곡선 원 단위 값 */
-function buildDemoTrendValues(n: number): number[] {
-  if (n <= 0) return [];
-  return Array.from({ length: n }, (_, i) => {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    const wave = Math.sin(i * 1.05) * 0.12;
-    const base = 0.32 + t * 0.58 + wave;
-    const won = 380_000 * Math.min(1, Math.max(0.15, base));
-    return Math.round(won / 10_000) * 10_000;
-  });
-}
 
 /** 차트 시리즈: valueK=천원(축·플롯), valueWon=원(툴팁 표기). DB·통계는 원 단위. */
 type TrendChartRow = RevenueDataPoint & { valueK: number; valueWon: number };
@@ -247,7 +233,6 @@ export function TrendChart({
   criterionLabel,
   viewUnitOptions,
   embedded = false,
-  useSampleDataWhenEmpty = true,
 }: TrendChartProps) {
   const isMobile = useIsMobile();
   const units = viewUnitOptions ?? VIEW_UNITS;
@@ -259,30 +244,14 @@ export function TrendChart({
 
   const targetVisibleCount = useMemo(() => getTargetVisibleCount(viewUnit), [viewUnit]);
 
-  const allZeroTrend = useMemo(
-    () => data.length > 0 && data.every((d) => d.value === 0),
-    [data],
-  );
-
-  const showSampleLine = useSampleDataWhenEmpty && allZeroTrend;
-
-  const effectiveSource = useMemo(() => {
-    if (!showSampleLine) return data;
-    const demos = buildDemoTrendValues(data.length);
-    return data.map((d, i) => ({
-      period: d.period,
-      value: demos[i] ?? 0,
-    }));
-  }, [data, showSampleLine]);
-
   const chartData: TrendChartRow[] = useMemo(
     () =>
-      effectiveSource.map((d) => {
+      data.map((d) => {
         const valueWon = d.value;
         const valueK = valueWon / 1000;
         return { ...d, valueK, valueWon };
       }),
-    [effectiveSource],
+    [data],
   );
 
   const yAxisConfig = useMemo(() => buildYAxisConfig(chartData.map((d) => d.valueK)), [chartData]);
@@ -372,18 +341,9 @@ export function TrendChart({
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-1">단위: 천원</p>
-        {showSampleLine && (
-          <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
-            아래 곡선은 예시예요. 장부에 거래가 쌓이면 실제 금액이 표시돼요.
-          </p>
-        )}
       </div>
       <div className="h-64 relative -ml-4 w-[calc(100%+1rem)]">
-        <div
-          className={`h-full w-full flex min-h-0 overflow-hidden rounded-lg border bg-white ${
-            showSampleLine ? "border-dashed border-gray-200" : "border-gray-100"
-          }`}
-        >
+        <div className="h-full w-full flex min-h-0 overflow-hidden rounded-lg border border-gray-100 bg-white">
           <div
             className="shrink-0 border-r border-gray-100 bg-white min-h-0 self-stretch flex flex-col"
             style={{ width: `${Y_AXIS_WIDTH}px` }}

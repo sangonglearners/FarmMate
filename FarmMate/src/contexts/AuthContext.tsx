@@ -32,12 +32,17 @@ async function isNewUser(userId: string): Promise<boolean> {
   return data === null
 }
 
+export interface SignOutOptions {
+  /** 기본 true. 회원탈퇴 등에서 false로 두고 별도로 이동 처리 */
+  redirectToLogin?: boolean
+}
+
 interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
-  signOut: () => Promise<void>
+  signOut: (options?: SignOutOptions) => Promise<void>
   testLogin: () => void
 }
 
@@ -125,7 +130,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (options?: SignOutOptions) => {
+    const { redirectToLogin = true } = options ?? {}
     try {
       setLoading(true)
       localStorage.removeItem('test-user')
@@ -138,6 +144,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         /* ignore */
       }
       await signOut()
+      if (redirectToLogin) {
+        window.location.replace('/login')
+      }
     } catch (error) {
       console.error('로그아웃 실패:', error)
       throw error

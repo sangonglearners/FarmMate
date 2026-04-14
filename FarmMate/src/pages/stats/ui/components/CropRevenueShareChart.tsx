@@ -10,25 +10,12 @@ const COLORS = [
   "#03A9F4", "#FFC107", "#607D8B", "#9E9E9E", "#4CAF50",
 ];
 
-/** 장부 합이 없을 때 원·목록에 채워 넣는 예시(원 단위) */
-const DEMO_CROP_REVENUE_SHARE: { name: string; value: number }[] = [
-  { name: "토마토", value: 320_000 },
-  { name: "상추", value: 180_000 },
-  { name: "오이", value: 95_000 },
-  { name: "가지", value: 72_000 },
-  { name: "기타", value: 48_000 },
-];
-
 interface CropRevenueShareChartProps {
   title?: string;
   /** 빈 화면 안내용: 매출 · 비용 · 순수익 등 */
   metricLabel?: string;
   data: { name: string; value: number }[];
   embedded?: boolean;
-  /** false면 거래가 없을 때 예시 원·목록 대신 빈 상태 */
-  useSampleDataWhenEmpty?: boolean;
-  /** 비로그인(둘러보기)일 때만 제목 아래 회색 안내 문구 표시 */
-  showGuideSubtitle?: boolean;
 }
 
 export function CropRevenueShareChart({
@@ -36,29 +23,9 @@ export function CropRevenueShareChart({
   metricLabel = "매출",
   data,
   embedded = false,
-  useSampleDataWhenEmpty = true,
-  showGuideSubtitle = false,
 }: CropRevenueShareChartProps) {
   const rawTotal = data.reduce((s, d) => s + d.value, 0);
-  const noData = data.length === 0 || rawTotal === 0;
-  const useDemo = noData && useSampleDataWhenEmpty;
-  const sourceData = useDemo ? DEMO_CROP_REVENUE_SHARE : data;
-
-  const fullTotal = sourceData.reduce((s, d) => s + d.value, 0);
-  const withPercentage = sourceData.map((d) => ({
-    ...d,
-    percentage: fullTotal > 0 ? (d.value / fullTotal) * 100 : 0,
-  }));
-  // 기타를 맨 아래로, 기타 포함 최대 6개
-  const nonEtc = withPercentage.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
-  const etc = withPercentage.filter((d) => d.name === "기타");
-  const displayRaw = [...nonEtc.slice(0, 5), ...etc];
-  const displayTotal = displayRaw.reduce((s, d) => s + d.value, 0);
-  const chartData = displayRaw.map((d) => ({
-    ...d,
-    percentage: displayTotal > 0 ? (d.value / displayTotal) * 100 : 0,
-  }));
-  const total = fullTotal;
+  const isEmpty = data.length === 0 || rawTotal === 0;
 
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const isMobile = useIsMobile();
@@ -80,6 +47,49 @@ export function CropRevenueShareChart({
     };
   }, [isMobile, activeIndex]);
 
+  if (isEmpty) {
+    const emptyBody = (
+      <>
+        <div className="mb-3">
+          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            작물별 {metricLabel} 비중과 금액을 볼 수 있어요.
+          </p>
+        </div>
+        <p className="rounded-lg border border-gray-100 bg-gray-50/40 py-10 text-center text-sm text-gray-500">
+          표시할 데이터가 없어요. 장부에 거래가 기록되면 작물별 비중이 나타나요.
+        </p>
+      </>
+    );
+    if (embedded) return <div>{emptyBody}</div>;
+    return (
+      <Card className="rounded-lg shadow-sm">
+        <CardHeader>
+          <CardTitle className="sr-only">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>{emptyBody}</CardContent>
+      </Card>
+    );
+  }
+
+  const sourceData = data;
+
+  const fullTotal = sourceData.reduce((s, d) => s + d.value, 0);
+  const withPercentage = sourceData.map((d) => ({
+    ...d,
+    percentage: fullTotal > 0 ? (d.value / fullTotal) * 100 : 0,
+  }));
+  // 기타를 맨 아래로, 기타 포함 최대 6개
+  const nonEtc = withPercentage.filter((d) => d.name !== "기타").sort((a, b) => b.value - a.value);
+  const etc = withPercentage.filter((d) => d.name === "기타");
+  const displayRaw = [...nonEtc.slice(0, 5), ...etc];
+  const displayTotal = displayRaw.reduce((s, d) => s + d.value, 0);
+  const chartData = displayRaw.map((d) => ({
+    ...d,
+    percentage: displayTotal > 0 ? (d.value / displayTotal) * 100 : 0,
+  }));
+  const total = fullTotal;
+
   const handleMouseEnter = (_: unknown, index: number) => {
     if (!isMobile) setActiveIndex(index);
   };
@@ -94,51 +104,15 @@ export function CropRevenueShareChart({
     }
   };
 
-  if (noData && !useSampleDataWhenEmpty) {
-    const emptyInner = (
-      <>
-        <div className="mb-3">
-          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-          {showGuideSubtitle && (
-            <p className="text-xs text-gray-500 mt-1">
-              왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
-            </p>
-          )}
-        </div>
-        <p className="text-sm text-gray-500 text-center py-8 rounded-lg border border-gray-100 bg-gray-50/50 px-3 leading-relaxed">
-          이 기간에 집계된 {metricLabel}이 없어요. 장부에 거래를 입력하면 여기에 표시돼요.
-        </p>
-      </>
-    );
-    if (embedded) {
-      return <div>{emptyInner}</div>;
-    }
-    return (
-      <Card className="rounded-lg shadow-sm">
-        <CardHeader>
-          <CardTitle className="sr-only">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>{emptyInner}</CardContent>
-      </Card>
-    );
-  }
-
   const chartBody = (
     <>
       <div className="mb-3">
         <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        {showGuideSubtitle && (
-          <p className="text-xs text-gray-500 mt-1">
-            왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
-          </p>
-        )}
-      </div>
-      {useDemo && (
-        <p className="text-[clamp(9px,2.2vw,12px)] text-gray-600 mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2 leading-tight whitespace-nowrap">
-          아래 원과 목록은 예시예요. 거래가 쌓이면 실제 비중이 표시돼요.
+        <p className="text-xs text-gray-500 mt-1">
+          왼쪽 원은 작물별 {metricLabel} 비율, 오른쪽은 작물마다 금액이에요.
         </p>
-      )}
-      <div className={useDemo ? "mt-2 rounded-lg border border-dashed border-gray-200 bg-white p-3" : ""}>
+      </div>
+      <div>
         <div className="flex flex-row items-start gap-1">
           {/* 왼쪽: 원그래프 */}
           <div

@@ -3,12 +3,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 
-export type LoginPageProps = {
-  /** 랜딩에서만 전달 — 비로그인 둘러보기 진입 */
-  onBrowseWithoutLogin?: () => void;
-};
-
-export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) => {
+export const LoginPage: React.FC = () => {
   const { signInWithGoogle, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [viewport, setViewport] = useState({
@@ -65,6 +60,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
     height: '100dvh',
     maxWidth: viewport.width > 768 ? 'calc(100dvh * 455 / 919)' : 'none',
   } as const
+
+  const handleExploreWithoutLogin = () => {
+    window.location.assign('/')
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#F4F6E1]">
@@ -127,9 +126,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
             onClick={handleGoogleLogin}
             disabled={loading}
             aria-label="Google 계정으로 로그인"
-            className={`absolute left-1/2 -translate-x-1/2 w-[68.31%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40 ${
-              onBrowseWithoutLogin ? "top-[82%] h-[5.85%]" : "top-[85.31%] h-[6.40%]"
-            }`}
+            className="absolute left-1/2 -translate-x-1/2 top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
           >
             {loading ? (
               <>
@@ -159,20 +156,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
             )}
           </button>
 
-          {onBrowseWithoutLogin && (
-            <button
-              type="button"
-              onClick={onBrowseWithoutLogin}
-              aria-label="로그인 없이 기능 둘러보기"
-              className="absolute left-1/2 top-[89%] z-40 inline-flex max-w-[min(68.31%,18rem)] -translate-x-1/2 items-center justify-center rounded-[10px] border border-[#7DA463]/50 bg-white/90 px-3 py-1.5 text-center font-medium leading-tight text-[#5a8a42] shadow-sm hover:bg-[#f8faf3] focus:outline-none focus:ring-2 focus:ring-[#7DA463]/40 focus:ring-offset-1 sm:top-[89.1%] sm:px-3.5 sm:py-2"
-              style={{
-                fontSize: 'clamp(10px, 1.5vh, 14px)',
-                lineHeight: 1.3,
-              }}
-            >
-              로그인 없이 기능 둘러보기
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleExploreWithoutLogin}
+            className="absolute left-1/2 top-[93.2%] z-40 w-[88%] max-w-md -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0 text-center text-[11px] font-normal leading-snug text-gray-400/90 underline decoration-gray-400/80 decoration-1 underline-offset-[3px] transition-colors hover:text-gray-500 hover:decoration-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50 focus-visible:ring-offset-2 sm:text-xs"
+            aria-label="로그인 없이 앱 둘러보기"
+          >
+            로그인 없이 기능을 둘러볼 수 있어요
+          </button>
         </div>
         </div>
 
