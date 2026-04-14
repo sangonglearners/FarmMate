@@ -3,7 +3,11 @@ import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  onBrowseWithoutLogin?: () => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) => {
   const { signInWithGoogle, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [viewport, setViewport] = useState({
@@ -62,6 +66,10 @@ export const LoginPage: React.FC = () => {
   } as const
 
   const handleExploreWithoutLogin = () => {
+    if (onBrowseWithoutLogin) {
+      onBrowseWithoutLogin()
+      return
+    }
     window.location.assign('/')
   }
 
