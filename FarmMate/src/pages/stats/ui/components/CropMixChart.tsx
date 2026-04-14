@@ -16,21 +16,35 @@ interface CropMixChartProps {
   usedRows: number;
 }
 
-// 농업/자연 테마 색상 팔레트 (잎·흙·밀·하늘 톤)
 const COLORS = [
-  "#166534", // forest green (잎)
-  "#0d9488", // teal (녹물/물)
-  "#ca8a04", // wheat (밀/골드)
-  "#b45309", // amber (흙/갈색)
-  "#1e3a2f", // sage (잎진한 녹색)
-  "#78716c", // warm stone (기타 - 중립적 흙톤)
-  "#0f766e", // teal green
-  "#4d7c0f", // lime (연한 잎)
-  "#92400e", // brown (흙)
-  "#1e40af", // sky blue (하늘)
-  "#15803d", // green
-  "#65a30d", // light green
+  "#4F86C6", "#6BAA75", "#D38B5D", "#8D7BC7", "#D96C82",
+  "#5CA8A6", "#C8B26E", "#9B8579", "#C16FA3", "#6F82B8",
+  "#4E9C8F", "#A3B86C", "#7E78B5", "#C97C5A", "#7FBF7A",
+  "#5EA4CF", "#C9A25F", "#7B8FA3", "#A0A0A0", "#4F86C6",
 ];
+
+function getCropColor(cropName: string) {
+  if (cropName === "기타") return "#9E9E9E";
+  const normalized = cropName.trim().toLowerCase();
+  if (normalized.includes("토마토")) return "#D65A5A";
+  if (normalized.includes("오이")) return "#5FAF68";
+  if (normalized.includes("상추")) return "#8BCF7A";
+  if (normalized.includes("파프리카")) return "#E58A4A";
+  if (normalized.includes("딸기")) return "#D9687B";
+  if (normalized.includes("고추")) return "#C74848";
+  if (normalized.includes("감자")) return "#B08A63";
+  if (normalized.includes("고구마")) return "#9B6AAE";
+  if (normalized.includes("배추")) return "#6FBE7C";
+  if (normalized.includes("양파")) return "#C8B26E";
+  if (normalized.includes("마늘")) return "#B9A27A";
+  if (normalized.includes("브로콜리")) return "#4E9A63";
+  if (normalized.includes("시금치")) return "#5AA06D";
+  let hash = 0;
+  for (let i = 0; i < cropName.length; i++) {
+    hash = (hash * 31 + cropName.charCodeAt(i)) >>> 0;
+  }
+  return COLORS[hash % COLORS.length];
+}
 
 export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
@@ -166,7 +180,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                   {chartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
+                      fill={getCropColor(entry.name)}
                       stroke="#ffffff"
                       strokeWidth={2}
                     />
@@ -189,7 +203,7 @@ export function CropMixChart({ data, totalRows, usedRows }: CropMixChartProps) {
                 <div key={crop.name} className={`flex items-center min-w-0 ${isMobile ? "gap-2" : "gap-2.5"}`}>
                   <div 
                     className={`rounded-full flex-shrink-0 ${isMobile ? "w-3 h-3" : "w-4 h-4"}`}
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    style={{ backgroundColor: getCropColor(crop.name) }}
                   />
                   <div className="flex-1 min-w-0">
                     <p className={`font-medium text-gray-900 truncate ${isMobile ? "text-xs" : "text-sm"}`}>

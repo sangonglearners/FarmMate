@@ -4,11 +4,34 @@ import { useState, useRef, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const COLORS = [
-  "#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#F44336",
-  "#00BCD4", "#FFEB3B", "#795548", "#E91E63", "#3F51B5",
-  "#009688", "#CDDC39", "#673AB7", "#FF5722", "#8BC34A",
-  "#03A9F4", "#FFC107", "#607D8B", "#9E9E9E", "#4CAF50",
+  "#4F86C6", "#6BAA75", "#D38B5D", "#8D7BC7", "#D96C82",
+  "#5CA8A6", "#C8B26E", "#9B8579", "#C16FA3", "#6F82B8",
+  "#4E9C8F", "#A3B86C", "#7E78B5", "#C97C5A", "#7FBF7A",
+  "#5EA4CF", "#C9A25F", "#7B8FA3", "#A0A0A0", "#4F86C6",
 ];
+
+function getCropColor(cropName: string) {
+  if (cropName === "기타") return "#9E9E9E";
+  const normalized = cropName.trim().toLowerCase();
+  if (normalized.includes("토마토")) return "#D65A5A";
+  if (normalized.includes("오이")) return "#5FAF68";
+  if (normalized.includes("상추")) return "#8BCF7A";
+  if (normalized.includes("파프리카")) return "#E58A4A";
+  if (normalized.includes("딸기")) return "#D9687B";
+  if (normalized.includes("고추")) return "#C74848";
+  if (normalized.includes("감자")) return "#B08A63";
+  if (normalized.includes("고구마")) return "#9B6AAE";
+  if (normalized.includes("배추")) return "#6FBE7C";
+  if (normalized.includes("양파")) return "#C8B26E";
+  if (normalized.includes("마늘")) return "#B9A27A";
+  if (normalized.includes("브로콜리")) return "#4E9A63";
+  if (normalized.includes("시금치")) return "#5AA06D";
+  let hash = 0;
+  for (let i = 0; i < cropName.length; i++) {
+    hash = (hash * 31 + cropName.charCodeAt(i)) >>> 0;
+  }
+  return COLORS[hash % COLORS.length];
+}
 
 interface CropRevenueShareChartProps {
   title?: string;
@@ -155,8 +178,8 @@ export function CropRevenueShareChart({
                   onMouseLeave={handleMouseLeave}
                   onClick={handleSliceClick}
                 >
-                  {chartData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="#ffffff" strokeWidth={2} />
+                  {chartData.map((d, i) => (
+                    <Cell key={i} fill={getCropColor(d.name)} stroke="#ffffff" strokeWidth={2} />
                   ))}
                 </Pie>
               </PieChart>
@@ -177,7 +200,7 @@ export function CropRevenueShareChart({
               <div key={`${d.name}-${index}`} className={`flex items-center min-w-0 ${isMobile ? "gap-2" : "gap-2.5"}`}>
                 <div
                   className={`rounded-full flex-shrink-0 ${isMobile ? "w-3 h-3" : "w-4 h-4"}`}
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  style={{ backgroundColor: getCropColor(d.name) }}
                 />
                 <div className="flex-1 min-w-0">
                   <p className={`font-medium text-gray-900 truncate ${isMobile ? "text-xs" : "text-sm"}`}>
