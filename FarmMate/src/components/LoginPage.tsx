@@ -2,9 +2,14 @@ import { Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
+import { trackPageView } from '@/lib/analytics';
 
-export const LoginPage: React.FC = () => {
-  const { signInWithGoogle, signInWithKakao, loading, testLogin } = useAuth()
+interface LoginPageProps {
+  onBrowseWithoutLogin?: () => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) => {
+  const { signInWithGoogle, signInWithKakao, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [activeProvider, setActiveProvider] = useState<'google' | 'kakao' | null>(null)
   const [viewport, setViewport] = useState({
@@ -56,6 +61,14 @@ export const LoginPage: React.FC = () => {
       setActiveProvider(null)
     }
   }
+
+  const handleExploreWithoutLogin = () => {
+    onBrowseWithoutLogin?.()
+  }
+
+  useEffect(() => {
+    trackPageView('login')
+  }, [])
 
   useEffect(() => {
     const updateViewportMode = () => {
@@ -206,10 +219,10 @@ export const LoginPage: React.FC = () => {
 
           {/* 로그인 없이 둘러보기 링크 */}
           <button
-            onClick={testLogin}
-            disabled={loading}
-            className="absolute left-1/2 -translate-x-1/2 top-[91%] whitespace-nowrap text-[#7DA463] underline underline-offset-2 bg-transparent border-none cursor-pointer disabled:opacity-50 z-40"
-            style={{ fontSize: 'clamp(11px, 1.7vh, 18px)' }}
+            type="button"
+            onClick={handleExploreWithoutLogin}
+            className="absolute left-1/2 top-[91%] z-40 w-[88%] max-w-md -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0 text-center text-[11px] font-normal leading-snug text-gray-400/90 underline decoration-gray-400/80 decoration-1 underline-offset-[3px] transition-colors hover:text-gray-500 hover:decoration-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50 focus-visible:ring-offset-2 sm:text-xs"
+            aria-label="로그인 없이 앱 둘러보기"
           >
             로그인 없이 기능을 둘러볼 수 있어요
           </button>
