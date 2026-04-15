@@ -28,10 +28,10 @@ export async function requireUser() {
   return user
 }
 
-// 기존 ?�환?�을 ?�한 export
+// 기존 호환성을 위한 export
 export { supabase }
 
-// 구�? 로그???�수
+// 구글 로그인 함수
 export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -41,36 +41,53 @@ export const signInWithGoogle = async () => {
   })
   
   if (error) {
-    console.error('구�? 로그???�류:', error)
+    console.error('구글 로그인 오류:', error)
     throw error
   }
   
   return data
 }
 
-// 로그?�웃 ?�수
+// 카카오 로그인 함수
+export const signInWithKakao = async () => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'kakao',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`
+    }
+  })
+
+  if (error) {
+    console.error('카카오 로그인 오류:', error)
+    throw error
+  }
+
+  return data
+}
+
+// 로그아웃 함수
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
   
   if (error) {
-    console.error('로그?�웃 ?�류:', error)
+    console.error('로그아웃 오류:', error)
     throw error
   }
 }
 
-// ?�재 ?�용??가?�오�?
+// 현재 사용자 가져오기
 export const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser()
   
   if (error) {
-    console.error('?�용???�보 가?�오�??�류:', error)
+    console.error('사용자 정보 가져오기 오류:', error)
     throw error
   }
   
   return user
 }
 
-// ?�증 ?�태 변�?구독
+// 인증 상태 변경 구독
 export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
   return supabase.auth.onAuthStateChange((event, session) => {
     callback(event, session)
@@ -82,7 +99,7 @@ export const handleAuthCallback = async () => {
   const { data, error } = await supabase.auth.getSession()
   
   if (error) {
-    console.error('OAuth 콜백 처리 ?�류:', error)
+    console.error('OAuth 콜백 처리 오류:', error)
     throw error
   }
   

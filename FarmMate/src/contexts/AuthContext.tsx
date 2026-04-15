@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, signInWithGoogle, signOut, onAuthStateChange } from '@lib/supabaseClient'
+import { supabase, signInWithGoogle, signInWithKakao, signOut, onAuthStateChange } from '@lib/supabaseClient'
 import { AiCreditsRepository } from '@/shared/api/ai-credits.repository'
 
 const PENDING_REF_KEY = 'farmmate:pending_ref'
@@ -36,6 +36,7 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
+  signInWithKakao: () => Promise<void>
   signOut: () => Promise<void>
   testLogin: () => void
 }
@@ -113,6 +114,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await signInWithGoogle()
     } catch (error) {
       console.error('구글 로그인 실패:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSignInWithKakao = async () => {
+    try {
+      setLoading(true)
+      await signInWithKakao()
+    } catch (error) {
+      console.error('카카오 로그인 실패:', error)
       throw error
     } finally {
       setLoading(false)
@@ -201,6 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     session,
     loading,
     signInWithGoogle: handleSignInWithGoogle,
+    signInWithKakao: handleSignInWithKakao,
     signOut: handleSignOut,
     testLogin: handleTestLogin,
   }
