@@ -16,6 +16,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
     height: 0,
     isMobileTall: false,
   })
+  // 뷰포트 높이에 따라 캐릭터+땅 위치를 조정 (높이가 작을수록 더 올림)
+  const groundOffset = viewport.height > 0 && viewport.height < 700 ? -7
+    : viewport.height < 860 ? -5
+    : -3.5
+
   const soilSpots = [
     { left: 5.93, top: 64.96, soft: true },
     { left: 10.77, top: 68.12, soft: false },
@@ -103,6 +108,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
             src="/f_log_logo_login_final.png"
             alt="F_log 로고"
             className="absolute left-[27.47%] top-[8.38%] w-[45.27%] h-auto object-contain"
+            style={{ maxHeight: 'clamp(60px, 14vh, 130px)' }}
           />
 
           <div className="absolute left-[12.97%] top-[26.01%] w-[74.07%] text-center">
@@ -124,13 +130,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
             src="/f_log_character.png"
             alt="F_log 캐릭터"
             className="absolute left-[21.98%] w-[56.26%] h-[32.10%] object-contain z-30"
-            style={{ top: viewport.isMobileTall ? '37.9%' : '38.41%' }}
+            style={{ top: viewport.isMobileTall ? `${37.9 + groundOffset}%` : `${38.41 + groundOffset}%` }}
           />
 
           <div
             className="absolute left-0 w-full bg-[#BF7D57] shadow-[0_0_20px_rgba(0,0,0,0.25)] z-10"
             style={{
-              top: viewport.isMobileTall ? '61.9%' : '62.57%',
+              top: viewport.isMobileTall ? `${61.9 + groundOffset}%` : `${62.57 + groundOffset}%`,
               height: viewport.isMobileTall ? '15.8%' : '13.93%',
             }}
           />
@@ -141,7 +147,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
               className={`absolute z-20 rounded-[10px] ${spot.soft ? 'bg-[#975F4080]' : 'bg-[#975F40]'}`}
               style={{
                 left: `${spot.left}%`,
-                top: `${viewport.isMobileTall ? spot.top + 0.2 : spot.top}%`,
+                top: `${viewport.isMobileTall ? spot.top + 0.2 + groundOffset : spot.top + groundOffset}%`,
                 width: '7.03%',
                 height: viewport.isMobileTall ? '1.55%' : '1.41%',
               }}
