@@ -2,15 +2,15 @@ import { Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { trackPageView } from '@/lib/analytics';
 
 interface LoginPageProps {
   onBrowseWithoutLogin?: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) => {
-  const { signInWithGoogle, loading } = useAuth()
+  const { signInWithGoogle, signInWithKakao, loading } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const [activeProvider, setActiveProvider] = useState<'google' | 'kakao' | null>(null)
   const [viewport, setViewport] = useState({
     width: 0,
     height: 0,
@@ -33,23 +33,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
     { left: 92.09, top: 63.66, soft: false },
   ]
 
-  useEffect(() => {
-    trackPageView({
-      page_name: 'login',
-      page_category: 'login',
-      page_path: '/login',
-    })
-  }, [])
-
   const handleGoogleLogin = async () => {
     try {
       setError(null)
+      setActiveProvider('google')
       await signInWithGoogle()
     } catch (error: any) {
       console.error('구글 로그인 실패:', error)
       const errorMessage = error?.message || '구글 로그인에 실패했습니다. 다시 시도해주세요.'
       setError(errorMessage)
+    } finally {
+      setActiveProvider(null)
     }
+  }
+
+  const handleKakaoLogin = async () => {
+    try {
+      setError(null)
+      setActiveProvider('kakao')
+      await signInWithKakao()
+    } catch (error: any) {
+      console.error('카카오 로그인 실패:', error)
+      const errorMessage = error?.message || '카카오 로그인에 실패했습니다. 다시 시도해주세요.'
+      setError(errorMessage)
+    } finally {
+      setActiveProvider(null)
+    }
+  }
+
+  const handleExploreWithoutLogin = () => {
+    if (onBrowseWithoutLogin) {
+      onBrowseWithoutLogin()
+      return
+    }
+    window.location.assign('/')
   }
 
   useEffect(() => {
@@ -73,14 +90,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
     height: '100dvh',
     maxWidth: viewport.width > 768 ? 'calc(100dvh * 455 / 919)' : 'none',
   } as const
-
-  const handleExploreWithoutLogin = () => {
-    if (onBrowseWithoutLogin) {
-      onBrowseWithoutLogin()
-      return
-    }
-    window.location.assign('/')
-  }
 
   return (
     <div className="min-h-screen w-full bg-[#F4F6E1]">
@@ -139,25 +148,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
             />
           ))}
 
+          {/* 구글 로그인 버튼 */}
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            aria-label="Google 계정으로 로그인"
-            className="absolute left-1/2 -translate-x-1/2 top-[85.31%] w-[68.31%] h-[6.40%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
+            aria-label="Google로 시작하기"
+            className="absolute left-1/2 -translate-x-1/2 top-[77%] w-[68.31%] h-[5.5%] rounded-[11.2px] border border-[#1E243A3B] bg-white flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
           >
-            {loading ? (
+            {loading && activeProvider === 'google' ? (
               <>
                 <Loader2 className="h-[45%] w-auto animate-spin text-[#5F6368]" />
                 <span
                   className="font-normal tracking-[0.21px] text-black/50 whitespace-nowrap"
-                  style={{ fontSize: 'clamp(12px, 2.1vh, 22.4px)', lineHeight: '1.5' }}
+                  style={{ fontSize: 'clamp(11px, 1.9vh, 20px)', lineHeight: '1.5' }}
                 >
                   로그인 중...
                 </span>
               </>
             ) : (
               <>
-                <svg className="h-[52%] w-auto shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                <svg className="h-[48%] w-auto shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                   <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.2-.9 2.2-1.9 2.9l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.5-.2-2.2H12z" />
                   <path fill="#34A853" d="M12 22c2.7 0 5-.9 6.7-2.6l-3.1-2.4c-.9.6-2 .9-3.6.9-2.7 0-5-1.8-5.8-4.3l-3.2 2.5C4.7 19.6 8.1 22 12 22z" />
                   <path fill="#4285F4" d="M6.2 13.6c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8L3 7.5C2.4 8.8 2 10.3 2 11.8s.4 3 1 4.3l3.2-2.5z" />
@@ -165,18 +175,52 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
                 </svg>
                 <span
                   className="font-normal tracking-[0.21px] text-black/50 whitespace-nowrap"
-                  style={{ fontSize: 'clamp(12px, 2.1vh, 22.4px)', lineHeight: '1.5' }}
+                  style={{ fontSize: 'clamp(11px, 1.9vh, 20px)', lineHeight: '1.5' }}
                 >
-                  Google 계정으로 로그인
+                  Google로 시작하기
                 </span>
               </>
             )}
           </button>
 
+          {/* 카카오 로그인 버튼 */}
+          <button
+            onClick={handleKakaoLogin}
+            disabled={loading}
+            aria-label="카카오로 시작하기"
+            className="absolute left-1/2 -translate-x-1/2 top-[83.7%] w-[68.31%] h-[5.5%] rounded-[11.2px] flex items-center justify-center gap-[2.46%] focus:outline-none focus:ring-2 focus:ring-[#FEE500] focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed z-40"
+            style={{ backgroundColor: '#FEE500' }}
+          >
+            {loading && activeProvider === 'kakao' ? (
+              <>
+                <Loader2 className="h-[45%] w-auto animate-spin text-black/60" />
+                <span
+                  className="font-normal tracking-[0.21px] text-black/60 whitespace-nowrap"
+                  style={{ fontSize: 'clamp(11px, 1.9vh, 20px)', lineHeight: '1.5' }}
+                >
+                  로그인 중...
+                </span>
+              </>
+            ) : (
+              <>
+                <svg className="h-[48%] w-auto shrink-0" viewBox="0 0 24 24" aria-hidden="true" fill="#000000">
+                  <path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.733 1.714 5.13 4.318 6.565L5.29 21l4.98-2.79c.562.08 1.138.12 1.73.12 5.523 0 10-3.477 10-7.8S17.523 3 12 3z" />
+                </svg>
+                <span
+                  className="font-normal tracking-[0.21px] whitespace-nowrap"
+                  style={{ fontSize: 'clamp(11px, 1.9vh, 20px)', lineHeight: '1.5', color: '#000000' }}
+                >
+                  카카오로 시작하기
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* 로그인 없이 둘러보기 링크 */}
           <button
             type="button"
             onClick={handleExploreWithoutLogin}
-            className="absolute left-1/2 top-[93.2%] z-40 w-[88%] max-w-md -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0 text-center text-[11px] font-normal leading-snug text-gray-400/90 underline decoration-gray-400/80 decoration-1 underline-offset-[3px] transition-colors hover:text-gray-500 hover:decoration-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50 focus-visible:ring-offset-2 sm:text-xs"
+            className="absolute left-1/2 top-[91%] z-40 w-[88%] max-w-md -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0 text-center text-[11px] font-normal leading-snug text-gray-400/90 underline decoration-gray-400/80 decoration-1 underline-offset-[3px] transition-colors hover:text-gray-500 hover:decoration-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50 focus-visible:ring-offset-2 sm:text-xs"
             aria-label="로그인 없이 앱 둘러보기"
           >
             로그인 없이 기능을 둘러볼 수 있어요
