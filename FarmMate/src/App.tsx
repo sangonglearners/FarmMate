@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LoginPromptProvider } from './contexts/LoginPromptContext';
 import { LoginPage } from './components/LoginPage';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LoginPromptDialog } from './components/LoginPromptDialog';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Router, Route } from 'wouter';
 import HomePage from './pages/home/ui/HomePage';
 import { FarmsPage } from './pages/farms';
@@ -19,23 +22,28 @@ import {
   RecommendationsHistoryPage,
   RecommendationsHistoryDetailPage 
 } from './pages/recommendations';
+import { appQueryClient } from './lib/appQueryClient';
+import { Toaster } from '@/components/ui/toaster';
+import AnalyticsPageTracker from '@/components/AnalyticsPageTracker';
 
-// QueryClient 생성
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5분
-    },
-  },
-});
+/** 탭(세션) 동안만 유지. 창·탭을 닫고 링크로 다시 들어오면 랜딩이 다시 뜸 (localStorage 미사용) */
+const GUEST_BROWSE_KEY = 'farmmate:browse_without_login';
+
+function readGuestBrowseFlag(): boolean {
+  try {
+    return sessionStorage.getItem(GUEST_BROWSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 // 메인 앱 컴포넌트 (로그인 후 표시되는 기존 FarmMate 웹앱)
 function MainApp() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={appQueryClient}>
       <Router>
         <Layout>
+          <AnalyticsPageTracker />
           <Route path="/" component={HomePage} />
           <Route path="/farms" component={FarmsPage} />
           <Route path="/crops" component={FarmsPage} />
@@ -59,9 +67,23 @@ function MainApp() {
 }
 
 function AppRouter() {
-  const { user, loading } = useAuth();
+  const { loading, user } = useAuth();
+  const [path, setLocation] = useLocation();
+  const [guestBrowse, setGuestBrowse] = useState(readGuestBrowseFlag);
 
-  // 로딩 중일 때
+  useEffect(() => {
+    if (!user) {
+      setGuestBrowse(readGuestBrowseFlag());
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (user && path === '/login') {
+      setLocation('/');
+    }
+  }, [loading, user, path, setLocation]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -73,13 +95,35 @@ function AppRouter() {
     );
   }
 
-  // 로그인하지 않은 경우
-  if (!user) {
-    return <LoginPage />;
+  const handleBrowseWithoutLogin = () => {
+    try {
+      sessionStorage.setItem(GUEST_BROWSE_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setGuestBrowse(true);
+    setLocation('/');
+  };
+
+  if (!user && path === '/login') {
+    return (
+      <LoginPage
+        onBrowseWithoutLogin={guestBrowse ? undefined : handleBrowseWithoutLogin}
+      />
+    );
   }
 
-  // 로그인한 경우 - 기존 FarmMate 홈화면으로 연결
-  return <MainApp />;
+  if (!user && !guestBrowse && path === '/') {
+    return <LoginPage onBrowseWithoutLogin={handleBrowseWithoutLogin} />;
+  }
+
+  return (
+    <>
+      <MainApp />
+      <LoginPromptDialog />
+      <Toaster />
+    </>
+  );
 }
 
 function ReferralCapture() {
@@ -100,8 +144,10 @@ function ReferralCapture() {
 function App() {
   return (
     <AuthProvider>
-      <ReferralCapture />
-      <AppRouter />
+      <LoginPromptProvider>
+        <ReferralCapture />
+        <AppRouter />
+      </LoginPromptProvider>
     </AuthProvider>
   );
 }

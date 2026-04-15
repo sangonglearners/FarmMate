@@ -62,7 +62,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
   }
 
   const handleExploreWithoutLogin = () => {
-    onBrowseWithoutLogin?.()
+    if (onBrowseWithoutLogin) {
+      onBrowseWithoutLogin()
+      return
+    }
+    window.location.assign('/')
   }
 
   useEffect(() => {

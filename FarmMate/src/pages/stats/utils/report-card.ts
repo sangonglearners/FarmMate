@@ -7,12 +7,13 @@ import {
 
 /** 캔버스·요약 카드에 그릴 기록 태그(토스 소비태그 스타일) */
 export type RecordBadgeVariant =
-  | "dawn"
-  | "night"
-  | "memo"
-  | "check"
-  | "streak"
-  | "planner"
+  | "sprouting_farmer"
+  | "steady_farmer"
+  | "morning_farmer"
+  | "night_farmer"
+  | "finisher_farmer"
+  | "story_farmer"
+  | "busy_day_farmer"
   | "default";
 
 export type RecordBadge = {
@@ -226,18 +227,20 @@ function recordBadgeChipStyle(variant: RecordBadgeVariant): {
   stroke: string;
 } {
   switch (variant) {
-    case "dawn":
+    case "morning_farmer":
       return { bg: "#E3EBFF", fg: "#2F4FA8", stroke: "rgba(47,79,168,0.14)" };
-    case "night":
+    case "night_farmer":
       return { bg: "#EDE8F7", fg: "#5E35B1", stroke: "rgba(94,53,177,0.14)" };
-    case "memo":
+    case "story_farmer":
       return { bg: "#DCF5EA", fg: "#136C45", stroke: "rgba(19,108,69,0.14)" };
-    case "check":
+    case "finisher_farmer":
       return { bg: "#FFE7D9", fg: "#C2410C", stroke: "rgba(194,65,12,0.14)" };
-    case "streak":
+    case "steady_farmer":
       return { bg: "#FEF3C7", fg: "#B45309", stroke: "rgba(180,83,9,0.16)" };
-    case "planner":
+    case "busy_day_farmer":
       return { bg: "#E8EDF2", fg: "#37474F", stroke: "rgba(55,71,79,0.12)" };
+    case "sprouting_farmer":
+      return { bg: "#EAF8E5", fg: "#3F7B3A", stroke: "rgba(63,123,58,0.16)" };
     default:
       return { bg: "#F1F3F4", fg: "#495057", stroke: "rgba(0,0,0,0.06)" };
   }
@@ -246,18 +249,20 @@ function recordBadgeChipStyle(variant: RecordBadgeVariant): {
 /** 멘트 블록 첫 배지 pill — variant별 면·테두리 (버튼 느낌) */
 function badgePillFaceStops(variant: RecordBadgeVariant): { hi: string; mid: string; lo: string } {
   switch (variant) {
-    case "dawn":
+    case "morning_farmer":
       return { hi: "#F8FAFF", mid: "#EEF3FF", lo: "#D4DFF5" };
-    case "night":
+    case "night_farmer":
       return { hi: "#FAF8FF", mid: "#F2EDFA", lo: "#DCD4ED" };
-    case "memo":
+    case "story_farmer":
       return { hi: "#F6FDF9", mid: "#E8F7EF", lo: "#C8EAD9" };
-    case "check":
+    case "finisher_farmer":
       return { hi: "#FFFAF6", mid: "#FFF0E5", lo: "#F5D5C2" };
-    case "streak":
+    case "steady_farmer":
       return { hi: "#FFFCF2", mid: "#FEF6DC", lo: "#F0E0B0" };
-    case "planner":
+    case "busy_day_farmer":
       return { hi: "#F8FAFC", mid: "#ECEFF4", lo: "#D5DCE4" };
+    case "sprouting_farmer":
+      return { hi: "#FAFDF8", mid: "#F0F8EB", lo: "#DCEFCF" };
     default:
       return { hi: "#FBFDF8", mid: "#F3F5F0", lo: "#E4EBDC" };
   }
@@ -265,18 +270,20 @@ function badgePillFaceStops(variant: RecordBadgeVariant): { hi: string; mid: str
 
 function badgePillShadowTint(variant: RecordBadgeVariant): string {
   switch (variant) {
-    case "dawn":
+    case "morning_farmer":
       return "rgba(35, 55, 120, 0.12)";
-    case "night":
+    case "night_farmer":
       return "rgba(60, 40, 110, 0.12)";
-    case "memo":
+    case "story_farmer":
       return "rgba(15, 80, 50, 0.11)";
-    case "check":
+    case "finisher_farmer":
       return "rgba(120, 45, 15, 0.11)";
-    case "streak":
+    case "steady_farmer":
       return "rgba(110, 70, 10, 0.11)";
-    case "planner":
+    case "busy_day_farmer":
       return "rgba(45, 55, 65, 0.11)";
+    case "sprouting_farmer":
+      return "rgba(54, 93, 40, 0.11)";
     default:
       return "rgba(45, 75, 40, 0.1)";
   }
@@ -284,18 +291,20 @@ function badgePillShadowTint(variant: RecordBadgeVariant): string {
 
 function badgePillOuterStrokeColor(variant: RecordBadgeVariant): string {
   switch (variant) {
-    case "dawn":
+    case "morning_farmer":
       return "rgba(47, 79, 168, 0.4)";
-    case "night":
+    case "night_farmer":
       return "rgba(94, 53, 177, 0.4)";
-    case "memo":
+    case "story_farmer":
       return "rgba(19, 108, 69, 0.4)";
-    case "check":
+    case "finisher_farmer":
       return "rgba(194, 65, 12, 0.4)";
-    case "streak":
+    case "steady_farmer":
       return "rgba(180, 83, 9, 0.42)";
-    case "planner":
+    case "busy_day_farmer":
       return "rgba(55, 71, 79, 0.38)";
+    case "sprouting_farmer":
+      return "rgba(63, 123, 58, 0.42)";
     default:
       return "rgba(90, 122, 71, 0.42)";
   }
@@ -342,20 +351,20 @@ function mascotMoodCaption(metrics: TodayReportCardMetrics): string {
   const first = metrics.recordBadges?.[0];
   if (first) {
     switch (first.id) {
-      case "dawn":
-        return "새벽마다 남기는 기록";
-      case "night":
-        return "늦은 밤까지 챙기는 농장";
-      case "memo":
-        return "메모로 꼼꼼하게 남기는 하루";
-      case "check":
-        return "할 일을 꼭 챙기는 하루";
-      case "streak":
-        return "꾸준함이 쌓이는 패턴";
-      case "planner":
-        return "바쁜 하루도 차근차근";
-      case "grow":
-        return "기록이 조금씩 자라나는 중이에요";
+      case "sprouting_farmer":
+        return "기록이 조금씩 자리 잡는 중이에요";
+      case "steady_farmer":
+        return "꾸준한 기록이 농장을 단단하게 만들고 있어요";
+      case "morning_farmer":
+        return "아침 시간에 기록하는 패턴이 보여요";
+      case "night_farmer":
+        return "늦은 시간에도 기록을 놓치지 않아요";
+      case "finisher_farmer":
+        return "오늘 할 일을 거의 마무리했어요";
+      case "story_farmer":
+        return "상황과 맥락을 자세히 남기고 있어요";
+      case "busy_day_farmer":
+        return "오늘은 챙길 일이 많은 하루예요";
       default:
         break;
     }

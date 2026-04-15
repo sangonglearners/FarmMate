@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/features/task-management";
 import { useCrops } from "@/features/crop-management";
 import { listTaskCompletionsByDate, listTaskCompletionsByDateRange } from "@/shared/api/task-completion";
@@ -14,6 +13,7 @@ import {
   type TodayReportCardMetrics,
 } from "@/pages/stats/utils/report-card";
 import { TodayReportCardDialog } from "./TodayReportCardDialog";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 function useTodayDateStr() {
   return useMemo(() => {
@@ -26,7 +26,7 @@ function useTodayDateStr() {
 }
 
 export function TodayReportCardWidget() {
-  const { user } = useAuth();
+  const { user, ensureAuth } = useRequireAuth();
   const todayDateStr = useTodayDateStr();
   const streakStartDateStr = useMemo(() => {
     const [y, m, d] = todayDateStr.split("-").map((n) => Number(n));
@@ -185,7 +185,10 @@ export function TodayReportCardWidget() {
             type="button"
             size="sm"
             className="shrink-0 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/15 hover:bg-primary/90"
-            onClick={() => setDialogOpen(true)}
+            onClick={() => {
+              if (!ensureAuth()) return;
+              setDialogOpen(true);
+            }}
           >
             보기
           </Button>
@@ -194,7 +197,10 @@ export function TodayReportCardWidget() {
         <button
           type="button"
           className={`group relative w-full ${previewAspect} overflow-hidden rounded-2xl bg-[#F3F5E0]/35 transition-[box-shadow,transform] duration-200 hover:bg-white hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] active:scale-[0.99]`}
-          onClick={() => setDialogOpen(true)}
+          onClick={() => {
+            if (!ensureAuth()) return;
+            setDialogOpen(true);
+          }}
           aria-label="오늘의 농장 리포트 카드 보기"
         >
           {imageUrl ? (

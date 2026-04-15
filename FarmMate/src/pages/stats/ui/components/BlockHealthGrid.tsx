@@ -34,13 +34,34 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   const [, setLocation] = useLocation();
   const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({});
 
+  if (blocks.length === 0) {
+    return (
+      <Card className="rounded-xl shadow-sm border border-gray-100">
+        <CardHeader>
+          <div className="flex flex-col gap-0.5">
+            <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
+            <p className="text-xs text-gray-500">
+              이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="rounded-lg border border-gray-100 bg-gray-50/40 py-10 text-center text-sm text-gray-500">
+            표시할 농장·이랑 정보가 없어요. 농장을 등록하고 작업이 쌓이면 상태가 나타나요.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const displayBlocks = blocks;
+
   const handleBlockClick = (farmId: string) => {
-    // 해당 농장의 캘린더 페이지로 이동
     setLocation(`/calendar?farmId=${farmId}`);
   };
 
   // 농장별로 그룹화
-  const blocksByFarm = blocks.reduce((acc, block) => {
+  const blocksByFarm = displayBlocks.reduce((acc, block) => {
     if (!acc[block.farmName]) {
       acc[block.farmName] = [];
     }
@@ -54,9 +75,10 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
   });
 
   // 전체 이랑 사용률 (empty가 아닌 블록 = 사용 이랑)
-  const totalBlocks = blocks.length;
-  const usedBlocks = blocks.filter(b => b.status !== "empty").length;
+  const totalBlocks = displayBlocks.length;
+  const usedBlocks = displayBlocks.filter((b) => b.status !== "empty").length;
   const overallUsagePct = totalBlocks > 0 ? ((usedBlocks / totalBlocks) * 100).toFixed(1) : "0";
+  const formatUsage = (pct: string, used: number, total: number) => `${pct}% (${used}개/${total}개)`;
 
   // 농장별 이랑 사용률
   const getFarmUsage = (farmBlocks: BlockStatus[]) => {
@@ -87,15 +109,18 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
       <CardHeader>
         <div className="flex flex-col gap-0.5">
           <CardTitle className="text-base font-semibold">농장별 작업 상태</CardTitle>
+          <p className="text-xs text-gray-500">
+            이랑마다 작업이 많으면 색이 진해져요. 농장 이름을 누르면 이랑이 펼쳐져요.
+          </p>
           <span className="text-xs text-gray-600">
-            이랑 사용률: {overallUsagePct}% ({usedBlocks}개/{totalBlocks}개)
+            이랑 사용 {formatUsage(overallUsagePct, usedBlocks, totalBlocks)}
           </span>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6 mb-4">
+        <div className="mb-4 space-y-6">
           {Object.entries(blocksByFarm).map(([farmName, farmBlocks]) => {
-            const isExpanded = expandedFarms[farmName] ?? false;
+            const isExpanded = expandedFarms[farmName] ?? true;
             const farmUsage = getFarmUsage(farmBlocks);
 
             return (
@@ -118,7 +143,7 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
                     {farmName}
                   </h3>
                   <span className="text-xs text-gray-600 shrink-0">
-                    {farmUsage.pct}% ({farmUsage.used}개/{farmUsage.total}개)
+                    {formatUsage(farmUsage.pct, farmUsage.used, farmUsage.total)}
                   </span>
                 </button>
 
@@ -128,6 +153,7 @@ export function BlockHealthGrid({ blocks }: BlockHealthGridProps) {
                     {farmBlocks.map((block) => (
                       <button
                         key={block.blockId}
+                        type="button"
                         onClick={() => handleBlockClick(block.farmId)}
                         disabled={block.status === "empty"}
                         className={cn(

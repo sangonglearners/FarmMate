@@ -251,7 +251,7 @@ export function TrendChart({
         const valueK = valueWon / 1000;
         return { ...d, valueK, valueWon };
       }),
-    [data]
+    [data],
   );
 
   const yAxisConfig = useMemo(() => buildYAxisConfig(chartData.map((d) => d.valueK)), [chartData]);

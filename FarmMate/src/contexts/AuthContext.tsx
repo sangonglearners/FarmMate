@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, signInWithGoogle, signInWithKakao, signOut, onAuthStateChange } from '@lib/supabaseClient'
 import { AiCreditsRepository } from '@/shared/api/ai-credits.repository'
+import { appQueryClient } from '@/lib/appQueryClient'
 
 const PENDING_REF_KEY = 'farmmate:pending_ref'
 
@@ -31,13 +32,18 @@ async function isNewUser(userId: string): Promise<boolean> {
   return data === null
 }
 
+export interface SignOutOptions {
+  /** 기본 true. 회원탈퇴 등에서 false로 두고 별도로 이동 처리 */
+  redirectToLogin?: boolean
+}
+
 interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
   signInWithKakao: () => Promise<void>
-  signOut: () => Promise<void>
+  signOut: (options?: SignOutOptions) => Promise<void>
   testLogin: () => void
 }
 
@@ -87,6 +93,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(session?.user ?? null)
       setLoading(false)
 
+      if (event === 'SIGNED_OUT') {
+        // 이전 로그인 사용자의 서버 캐시가 남아 보이지 않도록 즉시 정리
+        appQueryClient.clear()
+      }
+
       // 구글 로그인 완료 시 신규 유저 여부 확인 후 추천인 코드 처리
       if (event === 'SIGNED_IN' && session?.user?.id) {
         const userId = session.user.id
@@ -132,11 +143,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (options?: SignOutOptions) => {
+    const { redirectToLogin = true } = options ?? {}
     try {
       setLoading(true)
       localStorage.removeItem('test-user')
+      localStorage.removeItem('fm_user_name')
+      localStorage.removeItem('fm_user_avatar')
+      sessionStorage.removeItem('farmmate:browse_without_login')
+      try {
+        localStorage.removeItem('farmmate:browse_without_login')
+      } catch {
+        /* ignore */
+      }
       await signOut()
+      if (redirectToLogin) {
+        window.location.replace('/login')
+      }
     } catch (error) {
       console.error('로그아웃 실패:', error)
       throw error

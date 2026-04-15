@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 const LEDGER_TASK_TYPE_OPTIONS = [
   "파종",
@@ -84,6 +85,7 @@ export default function LedgerManagementPage() {
   const { data: crops } = useCrops();
   const [location, navigate] = useLocation();
   const showBackButton = location.includes("from=my-page");
+  const { ensureAuth } = useRequireAuth();
 
   // 선택된 월의 시작일과 종료일
   const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
@@ -170,6 +172,7 @@ export default function LedgerManagementPage() {
 
   // 장부 작성/수정 핸들러
   const handleTaskClick = (task: Task) => {
+    if (!ensureAuth()) return;
     const ledger = ledgers.find(l => l.taskId === task.id);
     setSelectedTask(task);
     setSelectedLedger(ledger || null);
@@ -178,6 +181,7 @@ export default function LedgerManagementPage() {
 
   // 장부 수정 핸들러
   const handleLedgerEdit = (ledger: LedgerWithExpenses) => {
+    if (!ensureAuth()) return;
     const task = tasks.find(t => t.id === ledger.taskId);
     if (task) {
       setSelectedTask(task);
@@ -210,11 +214,13 @@ export default function LedgerManagementPage() {
 
   const handleDeleteClick = (ledgerId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!ensureAuth()) return;
     setLedgerToDelete(ledgerId);
     setDeleteConfirmOpen(true);
   };
 
   const handleDeleteConfirm = () => {
+    if (!ensureAuth()) return;
     if (ledgerToDelete) {
       deleteMutation.mutate(ledgerToDelete);
     }

@@ -66,9 +66,9 @@ export function WeatherWidget({ className, compact = false }: WeatherWidgetProps
   if (showSkeleton) {
     if (compact) {
       return (
-        <Card className={`${className || ''}`}>
-          <CardContent className="h-full px-3 py-2 flex items-center">
-            <p className="text-sm text-gray-500 truncate">날씨 정보를 불러오는 중...</p>
+        <Card className={`min-w-0 w-full max-w-full overflow-hidden ${className || ""}`}>
+          <CardContent className="px-2 py-2 sm:px-3">
+            <p className="text-xs text-gray-500 sm:text-sm">날씨 정보를 불러오는 중...</p>
           </CardContent>
         </Card>
       );
@@ -97,9 +97,9 @@ export function WeatherWidget({ className, compact = false }: WeatherWidgetProps
   if (showError) {
     if (compact) {
       return (
-        <Card className={`${className || ''}`}>
-          <CardContent className="h-full px-3 py-2 flex items-center">
-            <p className="text-sm text-orange-700 truncate">날씨 정보를 불러올 수 없습니다</p>
+        <Card className={`min-w-0 w-full max-w-full overflow-hidden ${className || ""}`}>
+          <CardContent className="px-2 py-2 sm:px-3">
+            <p className="text-xs text-orange-700 sm:text-sm">날씨 정보를 불러올 수 없습니다</p>
           </CardContent>
         </Card>
       );
@@ -126,27 +126,41 @@ export function WeatherWidget({ className, compact = false }: WeatherWidgetProps
 
   if (compact) {
     return (
-      <Card className={`${className || ''}`}>
-        <CardContent className="h-full px-3 py-2 flex items-center">
-          <p className="text-sm text-gray-800 truncate">
-            <span className="font-medium">{displayWeather.location}</span>
-            <span className="mx-1">{weatherIcon}</span>
-            <span className="font-semibold">{currentTemp}°</span>
-            <span className="mx-1 text-gray-400">|</span>
-            <span>습도 {humidity}%</span>
+      <Card className={`min-w-0 w-full max-w-full overflow-hidden ${className || ""}`}>
+        <CardContent className="min-w-0 px-2 py-1.5 sm:px-3 sm:py-2">
+          {/* 한 줄 고정: 뷰포트에 따라 글자만 clamp로 축소 */}
+          <div
+            className="flex min-w-0 flex-nowrap items-center gap-x-0.5 text-[length:clamp(8px,2.4vw,13px)] leading-none text-gray-800 sm:gap-x-1 sm:text-xs"
+            title={`${displayWeather.location} ${currentTemp}° 습도 ${humidity}%`}
+          >
+            <span className="min-w-0 max-w-[38%] truncate font-medium sm:max-w-[45%]">
+              {displayWeather.location}
+            </span>
+            <span className="shrink-0" aria-hidden>
+              {weatherIcon}
+            </span>
+            <span className="shrink-0 font-semibold tabular-nums">{currentTemp}°</span>
+            <span className="shrink-0 text-gray-300" aria-hidden>
+              |
+            </span>
+            <span className="shrink-0 tabular-nums">습도 {humidity}%</span>
             {maxTemp !== null && (
               <>
-                <span className="mx-1 text-gray-400">|</span>
-                <span className="text-red-500 font-medium">최고 {maxTemp}°</span>
+                <span className="shrink-0 text-gray-300" aria-hidden>
+                  |
+                </span>
+                <span className="shrink-0 font-medium tabular-nums text-red-500">최고 {maxTemp}°</span>
               </>
             )}
             {minTemp !== null && (
               <>
-                <span className="mx-1 text-gray-400">|</span>
-                <span className="text-blue-500 font-medium">최저 {minTemp}°</span>
+                <span className="shrink-0 text-gray-300" aria-hidden>
+                  |
+                </span>
+                <span className="shrink-0 font-medium tabular-nums text-blue-500">최저 {minTemp}°</span>
               </>
             )}
-          </p>
+          </div>
         </CardContent>
       </Card>
     );

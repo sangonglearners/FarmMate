@@ -35,6 +35,7 @@ import {
 import type { Task } from "@shared/schema";
 import { useEffect } from "react";
 import { sendPageView } from "../../../shared/ga";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -52,6 +53,7 @@ export default function HomePage() {
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
+  const { ensureAuth } = useRequireAuth();
 
   // Google Analytics 페이지뷰 추적
   useEffect(() => {
@@ -132,10 +134,12 @@ export default function HomePage() {
 
 
   const handleAddTaskClick = () => {
+    if (!ensureAuth()) return;
     setShowAddTaskDialog(true);
   };
 
   const handleTaskClick = (task: any) => {
+    if (!ensureAuth()) return;
     console.log("편집할 task 데이터:", task);
     
     // 그룹 정보: 투두리스트에서는 originalTaskGroup, 없으면 taskGroupId로 전체 작업에서 그룹 조회
@@ -427,21 +431,24 @@ export default function HomePage() {
           <p className="text-gray-600 text-sm">오늘의 농장 활동을 확인해보세요</p>
         </div>
 
-        {/* 상단 요약 블록 */}
-        <section className="rounded-xl border border-black bg-[#F3F5E0] p-3">
-          <div className="grid grid-cols-[88px_1fr] gap-3 items-stretch">
-            <div className="flex items-end justify-center">
+        {/* 상단 요약 블록 — grid 자식에 min-w-0으로 좁은 화면 오버플로 방지 */}
+        <section className="overflow-hidden rounded-xl border border-black bg-[#F3F5E0] p-2 sm:p-3">
+          <div className="grid grid-cols-[minmax(0,72px)_minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[minmax(0,88px)_minmax(0,1fr)] sm:gap-3">
+            <div className="flex min-w-0 items-end justify-center self-end">
               <img
                 src="/f_log_character.png"
                 alt="프르그 캐릭터"
-                className="h-24 w-24 object-contain"
+                className="h-20 w-full max-w-[5.5rem] object-contain object-bottom sm:h-24 sm:max-w-[6rem]"
               />
             </div>
-            <div className="space-y-2">
-              <WeatherWidget compact className="h-11 w-full rounded-md border border-gray-300 bg-white" />
-              <div className="flex min-h-[4.25rem] gap-2 items-stretch">
-                <div className="min-w-0 flex-1 flex">
-                  <TodayReportCardGoButton buttonClassName="flex h-full min-h-[4.25rem] w-full min-w-0 justify-start gap-0 whitespace-normal rounded-xl border-0 bg-white/60 px-3 py-3 text-left font-normal shadow-[0_6px_20px_-4px_rgba(0,0,0,0.12)] hover:bg-white/85 hover:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.16)] [&_svg]:h-5 [&_svg]:w-5">
+            <div className="flex min-w-0 flex-col space-y-2">
+              <WeatherWidget
+                compact
+                className="min-h-0 w-full min-w-0 rounded-md border border-gray-300 bg-white sm:min-h-[2.75rem]"
+              />
+              <div className="flex min-h-[3.75rem] min-w-0 gap-1.5 items-stretch sm:min-h-[4.25rem] sm:gap-2">
+                <div className="flex min-w-0 flex-1">
+                  <TodayReportCardGoButton buttonClassName="flex h-full min-h-[3.75rem] w-full min-w-0 justify-start gap-0 whitespace-normal rounded-xl border-0 bg-white/60 px-2 py-2.5 text-left font-normal shadow-[0_6px_20px_-4px_rgba(0,0,0,0.12)] hover:bg-white/85 hover:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.16)] sm:min-h-[4.25rem] sm:px-3 sm:py-3 [&_svg]:h-5 [&_svg]:w-5">
                     <span className="flex w-full min-w-0 items-center gap-2">
                       <span className="min-w-0 flex-1 text-left">
                         <span className="block text-[15px] font-bold leading-snug tracking-tight text-primary sm:text-base">
@@ -458,7 +465,7 @@ export default function HomePage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex h-full min-h-[4.25rem] w-[3.25rem] shrink-0 flex-col items-center justify-center rounded-xl border border-gray-300 bg-transparent p-0 text-gray-600 shadow-[0_4px_14px_-3px_rgba(0,0,0,0.1)] hover:bg-transparent hover:text-primary hover:shadow-[0_6px_18px_-4px_rgba(0,0,0,0.14)]"
+                  className="flex h-full min-h-[3.75rem] w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-gray-300 bg-transparent p-0 text-gray-600 shadow-[0_4px_14px_-3px_rgba(0,0,0,0.1)] hover:bg-transparent hover:text-primary hover:shadow-[0_6px_18px_-4px_rgba(0,0,0,0.14)] sm:min-h-[4.25rem] sm:w-[3.25rem]"
                   aria-label="마이페이지"
                   onClick={() => setLocation("/my-page")}
                 >

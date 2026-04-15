@@ -113,7 +113,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[500px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>공유 설정</DialogTitle>
         </DialogHeader>
@@ -208,7 +208,10 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                   </div>
                 ) : (
                   sharedUsers.map((user: SharedUser) => (
-                    <div key={user.shareId || user.userId} className="border rounded-lg p-3 flex items-center justify-between gap-3">
+                    <div
+                      key={user.shareId || user.userId}
+                      className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                    >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <Avatar>
                           <AvatarFallback>
@@ -220,9 +223,9 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                           <p className="text-xs text-gray-500 truncate">{user.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex w-full sm:w-auto items-center justify-end gap-2">
                         {user.role === 'owner' ? (
-                          <Badge variant="outline" className="w-[140px] justify-center bg-amber-50 text-amber-700 border-amber-300">
+                          <Badge variant="outline" className="w-full sm:w-[140px] justify-center bg-amber-50 text-amber-700 border-amber-300">
                             소유주
                           </Badge>
                         ) : (
@@ -232,7 +235,7 @@ export default function CalendarShareDialog({ open, onOpenChange, farmId }: Cale
                               onValueChange={(value) => handleRoleChange(user.shareId, value as 'editor' | 'commenter' | 'viewer')}
                               disabled={!canManagePermissions}
                             >
-                              <SelectTrigger className="w-[140px]" disabled={!canManagePermissions}>
+                              <SelectTrigger className="w-full sm:w-[140px]" disabled={!canManagePermissions}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>

@@ -39,56 +39,112 @@ export function buildRecordBadges({
 }: BuildRecordBadgesParams): RecordBadge[] {
   const candidates: Candidate[] = [];
 
-  if (plannedCount >= 2 && completionPercent >= 85) {
-    candidates.push({ id: "check", label: "체크왕", variant: "check", priority: 100 });
+  // 1) 흙을 지키는 농부: 7일 이상 연속 기록
+  if (streakDays >= 7) {
+    candidates.push({
+      id: "steady_farmer",
+      label: "흙을 지키는 농부",
+      variant: "steady_farmer",
+      priority: 100,
+    });
   }
 
+  // 2) 아침/밤 패턴: 최근 완료 5건 이상에서 시간대 비중 비교
   const timed = taskCompletionsRange.filter((c) => c.completed && c.completedAt);
   if (timed.length >= 5) {
-    let dawn = 0;
+    let morning = 0;
     let night = 0;
     for (const c of timed) {
       const h = localHour(c.completedAt!);
-      if (h >= 5 && h < 9) dawn++;
+      if (h >= 5 && h < 10) morning++;
       else if (h >= 22 || h < 5) night++;
     }
     const n = timed.length;
-    const dawnRatio = dawn / n;
+    const morningRatio = morning / n;
     const nightRatio = night / n;
-    const canDawn = dawn >= 3 && dawnRatio >= 0.32;
+    const canMorning = morning >= 3 && morningRatio >= 0.32;
     const canNight = night >= 3 && nightRatio >= 0.32;
-    if (canDawn || canNight) {
-      if (dawn > night && canDawn) {
-        candidates.push({ id: "dawn", label: "새벽형 기록가", variant: "dawn", priority: 88 });
-      } else if (night > dawn && canNight) {
-        candidates.push({ id: "night", label: "올빼미형 기록가", variant: "night", priority: 87 });
-      } else if (canDawn) {
-        candidates.push({ id: "dawn", label: "새벽형 기록가", variant: "dawn", priority: 88 });
+
+    if (canMorning || canNight) {
+      if (morning > night && canMorning) {
+        candidates.push({
+          id: "morning_farmer",
+          label: "아침을 여는 농부",
+          variant: "morning_farmer",
+          priority: 94,
+        });
+      } else if (night > morning && canNight) {
+        candidates.push({
+          id: "night_farmer",
+          label: "밤을 지키는 농부",
+          variant: "night_farmer",
+          priority: 93,
+        });
+      } else if (canMorning) {
+        candidates.push({
+          id: "morning_farmer",
+          label: "아침을 여는 농부",
+          variant: "morning_farmer",
+          priority: 94,
+        });
       } else if (canNight) {
-        candidates.push({ id: "night", label: "올빼미형 기록가", variant: "night", priority: 87 });
+        candidates.push({
+          id: "night_farmer",
+          label: "밤을 지키는 농부",
+          variant: "night_farmer",
+          priority: 93,
+        });
       }
     }
   }
 
+  // 3) 오늘을 끝내는 농부: 오늘 할 일 2개 이상 + 완료율 85% 이상
+  if (plannedCount >= 2 && completionPercent >= 85) {
+    candidates.push({
+      id: "finisher_farmer",
+      label: "오늘을 끝내는 농부",
+      variant: "finisher_farmer",
+      priority: 88,
+    });
+  }
+
+  // 4) 이야기를 남기는 농부: 긴 설명 기록이 많거나 비율이 높음
   const memoRich = allTasks.filter((t) => (t.description?.trim().length ?? 0) >= 36);
   const totalTasks = allTasks.length;
   if (
     memoRich.length >= 4 ||
     (memoRich.length >= 2 && totalTasks > 0 && memoRich.length / totalTasks >= 0.18)
   ) {
-    candidates.push({ id: "memo", label: "메모왕", variant: "memo", priority: 72 });
+    candidates.push({
+      id: "story_farmer",
+      label: "이야기를 남기는 농부",
+      variant: "story_farmer",
+      priority: 74,
+    });
   }
 
-  if (streakDays >= 7) {
-    candidates.push({ id: "streak", label: "꾸준한 기록가", variant: "streak", priority: 62 });
+  // 5) 바쁜 하루의 농부: 오늘 할 일 5개 이상
+  if (plannedCount >= 5) {
+    candidates.push({
+      id: "busy_day_farmer",
+      label: "바쁜 하루의 농부",
+      variant: "busy_day_farmer",
+      priority: 64,
+    });
   }
 
-  if (plannedCount >= 8) {
-    candidates.push({ id: "planner", label: "할 일 마스터", variant: "planner", priority: 52 });
-  }
-
-  if (candidates.length === 0 && plannedCount > 0) {
-    candidates.push({ id: "grow", label: "성장 중인 기록가", variant: "default", priority: 8 });
+  // 6) 기본값: 위 조건 미충족이지만 최근 기록/오늘 할 일이 있을 때
+  const hasRecentActivity =
+    plannedCount > 0 ||
+    taskCompletionsRange.some((c) => c.completed) ||
+    allTasks.length > 0;
+  if (candidates.length === 0 && hasRecentActivity) {
+    candidates.push({
+      id: "sprouting_farmer",
+      label: "싹을 틔우는 농부",
+      variant: "sprouting_farmer",
+      priority: 8,
+    });
   }
 
   candidates.sort((a, b) => b.priority - a.priority);

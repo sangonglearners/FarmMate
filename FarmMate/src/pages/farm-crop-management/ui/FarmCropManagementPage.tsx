@@ -10,9 +10,11 @@ import { AddCropDialog } from "@features/crop-management";
 import { useQueryClient } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function FarmCropManagementPage() {
   const [, navigate] = useLocation();
+  const { ensureAuth } = useRequireAuth();
   const queryClient = useQueryClient();
 
   const { data: allFarms } = useFarms();
@@ -56,7 +58,10 @@ export default function FarmCropManagementPage() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MapPin className="w-5 h-5 text-gray-600" /> 내 농장 정보
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => setIsAddFarmDialogOpen(true)}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (!ensureAuth()) return;
+            setIsAddFarmDialogOpen(true);
+          }}>
             추가
           </Button>
         </div>
@@ -83,6 +88,7 @@ export default function FarmCropManagementPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => {
+                            if (!ensureAuth()) return;
                             setEditingFarm(f);
                             setIsAddFarmDialogOpen(true);
                           }}
@@ -92,6 +98,7 @@ export default function FarmCropManagementPage() {
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => {
+                            if (!ensureAuth()) return;
                             if (
                               window.confirm(
                                 `정말로 "${f.name}" 농장을 삭제하시겠습니까?\n\n이 농장에 연결된 모든 작물과 작업도 함께 삭제됩니다.`
@@ -127,7 +134,10 @@ export default function FarmCropManagementPage() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Sprout className="w-5 h-5 text-gray-600" /> 내 작물 정보
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => setIsAddCropDialogOpen(true)}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (!ensureAuth()) return;
+            setIsAddCropDialogOpen(true);
+          }}>
             수정
           </Button>
         </div>
@@ -152,6 +162,7 @@ export default function FarmCropManagementPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => {
+                            if (!ensureAuth()) return;
                             setEditingCrop(c);
                             setIsAddCropDialogOpen(true);
                           }}
@@ -161,6 +172,7 @@ export default function FarmCropManagementPage() {
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => {
+                            if (!ensureAuth()) return;
                             if (
                               window.confirm(
                                 `정말로 "${c.name}" 작물을 삭제하시겠습니까?\n\n이 작물에 연결된 모든 작업도 함께 삭제됩니다.`
