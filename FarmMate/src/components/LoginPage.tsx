@@ -2,7 +2,6 @@ import { Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { trackPageView } from '@/lib/analytics';
 
 interface LoginPageProps {
   onBrowseWithoutLogin?: () => void;
@@ -65,10 +64,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBrowseWithoutLogin }) =>
   const handleExploreWithoutLogin = () => {
     onBrowseWithoutLogin?.()
   }
-
-  useEffect(() => {
-    trackPageView('login')
-  }, [])
 
   useEffect(() => {
     const updateViewportMode = () => {
