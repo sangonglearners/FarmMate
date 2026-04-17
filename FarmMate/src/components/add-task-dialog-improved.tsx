@@ -702,8 +702,27 @@ export default function AddTaskDialog({
     if (!crop) return;
 
     form.setValue("cropId", cropId);
-    setCropSearchTerm(crop.name);
+    // 품종이 있으면 "상추 (청상추)" 형식으로 표시
+    const displayName = crop.variety ? `${crop.name} (${crop.variety})` : crop.name;
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
     setSelectedCrop(crop);
+    setIsCropSelectedFromList(true); // 검색 결과 드롭다운 숨김
+
+    // registration 작물 데이터 매칭 (일괄등록 농작업 자동 선택용)
+    const matchedRegCrop = allCrops.find(
+      (r) => r.품목 === crop.name && r.품종 === crop.variety
+    ) ?? allCrops.find((r) => r.품목 === crop.name);
+    if (matchedRegCrop) {
+      setSelectedRegistrationCrop(matchedRegCrop);
+      if (registrationMode === "batch") {
+        if (matchedRegCrop.파종육묘구분 === "파종") {
+          setSelectedWorks(["파종", "수확"]);
+        } else if (matchedRegCrop.파종육묘구분 === "육묘") {
+          setSelectedWorks(["파종", "육묘", "수확"]);
+        }
+      }
+    }
 
     const currentFarmId = form.getValues("farmId");
     const cropFarmId = (crop as any).farmId;

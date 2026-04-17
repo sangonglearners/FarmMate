@@ -510,7 +510,10 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                     {myCrops.map((crop) => {
                       const reg = registrationData.find(
                         (r) => r.품목 === crop.name && r.품종 === crop.variety
+                      ) ?? registrationData.find(
+                        (r) => r.품목 === crop.name
                       );
+                      const isSelected = form.watch("cropId") === crop.id;
                       return (
                         <button
                           key={crop.id}
@@ -518,6 +521,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                           onClick={() => {
                             form.setValue("cropId", crop.id);
                             setSelectedCrop(crop.name);
+                            setSelectedRegistrationCrop(reg ?? null);
                             if (registrationMode === "batch" && reg) {
                               if (reg.파종육묘구분 === "파종") {
                                 setSelectedWorks(["파종", "수확"]);
@@ -526,7 +530,7 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                               }
                             }
                           }}
-                          className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                          className={`w-full text-left p-2 hover:bg-gray-50 rounded text-sm ${isSelected ? 'bg-green-50 border border-green-300' : ''}`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -534,6 +538,9 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                               {crop.variety ? (
                                 <span className="text-sm text-gray-500 ml-2">({crop.variety})</span>
                               ) : null}
+                              {isSelected && (
+                                <span className="ml-2 text-xs text-green-600 font-medium">✓ 선택됨</span>
+                              )}
                             </div>
                             <div className="text-xs text-gray-500">{crop.category}</div>
                           </div>
@@ -552,6 +559,8 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                       type="button"
                       onClick={() => {
                         setSelectedCrop(crop.품목);
+                        form.setValue("cropId", "");
+                        setSelectedRegistrationCrop(crop);
                         // registration 작물이므로 바로 농작업 자동 선택
                         if (registrationMode === 'batch') {
                           if (crop.파종육묘구분 === '파종') {
@@ -590,7 +599,16 @@ export default function NewAddTaskDialog({ open, onOpenChange, selectedDate }: N
                       size="sm"
                       className="w-full justify-start"
                       onClick={() => {
-                        handleCropSelect(crop.품목);
+                        setSelectedCrop(crop.품목);
+                        form.setValue("cropId", "");
+                        setSelectedRegistrationCrop(crop);
+                        if (registrationMode === 'batch') {
+                          if (crop.파종육묘구분 === '파종') {
+                            setSelectedWorks(['파종', '수확']);
+                          } else if (crop.파종육묘구분 === '육묘') {
+                            setSelectedWorks(['파종', '육묘', '수확']);
+                          }
+                        }
                       }}
                     >
                       {crop.품목} ({crop.품종}) - {crop.대분류}
