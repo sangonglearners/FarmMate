@@ -60,9 +60,6 @@ export default function FarmsPage() {
   const hasOwnFarmOrCrop =
     (ownFarms?.length ?? 0) > 0 || (cropsLinkedToFarm?.length ?? 0) > 0;
   
-  // 모든 농장을 합쳐서 작물 표시용으로 사용
-  const allFarms = farms;
-  
   // 공유되고 있는 농장 ID 목록 조회 (내 농장 목록용)
   const ownFarmIds = useMemo(() => ownFarms.map(f => f.id), [ownFarms]);
   const { data: sharedFarmIds = new Set<string>() } = useSharedFarmIds(ownFarmIds);
@@ -112,10 +109,6 @@ export default function FarmsPage() {
     }
   }, [authLoading, user, openLoginPrompt]);
 
-  const getFarmCrops = (farmId: string) => {
-    return crops?.filter(crop => crop.farmId === farmId) || [];
-  };
-
   if (isLoading) {
     return (
       <div className="p-4">
@@ -161,7 +154,6 @@ export default function FarmsPage() {
         {ownFarms && ownFarms.length > 0 ? (
           <div className="max-h-[300px] space-y-3 overflow-y-auto pr-1">
             {ownFarms.map((farm) => {
-              const farmCrops = getFarmCrops(farm.id);
               const isShared = sharedFarmIds.has(farm.id);
 
               return (
@@ -174,7 +166,7 @@ export default function FarmsPage() {
                           <h3 className="font-medium text-gray-900">{farm.name}</h3>
                         </div>
                         <p className="mt-1 text-xs text-gray-500">
-                          {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount} | 작물 {farmCrops.length}종
+                          {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -256,7 +248,6 @@ export default function FarmsPage() {
         {sharedFarms && sharedFarms.length > 0 ? (
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {sharedFarms.map((farm) => {
-              const farmCrops = getFarmCrops(farm.id);
               const owner = farmOwners.get(farm.id);
               const ownerName = owner?.displayName || owner?.email?.split('@')[0] || '알 수 없음';
               const shareId = farmToShareIdMap.get(farm.id);
@@ -272,7 +263,7 @@ export default function FarmsPage() {
                           <span className="text-xs text-gray-500">({ownerName})</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount} | 작물 {farmCrops.length}종
+                          {farm.environment} | {farm.area}㎡ | 이랑 {farm.rowCount}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -355,9 +346,6 @@ export default function FarmsPage() {
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
                             {crop.variety}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {allFarms.find((f) => f.id === crop.farmId)?.name || "농장 정보 없음"}
                           </span>
                         </div>
                       </div>

@@ -702,8 +702,27 @@ export default function AddTaskDialog({
     if (!crop) return;
 
     form.setValue("cropId", cropId);
-    setCropSearchTerm(crop.name);
+    // 품종이 있으면 "상추 (청상추)" 형식으로 표시
+    const displayName = crop.variety ? `${crop.name} (${crop.variety})` : crop.name;
+    setCropSearchTerm(displayName);
+    setCustomCropName(displayName);
     setSelectedCrop(crop);
+    setIsCropSelectedFromList(true); // 검색 결과 드롭다운 숨김
+
+    // registration 작물 데이터 매칭 (일괄등록 농작업 자동 선택용)
+    const matchedRegCrop = allCrops.find(
+      (r) => r.품목 === crop.name && r.품종 === crop.variety
+    ) ?? allCrops.find((r) => r.품목 === crop.name);
+    if (matchedRegCrop) {
+      setSelectedRegistrationCrop(matchedRegCrop);
+      if (registrationMode === "batch") {
+        if (matchedRegCrop.파종육묘구분 === "파종") {
+          setSelectedWorks(["파종", "수확"]);
+        } else if (matchedRegCrop.파종육묘구분 === "육묘") {
+          setSelectedWorks(["파종", "육묘", "수확"]);
+        }
+      }
+    }
 
     const currentFarmId = form.getValues("farmId");
     const cropFarmId = (crop as any).farmId;
@@ -1620,7 +1639,6 @@ export default function AddTaskDialog({
                 {cropSearchTerm && cropSearchResults.length > 0 && !isCropSelectedFromList && (
                   <div className="max-h-48 overflow-y-auto border rounded-md p-2">
                     {cropSearchResults.map((searchCrop) => {
-                      const isKey = isKeyCrop(searchCrop.품목, searchCrop.품종);
                       return (
                         <button
                           key={searchCrop.id}
@@ -1629,7 +1647,7 @@ export default function AddTaskDialog({
                           className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                         >
                           <span className="font-medium">
-                            {isKey && "⭐ "}{searchCrop.품목}
+                            {searchCrop.품목}
                           </span>
                           <span className="text-sm text-gray-500 ml-2">
                             ({searchCrop.품종})
@@ -1733,7 +1751,7 @@ export default function AddTaskDialog({
                             className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                           >
                             <span className="font-medium">
-                              {isKeyCrop(regCrop.품목, regCrop.품종) && "⭐ "}{regCrop.품목}
+                              {regCrop.품목}
                             </span>
                             <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
                           </button>
