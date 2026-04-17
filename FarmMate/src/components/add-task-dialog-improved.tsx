@@ -1639,7 +1639,6 @@ export default function AddTaskDialog({
                 {cropSearchTerm && cropSearchResults.length > 0 && !isCropSelectedFromList && (
                   <div className="max-h-48 overflow-y-auto border rounded-md p-2">
                     {cropSearchResults.map((searchCrop) => {
-                      const isKey = isKeyCrop(searchCrop.품목, searchCrop.품종);
                       return (
                         <button
                           key={searchCrop.id}
@@ -1648,7 +1647,7 @@ export default function AddTaskDialog({
                           className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                         >
                           <span className="font-medium">
-                            {isKey && "⭐ "}{searchCrop.품목}
+                            {searchCrop.품목}
                           </span>
                           <span className="text-sm text-gray-500 ml-2">
                             ({searchCrop.품종})
@@ -1752,7 +1751,7 @@ export default function AddTaskDialog({
                             className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
                           >
                             <span className="font-medium">
-                              {isKeyCrop(regCrop.품목, regCrop.품종) && "⭐ "}{regCrop.품목}
+                              {regCrop.품목}
                             </span>
                             <span className="text-sm text-gray-500 ml-2">({regCrop.품종})</span>
                           </button>
