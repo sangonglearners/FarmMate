@@ -11,6 +11,7 @@ import { FarmsPage } from './pages/farms';
 import CalendarPage from './pages/calendar/ui/CalendarPage';
 import StatsPage from './pages/stats';
 import MyPage from './pages/my-page/ui/MyPage';
+import JournalPhotosPage from './pages/my-page/ui/JournalPhotosPage';
 import LedgerManagementPage from './pages/ledger-management/ui/LedgerManagementPage';
 import { FarmCropManagementPage } from './pages/farm-crop-management';
 import NotFound from './pages/not-found';
@@ -55,6 +56,7 @@ function MainApp() {
           <Route path="/recommendations/history/:id" component={RecommendationsHistoryDetailPage} />
           <Route path="/recommendations/history" component={RecommendationsHistoryPage} />
           <Route path="/recommendations" component={RecommendationsInputPage} />
+          <Route path="/my-page/journal-photos" component={JournalPhotosPage} />
           <Route path="/my-page" component={MyPage} />
           <Route path="/ledger-management" component={LedgerManagementPage} />
           <Route path="/farm-crop-management" component={FarmCropManagementPage} />
