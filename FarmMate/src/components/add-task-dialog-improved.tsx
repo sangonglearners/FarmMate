@@ -1695,7 +1695,14 @@ export default function AddTaskDialog({
 
   return (
     <>
-      <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange} modal={false}>
+      <Dialog
+        open={open && !showWorkCalculator}
+        onOpenChange={(next) => {
+          if (!next && memoLightboxIndex !== null) return;
+          onOpenChange(next);
+        }}
+        modal={false}
+      >
         <DialogContent
           aria-describedby={undefined}
           className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto"
@@ -2406,14 +2413,22 @@ export default function AddTaskDialog({
                       />
                     </FormControl>
                     {memoImageUrls.length > 0 && (
-                      <div className="mt-2 grid grid-cols-4 gap-2">
+                      <div
+                        className="mt-2 grid grid-cols-4 gap-2"
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
                         {memoImageUrls.map((url, idx) => (
                           <div key={idx} className="relative border rounded overflow-hidden group">
                             <button
                               type="button"
                               className="block w-full p-0 border-0 bg-transparent cursor-pointer"
                               aria-label={`메모 이미지 ${idx + 1} 크게 보기`}
-                              onClick={() => setMemoLightboxIndex(idx)}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setMemoLightboxIndex(idx);
+                              }}
                             >
                               <img
                                 src={url}
@@ -2426,7 +2441,10 @@ export default function AddTaskDialog({
                               aria-label="이미지 삭제"
                               title="이미지 삭제"
                               className="absolute top-1 right-1 z-10 bg-white/90 hover:bg-white text-gray-700 hover:text-red-600 border border-gray-300 rounded-full p-1 shadow-sm"
-                              onClick={() => {
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
                                 setMemoImageUrls((prev) => prev.filter((_, i) => i !== idx));
                               }}
                             >
