@@ -111,18 +111,32 @@ export const useUncompleteTask = () => {
   });
 };
 
+/** 단건 삭제는 문자열 id, 연속 삭제(일괄 그룹 교체 등)는 성공 토스트 생략 가능 */
+export type DeleteTaskVariables =
+  | string
+  | { id: string; suppressSuccessToast?: boolean };
+
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: taskApi.deleteTask,
-    onSuccess: () => {
+    mutationFn: async (variables: DeleteTaskVariables) => {
+      const id = typeof variables === "string" ? variables : variables.id;
+      await taskApi.deleteTask(id);
+    },
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      toast({
-        title: "작업 삭제 완료",
-        description: "작업이 성공적으로 삭제되었습니다.",
-      });
+      const suppress =
+        typeof variables === "object" &&
+        variables !== null &&
+        variables.suppressSuccessToast === true;
+      if (!suppress) {
+        toast({
+          title: "작업 삭제 완료",
+          description: "작업이 성공적으로 삭제되었습니다.",
+        });
+      }
     },
     onError: (error) => {
       toast({

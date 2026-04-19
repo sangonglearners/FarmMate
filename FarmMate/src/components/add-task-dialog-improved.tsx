@@ -1510,7 +1510,10 @@ export default function AddTaskDialog({
     if (task && isBatchRegistrationTaskGroup(submitGroup)) {
       try {
         for (const t of submitGroup) {
-          await deleteMutation.mutateAsync(t.id.toString());
+          await deleteMutation.mutateAsync({
+            id: t.id.toString(),
+            suppressSuccessToast: true,
+          });
         }
         createBatchTasks();
       } catch (err) {
@@ -1570,7 +1573,10 @@ export default function AddTaskDialog({
 
       try {
         for (const t of submitGroup) {
-          await deleteMutation.mutateAsync(t.id.toString());
+          await deleteMutation.mutateAsync({
+            id: t.id.toString(),
+            suppressSuccessToast: true,
+          });
         }
         bulkCreateMutation.mutate(newTasks);
       } catch (err) {

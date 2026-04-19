@@ -6,7 +6,9 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+/** 닫힌 뒤 DOM/상태에서 제거하기까지 (애니메이션 여유) */
+const TOAST_REMOVE_DELAY = 1000
+const DEFAULT_TOAST_DURATION_MS = 3000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -139,27 +141,46 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+function toast({ duration = DEFAULT_TOAST_DURATION_MS, ...props }: Toast) {
   const id = genId()
+  let autoDismissTimer: ReturnType<typeof setTimeout> | undefined
 
-  const update = (props: ToasterToast) =>
+  const clearAutoDismiss = () => {
+    if (autoDismissTimer !== undefined) {
+      clearTimeout(autoDismissTimer)
+      autoDismissTimer = undefined
+    }
+  }
+
+  const dismiss = () => {
+    clearAutoDismiss()
+    dispatch({ type: "DISMISS_TOAST", toastId: id })
+  }
+
+  const update = (props: Partial<ToasterToast>) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
     type: "ADD_TOAST",
     toast: {
       ...props,
       id,
+      duration,
       open: true,
       onOpenChange: (open) => {
         if (!open) dismiss()
       },
     },
   })
+
+  if (typeof duration === "number" && duration > 0 && Number.isFinite(duration)) {
+    autoDismissTimer = window.setTimeout(() => {
+      dismiss()
+    }, duration)
+  }
 
   return {
     id: id,
