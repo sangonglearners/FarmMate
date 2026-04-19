@@ -53,7 +53,6 @@ import type { InsertTask, Task, Farm, Crop } from "@shared/schema";
 import type { FarmEntity } from "@/shared/api/farm.repository";
 import { useLocation } from "wouter";
 import { useDeleteTask } from "@/features/task-management";
-import BatchTaskEditDialog from "./batch-task-edit-dialog";
 // ⬇ /api 호출 제거
 // import { apiRequest } from "@/shared/api/client";
 
@@ -72,6 +71,12 @@ import { Calendar } from "@/components/ui/calendar";
 import WorkCalculatorDialog from "@/components/work-calculator-dialog";
 import { useRegistrationSearch, useRegistrationAll } from "@/shared/hooks";
 import type { CropSearchResult } from "@/shared/api/server-registration.repository";
+import { isBatchRegistrationTaskGroup } from "@/widgets/calendar-grid/model/calendar.utils";
+import {
+  extractMemoImageUrlsFromText,
+  stripMemoImageUrlsFromText,
+} from "@/shared/utils/task-memo-images";
+import { MemoImageLightbox } from "@/components/memo-image-lightbox";
 
 const formSchema = insertTaskSchema.extend({
   title: z.string().optional(), // 제목을 선택사항으로 변경 (자동 생성)
@@ -154,10 +159,10 @@ export default function AddTaskDialog({
   const [isCropSelectedFromList, setIsCropSelectedFromList] = useState(false);
   const [showRowDuplicateAlert, setShowRowDuplicateAlert] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
-  const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [taskGroup, setTaskGroup] = useState<Task[]>([]);
   const [customTaskType, setCustomTaskType] = useState("");
   const [memoImageUrls, setMemoImageUrls] = useState<string[]>([]);
+  const [memoLightboxIndex, setMemoLightboxIndex] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // 농작업 계산기로 적용된 일정 (저장하기 버튼 눌렀을 때 사용)
   const [calculatedTasks, setCalculatedTasks] = useState<InsertTask[] | null>(null);
@@ -168,12 +173,6 @@ export default function AddTaskDialog({
   );
   const { allCrops, isLoading: isAllCropsLoading } = useRegistrationAll();
   // 전체 작물 목록 (검색어 없을 때 브라우즈용, 30분 캐시)
-
-  // 이미지 URL 파싱/정리 유틸
-  const extractImageUrls = (text: string): string[] =>
-    (text.match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi) || []);
-  const removeImageUrls = (text: string): string =>
-    text.replace(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp|svg)/gi, "").trim();
 
   const { data: farms, isLoading: farmsLoading } = useFarms();
 
@@ -250,7 +249,8 @@ export default function AddTaskDialog({
       Boolean(selectedEndDate) && selectedEndDate !== selectedDate;
 
     const allowAutoSync =
-      ((!task && registrationMode === "individual" && !hasCustomSelectedRange) || task);
+      (!task && registrationMode === "individual" && !hasCustomSelectedRange) ||
+      (task && registrationMode === "individual");
     
     if (
       allowAutoSync &&
@@ -261,72 +261,89 @@ export default function AddTaskDialog({
     }
   }, [watchedScheduledDate, registrationMode, task, form, selectedDate, selectedEndDate]);
 
-  // 제목 자동 설정 (편집 모드에서도 작동)
+  // 제목 자동 설정: 개별등록일 때만 작물_작업유형 형식 적용 (일괄등록은 작물명만 기본)
   useEffect(() => {
+    if (registrationMode !== "individual") return;
     const taskType = form.getValues("taskType");
     const cropName = customCropName || cropSearchTerm;
-    
-    console.log("제목 자동 설정 useEffect 실행:", {
-      customCropName,
-      cropSearchTerm,
-      cropName,
-      taskType,
-      customTaskType,
-      현재제목: form.getValues("title")
-    });
-    
+
     if (cropName && taskType) {
       const finalTaskType = taskType === "기타" ? customTaskType : taskType;
       if (finalTaskType) {
-        const newTitle = `${cropName}_${finalTaskType}`;
-        console.log("제목 자동 설정:", { cropName, taskType, finalTaskType, newTitle });
-        form.setValue("title", newTitle);
+        form.setValue("title", `${cropName}_${finalTaskType}`);
       }
     }
-  }, [cropSearchTerm, customCropName, customTaskType, form]);
+  }, [cropSearchTerm, customCropName, customTaskType, form, registrationMode]);
 
-  // 작물 정보가 변경될 때 제목 업데이트
   useEffect(() => {
+    if (registrationMode !== "individual") return;
     const taskType = form.getValues("taskType");
     const currentTitle = form.getValues("title");
     const cropName = customCropName || cropSearchTerm;
-    
+
     if (cropName && taskType) {
       const finalTaskType = taskType === "기타" ? customTaskType : taskType;
       if (finalTaskType) {
         const expectedTitle = `${cropName}_${finalTaskType}`;
         if (currentTitle !== expectedTitle) {
-          console.log("작물 정보 변경으로 제목 업데이트:", {
-            currentTitle,
-            expectedTitle,
-            cropName,
-            taskType,
-            finalTaskType
-          });
           form.setValue("title", expectedTitle);
         }
       }
     }
-  }, [customCropName, cropSearchTerm, customTaskType, form]);
+  }, [customCropName, cropSearchTerm, customTaskType, form, registrationMode]);
 
-  // taskType 변경시 제목 갱신 (편집 모드에서도 작동)
   useEffect(() => {
+    if (registrationMode !== "individual") return;
     const taskType = form.watch("taskType");
     const cropName = customCropName || cropSearchTerm;
     if (cropName && taskType) {
       const finalTaskType = taskType === "기타" ? customTaskType : taskType;
       if (finalTaskType) {
-        const newTitle = `${cropName}_${finalTaskType}`;
-        console.log("taskType 변경으로 인한 제목 갱신:", { cropName, taskType, finalTaskType, newTitle });
-        form.setValue("title", newTitle);
+        form.setValue("title", `${cropName}_${finalTaskType}`);
       }
     }
-  }, [form.watch("taskType"), customCropName, cropSearchTerm, customTaskType, form]);
+  }, [form.watch("taskType"), customCropName, cropSearchTerm, customTaskType, form, registrationMode]);
+
+  const watchedTitleBatchDefault = form.watch("title");
+  const watchedCropIdForTitle = form.watch("cropId");
+
+  // 일괄등록(신규): 제목이 비어 있으면 작물 표시명을 제목 입력란에 넣어 디폴트가 보이게 함
+  useEffect(() => {
+    if (!open || task || registrationMode !== "batch") return;
+
+    let label = "";
+    if (selectedCrop?.id && watchedCropIdForTitle === selectedCrop.id) {
+      label = selectedCrop.variety
+        ? `${selectedCrop.name} (${selectedCrop.variety})`
+        : selectedCrop.name;
+    } else if (isCropSelectedFromList) {
+      label = (customCropName || cropSearchTerm || "").trim();
+    }
+
+    if (!label) return;
+    if (!(watchedTitleBatchDefault || "").trim()) {
+      form.setValue("title", label);
+    }
+  }, [
+    open,
+    task,
+    registrationMode,
+    selectedCrop,
+    watchedCropIdForTitle,
+    isCropSelectedFromList,
+    customCropName,
+    cropSearchTerm,
+    watchedTitleBatchDefault,
+    form,
+  ]);
 
   // 다이얼로그가 열릴 때 상태 초기화
   useEffect(() => {
     if (open) {
       setCustomTaskType("");
+      setShowWorkCalculator(false);
+    } else {
+      setMemoLightboxIndex(null);
     }
   }, [open]);
 
@@ -396,19 +413,11 @@ export default function AddTaskDialog({
     }
   }, [selectedEndDate, open, task, form]);
 
-  // 일괄등록된 작업 그룹 찾기
-  const findTaskGroup = (currentTask: Task) => {
-    if (!existingTasks || !currentTask.taskGroupId) return [];
-    
-    return existingTasks.filter(t => 
-      t.taskGroupId === currentTask.taskGroupId && 
-      t.id !== currentTask.id
-    );
-  };
-
-  // 일괄등록된 작업인지 확인
-  const isBatchTask = (currentTask: Task) => {
-    return !!(currentTask.taskGroupId && findTaskGroup(currentTask).length > 0);
+  /** 동일 taskGroupId의 모든 작업 (없으면 단일 [task]) */
+  const findFullTaskGroup = (currentTask: Task): Task[] => {
+    if (!existingTasks || !currentTask.taskGroupId) return [currentTask];
+    const members = existingTasks.filter((t) => t.taskGroupId === currentTask.taskGroupId);
+    return members.length > 0 ? members : [currentTask];
   };
 
   // 수정 모드 초기화
@@ -424,10 +433,93 @@ export default function AddTaskDialog({
     if (task && open) {
       console.log("편집 모드 초기화 실행");
       
-      // 여러 일자로 등록된 작업 그룹인 경우: 개별 등록과 동일한 단일 폼으로 수정 (BatchTaskEditDialog 사용 안 함)
-      if (isBatchTask(task)) {
-        const group = findTaskGroup(task);
-        const fullGroup = [task, ...group];
+      const fullGroup = findFullTaskGroup(task);
+
+      // 일괄등록(파종·육묘·수확 등 서로 다른 작업 유형): 내 농작업 관리 일괄 UI로 수정 (농작업 계산기 자동 오픈 없음)
+      if (isBatchRegistrationTaskGroup(fullGroup)) {
+        setRegistrationMode("batch");
+        setTaskGroup(fullGroup);
+        setCalculatedTasks(null);
+        setSelectedWorks(
+          batchTaskTypes.filter((type) =>
+            fullGroup.some((t) => (t as Task).taskType === type),
+          ),
+        );
+        const schedDates = fullGroup
+          .map((t) => (t as Task).scheduledDate)
+          .filter(Boolean) as string[];
+        const baseDate =
+          schedDates.length > 0
+            ? schedDates.reduce((a, b) => (a < b ? a : b))
+            : (task as Task).scheduledDate || "";
+        const sorted = [...fullGroup].sort((a, b) => {
+          const ia = batchTaskTypes.indexOf((a as Task).taskType);
+          const ib = batchTaskTypes.indexOf((b as Task).taskType);
+          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        });
+        const anchorTask = sorted[0] ?? fullGroup[0];
+        let taskRowNumber = (anchorTask as Task).rowNumber as number | undefined;
+        if (!taskRowNumber && (anchorTask as Task).description?.includes("이랑:")) {
+          const match = (anchorTask as Task).description!.match(/이랑:\s*(\d+)번/);
+          if (match) taskRowNumber = parseInt(match[1], 10);
+        }
+        const rawAnchorTitle = ((anchorTask as Task).title || "").trim();
+        const batchEditTitle = rawAnchorTitle.includes("_")
+          ? rawAnchorTitle.split("_")[0].trim()
+          : rawAnchorTitle;
+        form.reset({
+          title: batchEditTitle,
+          description: stripMemoImageUrlsFromText((anchorTask as Task).description || ""),
+          taskType: "",
+          scheduledDate: baseDate,
+          endDate: baseDate,
+          farmId: (anchorTask as Task).farmId || "",
+          cropId: (anchorTask as Task).cropId || "",
+          environment: "",
+          rowNumber: taskRowNumber || undefined,
+        });
+        setMemoImageUrls(extractMemoImageUrlsFromText((anchorTask as Task).description || ""));
+        const titleParts = anchorTask.title?.split("_");
+        if (titleParts && titleParts.length >= 2) {
+          setCropSearchTerm(titleParts[0]);
+          setCustomCropName(titleParts[0]);
+          setIsCropSelectedFromList(true);
+        }
+        if (farms && (anchorTask as Task).farmId) {
+          const farm = farms.find((f) => f.id === (anchorTask as Task).farmId);
+          if (farm) {
+            setSelectedFarm(farm);
+            form.setValue("farmId", farm.id);
+            form.setValue("environment", farm.environment || "");
+          }
+        } else if (farms?.length) {
+          setSelectedFarm(farms[0]);
+          form.setValue("farmId", farms[0].id);
+          form.setValue("environment", farms[0].environment || "");
+        }
+        if (crops && (anchorTask as Task).cropId) {
+          const crop = crops.find((c) => c.id === (anchorTask as Task).cropId);
+          if (crop) {
+            setCropSearchTerm(crop.name);
+            setSelectedCrop(crop);
+            setCustomCropName(crop.name);
+            setIsCropSelectedFromList(true);
+            const matchedRegCrop =
+              allCrops.find((r) => r.품목 === crop.name && r.품종 === crop.variety) ??
+              allCrops.find((r) => r.품목 === crop.name);
+            if (matchedRegCrop) setSelectedRegistrationCrop(matchedRegCrop);
+          }
+        }
+        setIsCropSelectedFromList(true);
+        setTimeout(() => {
+          if (taskRowNumber) form.setValue("rowNumber", taskRowNumber);
+        }, 100);
+        return;
+      }
+
+      // 개별등록 날짜 범위(동일 taskType, taskGroupId로 날짜만 연결)
+      if (fullGroup.length > 1) {
+        setRegistrationMode("individual");
         setTaskGroup(fullGroup);
         // 그룹 전체 날짜 범위 계산 (시작일 = 최소, 종료일 = 최대)
         const allDates = fullGroup.flatMap((t) => [
@@ -444,7 +536,7 @@ export default function AddTaskDialog({
         }
         form.reset({
           title: firstTask.title || "",
-          description: removeImageUrls((firstTask as any).description || ""),
+          description: stripMemoImageUrlsFromText((firstTask as any).description || ""),
           taskType: (firstTask as any).taskType || "",
           scheduledDate: groupStart,
           endDate: groupEnd,
@@ -453,7 +545,7 @@ export default function AddTaskDialog({
           environment: "",
           rowNumber: taskRowNumber || undefined,
         });
-        setMemoImageUrls(extractImageUrls((firstTask as any).description || ""));
+        setMemoImageUrls(extractMemoImageUrlsFromText((firstTask as any).description || ""));
         const titleParts = firstTask.title?.split("_");
         if (titleParts && titleParts.length >= 2) {
           setCropSearchTerm(titleParts[0]);
@@ -490,7 +582,8 @@ export default function AddTaskDialog({
       }
       
       setTaskGroup([]); // 단일 작업 수정 시 그룹 초기화
-      
+      setRegistrationMode("individual");
+
       // 이랑 번호 추출 (task.rowNumber 우선, 없으면 description에서 파싱)
       let taskRowNumber = (task as any).rowNumber;
       console.log("원본 task.rowNumber:", (task as any).rowNumber);
@@ -509,7 +602,7 @@ export default function AddTaskDialog({
       // 기본 폼 데이터 먼저 설정
       form.reset({
         title: task.title || "",
-        description: removeImageUrls((task as any).description || ""),
+        description: stripMemoImageUrlsFromText((task as any).description || ""),
         taskType: (task as any).taskType || "",
         scheduledDate: (task as any).scheduledDate || "",
         endDate: (task as any).endDate || (task as any).scheduledDate || "", // 종료날짜가 없으면 시작날짜와 동일하게 설정
@@ -518,7 +611,7 @@ export default function AddTaskDialog({
         environment: "",
         rowNumber: taskRowNumber || undefined,
       });
-      setMemoImageUrls(extractImageUrls((task as any).description || ""));
+      setMemoImageUrls(extractMemoImageUrlsFromText((task as any).description || ""));
       
       // 약간의 지연 후 이랑 번호를 확실히 설정 (form.reset 후 값이 덮어씌워질 수 있음)
       setTimeout(() => {
@@ -794,6 +887,7 @@ export default function AddTaskDialog({
     
     setCropSearchTerm(displayName);
     setCustomCropName(displayName);
+    setIsCropSelectedFromList(true);
     form.setValue("cropId", ""); // 커스텀 작물
     setShowKeyCrops(false);
     
@@ -1096,12 +1190,20 @@ export default function AddTaskDialog({
       let tasksToSave: InsertTask[];
 
       if (calculatedTasks && calculatedTasks.length > 0) {
-        // 농작업 계산기로 적용된 일정 사용
+        // 농작업 계산기로 적용된 일정 사용 (제목은 작물명만 기본)
         console.log("농작업 계산기 적용 일정으로 저장:", calculatedTasks.length, "개");
-        tasksToSave = calculatedTasks;
+        const batchTitle = (form.getValues("title") || "").trim() || cropName;
+        tasksToSave = calculatedTasks.map((t) => ({ ...t, title: batchTitle }));
       } else {
         // 농작업 계산기 미사용 시 자동 계산 (계산기와 동일한 로직)
-        const taskGroupId = `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // 일괄 수정 시 삭제 직후 existingTasks가 비어 있을 수 있어 task 기준으로 그룹 ID 유지
+        const reuseBatchGroupId =
+          task?.taskGroupId && registrationMode === "batch"
+            ? String(task.taskGroupId)
+            : null;
+        const taskGroupId =
+          reuseBatchGroupId ||
+          `task-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const cropTotalDuration = selectedRegistrationCrop?.총재배기간 || 70;
 
         const schedules: { taskType: string; startDate: string; endDate: string }[] = [];
@@ -1168,7 +1270,7 @@ export default function AddTaskDialog({
           datesInRange.forEach((date) => {
             const dateString = format(date, "yyyy-MM-dd");
             tasksToSave.push({
-              title: form.getValues("title") || `${cropName}_${schedule.taskType}`,
+              title: (form.getValues("title") || "").trim() || cropName,
               description: finalDescription,
               taskType: schedule.taskType,
               scheduledDate: dateString,
@@ -1322,7 +1424,8 @@ export default function AddTaskDialog({
 
     const startDate = data.scheduledDate;
     const endDate = data.endDate;
-    const shouldValidateRange = ((!task && registrationMode === "individual") || task) && startDate && endDate;
+    const shouldValidateRange =
+      registrationMode === "individual" && !!startDate && !!endDate;
 
     if (shouldValidateRange && new Date(startDate) > new Date(endDate)) {
       toast({
@@ -1396,8 +1499,36 @@ export default function AddTaskDialog({
 
   // 실제 제출 로직
   const proceedWithSubmit = async (taskData: any) => {
+    const submitGroup =
+      task?.taskGroupId && existingTasks
+        ? existingTasks.filter((t) => t.taskGroupId === task.taskGroupId)
+        : task
+          ? [task]
+          : [];
+
+    // 일괄등록(작업 유형 복수): 기존 그룹 삭제 후 동일 taskGroupId로 일괄 UI 로직으로 재생성
+    if (task && isBatchRegistrationTaskGroup(submitGroup)) {
+      try {
+        for (const t of submitGroup) {
+          await deleteMutation.mutateAsync({
+            id: t.id.toString(),
+            suppressSuccessToast: true,
+          });
+        }
+        createBatchTasks();
+      } catch (err) {
+        console.error("일괄 그룹 수정 중 오류:", err);
+        toast({
+          title: "수정 실패",
+          description: "작업 수정 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
     // 여러 일자로 등록된 그룹 수정: 기존 그룹 삭제 후 새 날짜 범위로 재생성 (개별 등록과 동일한 방식)
-    if (task && taskGroup.length > 1) {
+    if (task && submitGroup.length > 1 && !isBatchRegistrationTaskGroup(submitGroup)) {
       const startDate = taskData.scheduledDate as string;
       const endDate = (taskData.endDate || startDate) as string;
       const taskGroupId = (task as any).taskGroupId as string;
@@ -1441,8 +1572,11 @@ export default function AddTaskDialog({
       });
 
       try {
-        for (const t of taskGroup) {
-          await deleteMutation.mutateAsync(t.id.toString());
+        for (const t of submitGroup) {
+          await deleteMutation.mutateAsync({
+            id: t.id.toString(),
+            suppressSuccessToast: true,
+          });
         }
         bulkCreateMutation.mutate(newTasks);
       } catch (err) {
@@ -1474,11 +1608,14 @@ export default function AddTaskDialog({
   };
 
   const openWorkCalculator = () => {
-    if (!selectedCrop && !customCropName) {
+    const cropOk = selectedCrop || (customCropName || cropSearchTerm || "").trim();
+    if (!cropOk) {
       toast({ title: "작물을 선택해주세요", variant: "destructive" });
       return;
     }
-    if (!selectedFarm) {
+    const farm =
+      selectedFarm || farms?.find((f) => f.id === form.getValues("farmId")) || null;
+    if (!farm) {
       toast({ title: "농장을 선택해주세요", variant: "destructive" });
       return;
     }
@@ -1564,53 +1701,66 @@ export default function AddTaskDialog({
 
   return (
     <>
-      <Dialog open={open && !showWorkCalculator} onOpenChange={onOpenChange} modal={false}>
+      <Dialog
+        open={open && !showWorkCalculator}
+        onOpenChange={(next) => {
+          if (!next && memoLightboxIndex !== null) return;
+          onOpenChange(next);
+        }}
+        modal={false}
+      >
         <DialogContent
           aria-describedby={undefined}
           className="w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto"
         >
           <DialogHeader>
-            <DialogTitle>{task ? "일정 수정하기" : "내 농작업 관리"}</DialogTitle>
-            {!task && (
-              <p className="text-sm text-gray-600">
-                작물별 농작업 프로세스 한번에 등록(일괄 등록) 원하는 작업만 선별적으로 등록(개별 등록)
-              </p>
-            )}
+            <DialogTitle>내 농작업 관리</DialogTitle>
+            <p className="text-sm text-gray-600">
+              작물별 농작업 프로세스 한번에 등록(일괄 등록) 원하는 작업만 선별적으로 등록(개별 등록)
+              {task ? " · 등록했던 방식으로 열리며, 내용만 수정할 수 있습니다." : ""}
+            </p>
           </DialogHeader>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* 등록 방식 선택 */}
-              {!task && (
-                <div className="space-y-3">
-                  <Label>등록 방식</Label>
-                  <div className="flex bg-gray-100 rounded-lg p-1">
-                    <button
-                      type="button"
-                      id="bulk-register-btn"
-                      onClick={() => setRegistrationMode("batch")}
-                      className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        registrationMode === "batch"
-                          ? "bg-white text-gray-900 shadow-sm"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      일괄등록
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRegistrationMode("individual")}
-                      className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        registrationMode === "individual"
-                          ? "bg-white text-gray-900 shadow-sm"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      개별등록
-                    </button>
-                  </div>
+              {/* 등록 방식 선택 (수정 시에는 원래 등록 방식만 표시, 변경 불가) */}
+              <div className="space-y-3">
+                <Label>등록 방식</Label>
+                <div
+                  className={`flex bg-gray-100 rounded-lg p-1 ${task ? "opacity-90" : ""}`}
+                  aria-disabled={!!task}
+                >
+                  <button
+                    type="button"
+                    id="bulk-register-btn"
+                    disabled={!!task}
+                    onClick={() => {
+                      setRegistrationMode("batch");
+                      const c = (customCropName || cropSearchTerm || "").trim();
+                      if (!task && c) form.setValue("title", c);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                      registrationMode === "batch"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    일괄등록
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!!task}
+                    onClick={() => setRegistrationMode("individual")}
+                    className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                      registrationMode === "individual"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    개별등록
+                  </button>
                 </div>
-              )}
+              </div>
 
               {/* 작물 선택 */}
               <div className="space-y-3">
@@ -1913,9 +2063,28 @@ export default function AddTaskDialog({
               )}
 
               {/* 농작업 선택 */}
-              {!task && registrationMode === "batch" ? (
+              {registrationMode === "batch" ? (
                 <div className="space-y-3">
-                  <Label>농작업 다중 선택 *</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="mb-0">농작업 다중 선택 *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 h-8 px-2 text-xs gap-1"
+                      onClick={openWorkCalculator}
+                      disabled={
+                        !(
+                          (selectedCrop || (customCropName || cropSearchTerm || "").trim()) &&
+                          (selectedFarm || farms?.find((f) => f.id === form.getValues("farmId")))
+                        )
+                      }
+                    >
+                      <Calculator className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">농작업 계산기로 가기</span>
+                      <span className="sm:hidden">계산기</span>
+                    </Button>
+                  </div>
                   {selectedRegistrationCrop &&
                     selectedRegistrationCrop.파종육묘구분 == null &&
                     selectedRegistrationCrop.총재배기간 == null ? (
@@ -2146,7 +2315,7 @@ export default function AddTaskDialog({
               />
 
               {/* 종료 날짜(개별등록 또는 수정 모드에서) */}
-              {((!task && registrationMode === "individual") || task) && (
+              {registrationMode === "individual" && (
                 <FormField
                   control={form.control}
                   name="endDate"
@@ -2250,16 +2419,38 @@ export default function AddTaskDialog({
                       />
                     </FormControl>
                     {memoImageUrls.length > 0 && (
-                      <div className="mt-2 grid grid-cols-4 gap-2">
+                      <div
+                        className="mt-2 grid grid-cols-4 gap-2"
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
                         {memoImageUrls.map((url, idx) => (
                           <div key={idx} className="relative border rounded overflow-hidden group">
-                            <img src={url} alt={`메모 이미지 ${idx + 1}`} className="w-full h-20 object-cover" />
+                            <button
+                              type="button"
+                              className="block w-full p-0 border-0 bg-transparent cursor-pointer"
+                              aria-label={`메모 이미지 ${idx + 1} 크게 보기`}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setMemoLightboxIndex(idx);
+                              }}
+                            >
+                              <img
+                                src={url}
+                                alt=""
+                                className="w-full h-20 object-cover pointer-events-none"
+                              />
+                            </button>
                             <button
                               type="button"
                               aria-label="이미지 삭제"
                               title="이미지 삭제"
-                              className="absolute top-1 right-1 bg-white/90 hover:bg-white text-gray-700 hover:text-red-600 border border-gray-300 rounded-full p-1 shadow-sm opacity-90 group-hover:opacity-100"
-                              onClick={() => {
+                              className="absolute top-1 right-1 z-10 bg-white/90 hover:bg-white text-gray-700 hover:text-red-600 border border-gray-300 rounded-full p-1 shadow-sm"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
                                 setMemoImageUrls((prev) => prev.filter((_, i) => i !== idx));
                               }}
                             >
@@ -2275,19 +2466,6 @@ export default function AddTaskDialog({
               />
 
               <div className="flex space-x-2 sticky bottom-0 bg-white pt-4 border-t">
-                {/* 일괄등록에서 계산기 */}
-                {registrationMode === "batch" && !task && (
-                  <Button
-                    type="button"
-                    onClick={openWorkCalculator}
-                    className="flex-1"
-                    disabled={!cropSearchTerm}
-                  >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    농작업 계산기
-                  </Button>
-                )}
-
                 {/* 수정 모드일 때 삭제 버튼 */}
                 {task && (
                   <Button
@@ -2370,10 +2548,26 @@ export default function AddTaskDialog({
          }
          onSave={handleWorkCalculatorSave}
          selectedTasks={selectedWorks}
-         selectedFarm={selectedFarm}
+         selectedFarm={
+           selectedFarm ??
+           farms?.find((f) => f.id === form.getValues("farmId")) ??
+           undefined
+         }
          selectedRowNumber={form.getValues("rowNumber")}
          registrationCrop={selectedRegistrationCrop}
        />
+
+      {memoLightboxIndex !== null && memoImageUrls.length > 0 && (
+        <MemoImageLightbox
+          open
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setMemoLightboxIndex(null);
+          }}
+          slides={memoImageUrls.map((url) => ({ url, title: "메모 이미지" }))}
+          initialIndex={memoLightboxIndex}
+          headerFallback="메모 이미지"
+        />
+      )}
 
       {/* 이랑 중복 경고 AlertDialog */}
       <AlertDialog open={showRowDuplicateAlert} onOpenChange={setShowRowDuplicateAlert}>
@@ -2403,18 +2597,6 @@ export default function AddTaskDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* 일괄 수정 다이얼로그 */}
-      <BatchTaskEditDialog
-        open={showBatchEditDialog}
-        onOpenChange={(open) => {
-          setShowBatchEditDialog(open);
-          if (!open) {
-            onOpenChange(false); // 일괄 수정 다이얼로그가 닫히면 메인 다이얼로그도 닫기
-          }
-        }}
-        taskGroup={taskGroup}
-      />
 
       {/* 작업 삭제 확인 다이얼로그 */}
       <ConfirmDialog

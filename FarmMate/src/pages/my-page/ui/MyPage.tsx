@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Settings, Camera, Sprout, BookOpen } from 'lucide-react';
+import { Settings, Camera, Sprout, BookOpen, Images } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLocation } from 'wouter';
@@ -268,6 +268,22 @@ export default function MyPage() {
             <div>
               <p className="text-sm font-medium text-gray-900">농장 & 작물 관리</p>
               <p className="text-xs text-gray-500">내 농장과 작물 정보를 관리합니다</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLocation("/my-page/journal-photos")}
+          className="w-full rounded-lg border-2 border-gray-400 bg-white p-4 flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <Images className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">일지 사진 모아보기</p>
+              <p className="text-xs text-gray-500">작업 메모에 넣은 사진을 한곳에서 확인합니다</p>
             </div>
           </div>
         </button>

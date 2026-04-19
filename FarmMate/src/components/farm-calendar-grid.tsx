@@ -18,7 +18,6 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddTaskDialog from "@/components/add-task-dialog-improved";
-import BatchTaskEditDialog from "@/components/batch-task-edit-dialog";
 import TaskActionSheet from "@/components/task-action-sheet";
 import LedgerWriteDialog from "@/components/ledger-write-dialog";
 import type { Task, Crop } from "@shared/schema";
@@ -48,7 +47,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
   const memoizedTasks = useMemo(() => tasks, [tasks]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
@@ -2285,19 +2283,6 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         />
       )}
 
-      {/* Batch Edit Task Dialog - 일괄 수정 */}
-      <BatchTaskEditDialog
-        open={showBatchEditDialog}
-        onOpenChange={setShowBatchEditDialog}
-        taskGroup={
-          selectedTask?.taskGroupId
-            ? memoizedTasks.filter(t => t.taskGroupId === selectedTask.taskGroupId)
-            : selectedTask
-            ? [selectedTask]
-            : []
-        }
-      />
-
       {/* Task Action Sheet */}
       <TaskActionSheet
         open={showActionSheet}
@@ -2306,12 +2291,7 @@ export default function FarmCalendarGrid({ tasks, crops, onDateClick }: FarmCale
         onEditTask={() => {
           if (!ensureAuth()) return;
           setShowActionSheet(false);
-          // 일괄등록 작업은 일괄 수정 다이얼로그, 개별 작업은 개별 수정 다이얼로그
-          if (selectedTask?.taskGroupId) {
-            setShowBatchEditDialog(true);
-          } else {
-            setIsEditDialogOpen(true);
-          }
+          setIsEditDialogOpen(true);
         }}
         onWriteLedger={() => {
           if (!ensureAuth()) return;

@@ -278,7 +278,7 @@ export default function WorkCalculatorDialog({
         const dateString = format(date, "yyyy-MM-dd");
         
         const task = {
-          title: `${cropName}_${schedule.taskType}`,
+          title: cropName,
           description: description,
           taskType: schedule.taskType,
           scheduledDate: dateString, // 해당 날짜

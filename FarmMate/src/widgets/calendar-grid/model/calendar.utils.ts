@@ -48,6 +48,13 @@ export const getBatchTaskGroupIds = (tasks: Task[]): Set<string> => {
   return batchIds;
 };
 
+/** 동일 taskGroupId 작업들이 서로 다른 taskType을 2종 이상 가지면 일괄등록(파종+육묘+수확 등)으로 간주 */
+export function isBatchRegistrationTaskGroup(groupTasks: Task[]): boolean {
+  if (!groupTasks || groupTasks.length < 2) return false;
+  const types = new Set(groupTasks.map((t) => t.taskType).filter(Boolean));
+  return types.size > 1;
+}
+
 export const getTaskColor = (taskType: string) => {
   switch (taskType) {
     case "파종":

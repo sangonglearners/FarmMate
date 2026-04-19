@@ -18,7 +18,6 @@ import { useSharedCalendars } from "@/features/calendar-share";
 import { getTaskPriority, getTaskColor, getTaskIcon } from "../../../entities/task/model/utils";
 import { useLocation } from "wouter";
 import AddTaskDialog from "../../../components/add-task-dialog-improved";
-import BatchTaskEditDialog from "../../../components/batch-task-edit-dialog";
 import TodoList from "../../../components/todo-list";
 import { WeatherWidget } from "../../../components/weather-widget";
 import LedgerWriteDialog from "../../../components/ledger-write-dialog";
@@ -49,7 +48,6 @@ export default function HomePage() {
   });
   const [showMonthView, setShowMonthView] = useState(false);
   const [showEditTaskDialog, setShowEditTaskDialog] = useState(false);
-  const [showBatchEditDialog, setShowBatchEditDialog] = useState(false);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<(Task & { groupTasks?: Task[]; originalTaskGroup?: Task[] }) | null>(null);
   const [, setLocation] = useLocation();
@@ -141,24 +139,8 @@ export default function HomePage() {
   const handleTaskClick = (task: any) => {
     if (!ensureAuth()) return;
     console.log("편집할 task 데이터:", task);
-    
-    // 그룹 정보: 투두리스트에서는 originalTaskGroup, 없으면 taskGroupId로 전체 작업에서 그룹 조회
-    const group: any[] = task.originalTaskGroup ?? (task.taskGroupId
-      ? tasks.filter((t: any) => t.taskGroupId === task.taskGroupId)
-      : []);
-
-    // 일괄등록: 그룹 내 작업 유형이 여러 개 (파종+육묘+수확 등) → BatchTaskEditDialog
-    // 개별등록: 그룹 없음 또는 그룹 내 작업 유형이 하나 (날짜 범위만 다름) → AddTaskDialog
-    const isBatchRegistration = group.length > 1 && new Set(group.map((t: any) => t.taskType)).size > 1;
-
-    if (task.isGroup || isBatchRegistration) {
-      setSelectedTask(task);
-      setShowBatchEditDialog(true);
-    } else {
-      // 개별등록(단일 작업 또는 날짜 범위 그룹) → 캘린더와 동일하게 AddTaskDialog
-      setSelectedTask(task);
-      setShowEditTaskDialog(true);
-    }
+    setSelectedTask(task);
+    setShowEditTaskDialog(true);
   };
 
   const handlePrevious = () => {
@@ -635,19 +617,6 @@ export default function HomePage() {
         }}
         task={selectedTask}
         selectedDate={selectedDate}
-      />
-
-      {/* Batch Edit Task Dialog */}
-      <BatchTaskEditDialog
-        open={showBatchEditDialog}
-        onOpenChange={(open) => {
-          setShowBatchEditDialog(open);
-          if (!open) {
-            // 다이얼로그가 닫힐 때 작업 목록 새로고침
-            refetchTasks();
-          }
-        }}
-        taskGroup={selectedTask?.groupTasks || selectedTask?.originalTaskGroup || (selectedTask ? [selectedTask] : [])}
       />
 
       {/* Ledger Write Dialog */}
